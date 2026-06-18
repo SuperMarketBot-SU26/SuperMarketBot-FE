@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+
+  --color-smb-primary: #00236f;
+  --color-smb-primary-container: #1e3a8a;
+  --color-smb-on-primary: #ffffff;
+  --color-smb-on-primary-container: #90a8ff;
+  --color-smb-secondary: #505f76;
+  --color-smb-secondary-container: #d0e1fb;
+  --color-smb-on-secondary-container: #54647a;
+  --color-smb-surface: #f8f9fa;
+  --color-smb-surface-container: #edeeef;
+  --color-smb-surface-container-high: #e7e8e9;
+  --color-smb-surface-container-low: #f3f4f5;
+  --color-smb-surface-container-lowest: #ffffff;
+  --color-smb-on-surface: #191c1d;
+  --color-smb-on-surface-variant: #444651;
+  --color-smb-outline: #757682;
+  --color-smb-outline-variant: #c5c5d3;
+  --color-smb-error: #ba1a1a;
+  --color-smb-error-container: #ffdad6;
+  --color-smb-on-error-container: #93000a;
+  --color-smb-tertiary-container: #6e2c00;
+  --color-smb-on-tertiary-container: #f39461;
+  --color-smb-active-bg: #eff6ff;
+  --color-smb-success: #15803d;
+  --color-smb-success-bg: #dcfce7;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-smb-surface);
+  color: var(--color-smb-on-surface);
+  -webkit-font-smoothing: antialiased;
+}
+
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+}
