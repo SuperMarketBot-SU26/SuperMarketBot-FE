@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import Sidebar from '../components/sidebar'
 import Navbar from '../components/Navbar'
 import Button from '../components/ui/Button'
-import { CampaignForm, PackageSelector } from '../features/advertisement'
+import { CampaignCreation, PackageSelector } from '../features/advertisement'
 
 export function AdvertisementCreation() {
   const [campaignData, setCampaignData] = useState({
@@ -29,7 +29,7 @@ export function AdvertisementCreation() {
 
         <main className="px-6 py-6">
           <div className="mx-auto max-w-5xl space-y-6">
-            <CampaignForm 
+            <CampaignCreation 
               data={campaignData} 
               onChange={setCampaignData} 
             />

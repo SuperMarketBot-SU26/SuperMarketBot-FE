@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import Input from '../../components/ui/Input'
-import Select from '../../components/ui/Select'
+import Input from '../../../components/ui/Input'
+import Select from '../../../components/ui/Select'
 
 export function CampaignForm({ data, onChange }) {
   const [formData, setFormData] = useState(data || {
