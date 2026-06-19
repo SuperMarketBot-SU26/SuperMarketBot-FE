@@ -1,14 +1,15 @@
 import React from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 
 const navItems = [
   { icon: 'inventory_2', label: 'Quản Lý Kho Hàng' },
   { icon: 'smart_toy', label: 'Giám Sát Robot' },
   { icon: 'groups', label: 'Quản Lý Khách Hàng' },
-  { icon: 'sell', label: 'Khuyến Mãi & Trợ Giá' },
+  { icon: 'sell', label: 'Khuyến Mãi & Trợ Giá', path: '/' },
   { icon: 'gpp_maybe', label: 'Chống Gian Lận' },
   { icon: 'account_balance_wallet', label: 'Đối Soát Ví Brand' },
   { icon: 'reviews', label: 'Đánh Giá & Phản Hồi' },
-  { icon: 'tune', label: 'Cấu Hình Thuật Toán' },
+  { icon: 'tune', label: 'Cấu Hình Thuật Toán', path: '/algorithm-settings' },
   { icon: 'manage_accounts', label: 'Quản Lý Tài Khoản' },
   { icon: 'history', label: 'Nhật Ký Hệ Thống' },
 ]
@@ -18,6 +19,19 @@ function Icon({ name, className = '' }) {
 }
 
 export function Sidebar({ activeItem = 'Khuyến Mãi & Trợ Giá' }) {
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  const handleNav = (item) => {
+    if (item.path) {
+      navigate(item.path)
+    }
+  }
+
+  const isActive = (item) => {
+    if (item.path) return location.pathname === item.path
+    return activeItem === item.label
+  }
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-[260px] flex-col border-r border-smb-outline-variant bg-smb-surface-container-lowest">
       <div className="flex items-center gap-3 border-b border-smb-outline-variant px-6 py-5">
@@ -40,18 +54,19 @@ export function Sidebar({ activeItem = 'Khuyến Mãi & Trợ Giá' }) {
             <li key={item.label}>
               <a
                 href="#"
+                onClick={(e) => { e.preventDefault(); handleNav(item) }}
                 className={`relative flex items-center gap-3 rounded px-3 py-2.5 text-sm font-medium transition-colors ${
-                  activeItem === item.label
+                  isActive(item)
                     ? 'bg-smb-active-bg text-smb-primary-container'
                     : 'text-smb-on-surface-variant hover:bg-smb-surface-container-low hover:text-smb-on-surface'
                 }`}
               >
-                {activeItem === item.label && (
+                {isActive(item) && (
                   <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-smb-primary-container" />
                 )}
                 <Icon
                   name={item.icon}
-                  className={`text-[20px] ${activeItem === item.label ? 'text-smb-primary-container' : ''}`}
+                  className={`text-[20px] ${isActive(item) ? 'text-smb-primary-container' : ''}`}
                 />
                 {item.label}
               </a>
