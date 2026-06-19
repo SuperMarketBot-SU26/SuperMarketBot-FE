@@ -1,41 +1,98 @@
 @import "tailwindcss";
 
 @theme {
+  /* Typography */
   --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
 
+  /* Color - Primary */
   --color-smb-primary: #00236f;
   --color-smb-primary-container: #1e3a8a;
   --color-smb-on-primary: #ffffff;
   --color-smb-on-primary-container: #90a8ff;
+  --color-smb-primary-fixed: #dce1ff;
+  --color-smb-primary-fixed-dim: #b6c4ff;
+  --color-smb-on-primary-fixed: #00164e;
+  --color-smb-on-primary-fixed-variant: #264191;
+  --color-smb-inverse-primary: #b6c4ff;
+
+  /* Color - Secondary */
   --color-smb-secondary: #505f76;
   --color-smb-secondary-container: #d0e1fb;
+  --color-smb-on-secondary: #ffffff;
   --color-smb-on-secondary-container: #54647a;
+  --color-smb-secondary-fixed: #d3e4fe;
+  --color-smb-secondary-fixed-dim: #b7c8e1;
+  --color-smb-on-secondary-fixed: #0b1c30;
+  --color-smb-on-secondary-fixed-variant: #38485d;
+
+  /* Color - Tertiary */
+  --color-smb-tertiary: #4b1c00;
+  --color-smb-tertiary-container: #6e2c00;
+  --color-smb-on-tertiary: #ffffff;
+  --color-smb-on-tertiary-container: #f39461;
+  --color-smb-tertiary-fixed: #ffdbcb;
+  --color-smb-tertiary-fixed-dim: #ffb691;
+  --color-smb-on-tertiary-fixed: #341100;
+  --color-smb-on-tertiary-fixed-variant: #773205;
+
+  /* Color - Surface */
   --color-smb-surface: #f8f9fa;
+  --color-smb-surface-dim: #d9dadb;
+  --color-smb-surface-bright: #f8f9fa;
+  --color-smb-surface-container-lowest: #ffffff;
+  --color-smb-surface-container-low: #f3f4f5;
   --color-smb-surface-container: #edeeef;
   --color-smb-surface-container-high: #e7e8e9;
-  --color-smb-surface-container-low: #f3f4f5;
-  --color-smb-surface-container-lowest: #ffffff;
+  --color-smb-surface-container-highest: #e1e3e4;
+  --color-smb-surface-tint: #4059aa;
+
+  /* Color - On Surface */
   --color-smb-on-surface: #191c1d;
   --color-smb-on-surface-variant: #444651;
+  --color-smb-inverse-surface: #2e3132;
+  --color-smb-inverse-on-surface: #f0f1f2;
+
+  /* Color - Outline */
   --color-smb-outline: #757682;
   --color-smb-outline-variant: #c5c5d3;
+
+  /* Color - Error */
   --color-smb-error: #ba1a1a;
   --color-smb-error-container: #ffdad6;
+  --color-smb-on-error: #ffffff;
   --color-smb-on-error-container: #93000a;
-  --color-smb-tertiary-container: #6e2c00;
-  --color-smb-on-tertiary-container: #f39461;
+
+  /* Color - Background */
+  --color-smb-background: #f8f9fa;
+  --color-smb-on-background: #191c1d;
+
+  /* Color - Surface Variant */
+  --color-smb-surface-variant: #e1e3e4;
+
+  /* Design System Custom Colors */
   --color-smb-active-bg: #eff6ff;
   --color-smb-success: #15803d;
   --color-smb-success-bg: #dcfce7;
+
+  /* Spacing */
+  --spacing-sidebar-width: 260px;
+  --spacing-container-padding: 24px;
+  --spacing-gutter: 16px;
+  --spacing-stack-sm: 8px;
+  --spacing-stack-md: 16px;
+  --spacing-stack-lg: 32px;
 }
 
+/* Base Styles */
 body {
   font-family: var(--font-sans);
   background-color: var(--color-smb-surface);
   color: var(--color-smb-on-surface);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* Material Symbols Outlined */
 .material-symbols-outlined {
   font-family: "Material Symbols Outlined";
   font-weight: normal;
@@ -50,4 +107,87 @@ body {
   direction: ltr;
   font-feature-settings: "liga";
   -webkit-font-smoothing: antialiased;
+}
+
+/* Design System Typography Classes */
+.text-display-lg {
+  font-family: var(--font-sans);
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 44px;
+  letter-spacing: -0.02em;
+}
+
+.text-headline-lg {
+  font-family: var(--font-sans);
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 36px;
+  letter-spacing: -0.01em;
+}
+
+.text-headline-md {
+  font-family: var(--font-sans);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
+}
+
+.text-body-lg {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+}
+
+.text-body-md {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+
+.text-label-md {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: 0.01em;
+}
+
+/* Design System Border Radius */
+.rounded-sm { border-radius: 0.125rem; }
+.rounded-md { border-radius: 0.25rem; }
+.rounded-lg { border-radius: 0.5rem; }
+.rounded-xl { border-radius: 0.75rem; }
+.rounded-full { border-radius: 9999px; }
+
+/* Tabular Nums for Data */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Focus Ring */
+.focus-ring:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-smb-surface), 0 0 0 4px var(--color-smb-primary);
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-smb-surface-container-low);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-smb-outline-variant);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-smb-outline);
 }
