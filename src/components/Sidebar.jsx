@@ -5,9 +5,9 @@ const navItems = [
   { icon: 'inventory_2', label: 'Quản Lý Kho Hàng' },
   { icon: 'smart_toy', label: 'Giám Sát Robot' },
   { icon: 'groups', label: 'Quản Lý Khách Hàng' },
-  { icon: 'sell', label: 'Khuyến Mãi & Trợ Giá', path: '/' },
+  { icon: 'campaign', label: 'Khuyến Mãi & Trợ Giá', path: '/' },
   { icon: 'gpp_maybe', label: 'Chống Gian Lận' },
-  { icon: 'account_balance_wallet', label: 'Đối Soát Ví Brand' },
+  { icon: 'account_balance_wallet', label: 'Đối Soát Ví Brand', path: '/advertisement/brand-wallet' },
   { icon: 'reviews', label: 'Đánh Giá & Phản Hồi' },
   { icon: 'tune', label: 'Cấu Hình Thuật Toán', path: '/algorithm-settings' },
   { icon: 'manage_accounts', label: 'Quản Lý Tài Khoản' },
@@ -32,6 +32,7 @@ export function Sidebar({ activeItem = 'Khuyến Mãi & Trợ Giá' }) {
     if (item.path) return location.pathname === item.path
     return activeItem === item.label
   }
+
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-[260px] flex-col border-r border-smb-outline-variant bg-smb-surface-container-lowest">
       <div className="flex items-center gap-3 border-b border-smb-outline-variant px-6 py-5">
