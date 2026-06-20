@@ -22,24 +22,6 @@ export function AdvertisementDashboard() {
         />
 
         <main className="px-6 py-6 space-y-8">
-          {/* Quick Actions */}
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={() => navigate('/advertisement/create')}
-              className="inline-flex items-center gap-2 rounded-lg bg-smb-primary-container px-4 py-2.5 text-sm font-semibold text-smb-on-primary-container shadow-sm transition-all hover:opacity-90"
-            >
-              <Icon name="add" className="text-[18px]" />
-              Tạo Chiến Dịch Mới
-            </button>
-            <button
-              onClick={() => navigate('/advertisement/brand-wallet')}
-              className="inline-flex items-center gap-2 rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-4 py-2.5 text-sm font-semibold text-smb-on-surface shadow-sm transition-all hover:bg-smb-surface-container"
-            >
-              <Icon name="account_balance_wallet" className="text-[18px]" />
-              Quản Lý Ví Brand
-            </button>
-          </div>
-
           {/* Dashboard Widgets */}
           <DashboardWidgets />
 

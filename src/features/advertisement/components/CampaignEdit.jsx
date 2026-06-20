@@ -2,12 +2,6 @@ import React, { useState } from 'react'
 import Input from '../../../components/ui/Input'
 import Button from '../../../components/ui/Button'
 
-const WAREHOUSE_OPTIONS = [
-  { value: 'kho_tong_hcm', label: 'Kho Tổng TP.HCM' },
-  { value: 'kho_vt_q1', label: 'Kho Vệ Tinh Quận 1' },
-  { value: 'kho_pp_mdong', label: 'Kho Phân Phối Miền Đông' },
-]
-
 export function CampaignEdit({ data, onChange, onSave, onRestore, onDiscard, lastUpdated }) {
   const [formData, setFormData] = useState(data || {
     name: '',
@@ -112,34 +106,6 @@ export function CampaignEdit({ data, onChange, onSave, onRestore, onDiscard, las
               value={formData.dailyMaxBudget}
               onChange={(e) => handleChange('dailyMaxBudget', e.target.value)}
             />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-smb-on-surface">Nhãn Kho Hàng Áp Dụng</label>
-            <div className="flex flex-wrap gap-2">
-              {WAREHOUSE_OPTIONS.map((opt) => {
-                const selected = formData.warehouses?.includes(opt.value)
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => handleWarehouseToggle(opt.value)}
-                    className={`
-                      inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all
-                      ${selected
-                        ? 'border-smb-primary-container bg-smb-primary-container/10 text-smb-primary-container'
-                        : 'border-smb-outline-variant bg-smb-surface-container-lowest text-smb-on-surface-variant hover:border-smb-primary-container/50'
-                      }
-                    `}
-                  >
-                    <span className={`material-symbols-outlined text-[14px] ${selected ? '' : 'opacity-40'}`}>
-                      {selected ? 'check_box' : 'check_box_outline_blank'}
-                    </span>
-                    {opt.label}
-                  </button>
-                )
-              })}
-            </div>
           </div>
 
           <div className="flex flex-col gap-1.5">

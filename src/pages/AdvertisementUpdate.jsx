@@ -22,7 +22,7 @@ const MOCK_CAMPAIGN = {
   impressions: 128450,
   clicks: 3842,
   activeRobots: 12,
-  area: 'Quận 1, TP.HCM',
+  area: 'Khu B',
 }
 
 const ROBOT_STATS = [

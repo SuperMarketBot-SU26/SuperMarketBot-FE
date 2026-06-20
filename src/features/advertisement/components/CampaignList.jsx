@@ -4,6 +4,7 @@ import { FilterChip } from '../../../components/FilterBar'
 import { Badge, DataTable } from '../../../components/DataTable'
 import { TableActions } from '../../../components/TableActions'
 import { Button } from '../../../components/ui/Button'
+import { ConfirmModal } from '../../../components/ConfirmModal'
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'Tất Cả', icon: 'apps' },
@@ -98,6 +99,7 @@ const packageLabel = (pkg) => ({
 export function CampaignList({ onCreateNew }) {
   const navigate = useNavigate()
   const [statusFilter, setStatusFilter] = useState('all')
+  const [confirmTarget, setConfirmTarget] = useState(null)
 
   const filtered = statusFilter === 'all'
     ? MOCK_CAMPAIGNS
@@ -183,7 +185,7 @@ export function CampaignList({ onCreateNew }) {
               label: 'Hủy Chiến Dịch',
               icon: 'cancel',
               danger: true,
-              onClick: () => console.log('Cancel campaign', row.id),
+              onClick: () => setConfirmTarget(row),
             },
           ]}
         />
@@ -214,6 +216,17 @@ export function CampaignList({ onCreateNew }) {
         data={filtered}
         emptyMessage="Không có chiến dịch nào phù hợp"
       />
+
+      {confirmTarget && (
+        <ConfirmModal
+          message={`Bạn có chắc muốn hủy chiến dịch "${confirmTarget.name}" không?`}
+          onConfirm={() => {
+            console.log('Cancel campaign', confirmTarget.id)
+            setConfirmTarget(null)
+          }}
+          onCancel={() => setConfirmTarget(null)}
+        />
+      )}
     </div>
   )
 }

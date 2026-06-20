@@ -2,12 +2,11 @@ import React from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 
 const navItems = [
-  { icon: 'inventory_2', label: 'Quản Lý Kho Hàng' },
+  { icon: 'inventory_2', label: 'Tổng Quan' },
   { icon: 'smart_toy', label: 'Giám Sát Robot' },
   { icon: 'groups', label: 'Quản Lý Khách Hàng' },
-  { icon: 'campaign', label: 'Khuyến Mãi & Trợ Giá', path: '/' },
-  { icon: 'gpp_maybe', label: 'Chống Gian Lận' },
-  { icon: 'account_balance_wallet', label: 'Đối Soát Ví Brand', path: '/advertisement/brand-wallet' },
+  { icon: 'campaign', label: 'Chiến Dịch Quảng Cáo', path: '/' },
+  { icon: 'account_balance_wallet', label: 'Quản Lý Nhãn Hàng', path: '/brand-dashboard' },
   { icon: 'reviews', label: 'Đánh Giá & Phản Hồi' },
   { icon: 'tune', label: 'Cấu Hình Thuật Toán', path: '/algorithm-settings' },
   { icon: 'manage_accounts', label: 'Quản Lý Tài Khoản' },

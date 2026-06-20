@@ -31,7 +31,7 @@ export function DataTable({ columns, data, emptyMessage = 'Không có dữ liệ
             {columns.map((col) => (
               <th
                 key={col.key}
-                className={`px-4 py-3 text-${col.align || 'left'} whitespace-nowrap font-semibold text-smb-on-surface`}
+                className={`px-4 py-3 align-middle text-${col.align || 'left'} whitespace-nowrap font-semibold text-smb-on-surface`}
               >
                 {col.label}
               </th>
@@ -62,7 +62,7 @@ export function DataTable({ columns, data, emptyMessage = 'Không có dữ liệ
                 {columns.map((col) => (
                   <td
                     key={col.key}
-                    className={`px-4 py-3 text-${col.align || 'left'} ${col.className || ''}`}
+                    className={`px-4 py-3 align-middle text-${col.align || 'left'} ${col.className || ''}`}
                   >
                     {col.render ? col.render(row[col.key], row) : row[col.key]}
                   </td>
