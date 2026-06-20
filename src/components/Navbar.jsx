@@ -1,21 +1,33 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
 }
 
 export function Navbar({ title = 'Khởi Tạo Chiến Dịch', subtitle = 'Tạo chiến dịch khuyến mãi mới cho thương hiệu đối tác' }) {
+  const navigate = useNavigate()
+
   return (
     <header className="sticky top-0 z-20 border-b border-smb-outline-variant bg-smb-surface-container-lowest/95 backdrop-blur-sm">
       <div className="flex items-center justify-between px-6 py-4">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-smb-on-surface">
-            {title}
-          </h1>
-          <p className="mt-0.5 text-sm text-smb-on-surface-variant">
-            {subtitle}
-          </p>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="flex size-9 items-center justify-center rounded border border-smb-outline-variant text-smb-on-surface-variant hover:bg-smb-surface-container"
+            title="Quay lại"
+          >
+            <Icon name="arrow_back" />
+          </button>
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight text-smb-on-surface">
+              {title}
+            </h1>
+            <p className="mt-0.5 text-sm text-smb-on-surface-variant">
+              {subtitle}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <button

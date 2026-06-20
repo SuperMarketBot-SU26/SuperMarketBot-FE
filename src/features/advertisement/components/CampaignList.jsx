@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { FilterChip } from '../../../components/FilterBar'
 import { Badge, DataTable } from '../../../components/DataTable'
+import { TableActions } from '../../../components/TableActions'
 import { Button } from '../../../components/ui/Button'
 
 const STATUS_OPTIONS = [
@@ -94,6 +96,7 @@ const packageLabel = (pkg) => ({
 })[pkg] || pkg
 
 export function CampaignList({ onCreateNew }) {
+  const navigate = useNavigate()
   const [statusFilter, setStatusFilter] = useState('all')
 
   const filtered = statusFilter === 'all'
@@ -159,16 +162,32 @@ export function CampaignList({ onCreateNew }) {
       ),
     },
     {
-      key: 'impressions',
-      label: 'Lượt Hiển Thị',
-      align: 'right',
-      render: (val) => <span className="tabular-nums">{val.toLocaleString('vi-VN')}</span>,
-    },
-    {
       key: 'clicks',
       label: 'Lượt Nhấn',
       align: 'right',
       render: (val) => <span className="tabular-nums">{val.toLocaleString('vi-VN')}</span>,
+    },
+    {
+      key: 'actions',
+      label: '',
+      align: 'center',
+      render: (_, row) => (
+        <TableActions
+          actions={[
+            {
+              label: 'Cập Nhật',
+              icon: 'edit',
+              onClick: () => navigate(`/advertisement/update/${row.id}`),
+            },
+            {
+              label: 'Hủy Chiến Dịch',
+              icon: 'cancel',
+              danger: true,
+              onClick: () => console.log('Cancel campaign', row.id),
+            },
+          ]}
+        />
+      ),
     },
   ]
 
