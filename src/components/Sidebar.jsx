@@ -8,6 +8,7 @@ const navItems = [
   { icon: 'campaign', label: 'Chiến Dịch Quảng Cáo', path: '/' },
   { icon: 'sell', label: 'Gói Quảng Cáo', path: '/ad-packages' },
   { icon: 'account_balance_wallet', label: 'Quản Lý Nhãn Hàng', path: '/brand-dashboard' },
+  { icon: 'inventory_2', label: 'Quản Lý Sản Phẩm', path: '/products' },
   { icon: 'reviews', label: 'Đánh Giá & Phản Hồi' },
   { icon: 'tune', label: 'Cấu Hình Thuật Toán', path: '/algorithm-settings' },
   { icon: 'manage_accounts', label: 'Quản Lý Tài Khoản' },

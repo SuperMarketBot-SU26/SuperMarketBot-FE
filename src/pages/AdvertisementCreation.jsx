@@ -5,7 +5,7 @@ import Navbar from '../components/Navbar'
 import Button from '../components/ui/Button'
 import { CampaignCreation, PackageSelector } from '../features/advertisement'
 import { createCampaign } from '../features/advertisement/api/adCampaignApi'
-import { getBrands } from '../features/advertisement/api/brandApi'
+import { getBrands } from '../features/brand/api/brandApi'
 import { getPackages } from '../features/advertisement/api/adPackageApi'
 
 export function AdvertisementCreation() {

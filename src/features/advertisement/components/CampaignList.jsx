@@ -42,9 +42,9 @@ const normalizeCampaign = (item) => ({
   status: item.status,
   startDate: item.startDate,
   endDate: item.endDate,
-  budget: item.totalSpent,
-  impressions: null,
-  clicks: null,
+  totalSpent: item.totalSpent,
+  sponsoredProductCount: item.sponsoredProductCount ?? 0,
+  sponsoredProducts: item.sponsoredProducts ?? [],
 })
 
 export function CampaignList({ onCreateNew }) {
@@ -148,8 +148,8 @@ export function CampaignList({ onCreateNew }) {
       render: (val) => val ? new Date(val).toLocaleDateString('vi-VN') : '—',
     },
     {
-      key: 'budget',
-      label: 'Ngân Sách',
+      key: 'totalSpent',
+      label: 'Đã Chi',
       align: 'right',
       render: (val) => (
         <span className="tabular-nums font-medium">
@@ -158,10 +158,10 @@ export function CampaignList({ onCreateNew }) {
       ),
     },
     {
-      key: 'clicks',
-      label: 'Lượt Nhấn',
-      align: 'right',
-      render: (val) => <span className="tabular-nums">{val?.toLocaleString('vi-VN') ?? '—'}</span>,
+      key: 'sponsoredProductCount',
+      label: 'Số Sản Phẩm',
+      align: 'center',
+      render: (val) => <span className="tabular-nums">{val ?? 0}</span>,
     },
     {
       key: 'actions',

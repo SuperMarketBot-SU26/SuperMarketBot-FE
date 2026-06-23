@@ -4,10 +4,6 @@ import Sidebar from '../components/Sidebar'
 import Navbar from '../components/Navbar'
 import { BrandWidgets, BrandTable } from '../features/brand'
 
-function Icon({ name, className = '' }) {
-  return <span className={`material-symbols-outlined ${className}`}>{name}</span>
-}
-
 export function BrandDashboard() {
   const navigate = useNavigate()
 

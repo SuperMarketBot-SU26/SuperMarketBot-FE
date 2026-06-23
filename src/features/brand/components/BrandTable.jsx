@@ -1,244 +1,191 @@
-import React from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { DataTable } from '../../../components/DataTable'
+import { Badge } from '../../../components/DataTable'
 import { TableActions } from '../../../components/TableActions'
+import { Button } from '../../../components/ui/Button'
+import { ConfirmModal } from '../../../components/ConfirmModal'
+import { getBrands, deleteBrand } from '../api/brandApi'
 
-function Icon({ name, className = '' }) {
-  return <span className={`material-symbols-outlined ${className}`}>{name}</span>
-}
+const formatVND = (value) =>
+  Number(value || 0).toLocaleString('vi-VN')
 
-const TIER_CONFIG = {
-  diamond: { label: 'Kim Cương', color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200' },
-  gold: { label: 'Vàng', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' },
-  silver: { label: 'Bạc', color: 'text-slate-500', bg: 'bg-slate-100', border: 'border-slate-200' },
-  bronze: { label: 'Đồng', color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
-}
-
-const MOCK_BRANDS = [
-  {
-    id: 'b001',
-    name: 'Vinamilk',
-    tier: 'diamond',
-    walletBalance: 850_000_000,
-    totalSpent: 2_400_000_000,
-    activeCampaigns: 5,
-    totalCampaigns: 12,
-    impressions: 1_250_000,
-    ctr: '3.21%',
-    status: 'active',
-  },
-  {
-    id: 'b002',
-    name: 'TH True Milk',
-    tier: 'gold',
-    walletBalance: 420_000_000,
-    totalSpent: 1_850_000_000,
-    activeCampaigns: 3,
-    totalCampaigns: 8,
-    impressions: 890_000,
-    ctr: '2.95%',
-    status: 'active',
-  },
-  {
-    id: 'b003',
-    name: 'Nestlé',
-    tier: 'gold',
-    walletBalance: 310_000_000,
-    totalSpent: 1_200_000_000,
-    activeCampaigns: 2,
-    totalCampaigns: 6,
-    impressions: 620_000,
-    ctr: '2.40%',
-    status: 'active',
-  },
-  {
-    id: 'b004',
-    name: 'Acecook',
-    tier: 'silver',
-    walletBalance: 180_000_000,
-    totalSpent: 650_000_000,
-    activeCampaigns: 2,
-    totalCampaigns: 5,
-    impressions: 310_000,
-    ctr: '1.88%',
-    status: 'active',
-  },
-  {
-    id: 'b005',
-    name: 'Masan',
-    tier: 'silver',
-    walletBalance: 95_000_000,
-    totalSpent: 420_000_000,
-    activeCampaigns: 1,
-    totalCampaigns: 4,
-    impressions: 185_000,
-    ctr: '1.65%',
-    status: 'active',
-  },
-  {
-    id: 'b006',
-    name: 'Nutifood',
-    tier: 'bronze',
-    walletBalance: 55_000_000,
-    totalSpent: 210_000_000,
-    activeCampaigns: 1,
-    totalCampaigns: 3,
-    impressions: 98_000,
-    ctr: '1.52%',
-    status: 'active',
-  },
-  {
-    id: 'b007',
-    name: 'Vinasoy',
-    tier: 'bronze',
-    walletBalance: 40_000_000,
-    totalSpent: 180_000_000,
-    activeCampaigns: 1,
-    totalCampaigns: 2,
-    impressions: 75_000,
-    ctr: '1.34%',
-    status: 'inactive',
-  },
-  {
-    id: 'b008',
-    name: 'Dutch Lady',
-    tier: 'gold',
-    walletBalance: 275_000_000,
-    totalSpent: 980_000_000,
-    activeCampaigns: 2,
-    totalCampaigns: 5,
-    impressions: 445_000,
-    ctr: '2.78%',
-    status: 'active',
-  },
-]
-
-function StatusBadge({ status }) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-        status === 'active'
-          ? 'bg-green-50 text-green-700'
-          : 'bg-slate-100 text-slate-500'
-      }`}
-    >
-      <span className={`size-1.5 rounded-full ${status === 'active' ? 'bg-green-500' : 'bg-slate-400'}`} />
-      {status === 'active' ? 'Hoạt động' : 'Tạm dừng'}
-    </span>
-  )
-}
-
-function TierBadge({ tier }) {
-  const config = TIER_CONFIG[tier]
-  if (!config) return null
-  return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${config.color} ${config.bg} ${config.border}`}>
-      <span className={`size-2 rounded-full ${config.color.replace('text-', 'bg-')}`} />
-      {config.label}
-    </span>
-  )
-}
-
-function formatVND(value) {
-  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}T`
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(0)}M`
-  return value.toLocaleString('vi-VN')
-}
-
-function formatNumber(value) {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
-  if (value >= 1_000) return `${(value / 1_000).toFixed(0)}K`
-  return value.toLocaleString('vi-VN')
-}
-
-const COLUMNS = [
-  {
-    key: 'name',
-    label: 'Nhãn Hàng',
-    render: (val) => <span className="font-medium text-smb-on-surface">{val}</span>,
-  },
-  {
-    key: 'tier',
-    label: 'Hạng Thành Viên',
-    render: (val) => <TierBadge tier={val} />,
-  },
-  {
-    key: 'walletBalance',
-    label: 'Số Dư Ví',
-    align: 'right',
-    render: (val) => (
-      <span className="font-medium tabular-nums text-smb-on-surface">
-        {formatVND(val)} đ
-      </span>
-    ),
-  },
-  {
-    key: 'totalSpent',
-    label: 'Tổng Chi Tiêu',
-    align: 'right',
-    render: (val) => (
-      <span className="text-smb-on-surface-variant tabular-nums">
-        {formatVND(val)} đ
-      </span>
-    ),
-  },
-  {
-    key: 'campaigns',
-    label: 'Chiến Dịch',
-    align: 'center',
-    render: (_, row) => (
-      <div className="text-center">
-        <span className="font-semibold text-smb-on-surface">{row.activeCampaigns}</span>
-        <span className="text-smb-on-surface-variant">/{row.totalCampaigns}</span>
-      </div>
-    ),
-  },
-  {
-    key: 'impressions',
-    label: 'Lượt Hiển Thị',
-    align: 'right',
-    render: (val) => (
-      <span className="text-smb-on-surface-variant tabular-nums">{formatNumber(val)}</span>
-    ),
-  },
-  {
-    key: 'ctr',
-    label: 'CTR',
-    align: 'right',
-    render: (val) => (
-      <span className="font-semibold tabular-nums text-smb-primary-container">{val}</span>
-    ),
-  },
-  {
-    key: 'status',
-    label: 'Trạng Thái',
-    align: 'center',
-    render: (val) => <StatusBadge status={val} />,
-  },
-  {
-    key: 'actions',
-    label: '',
-    align: 'center',
-    render: (_, row) => (
-      <TableActions
-        items={[
-          { label: 'Xem chi tiết', icon: 'visibility', onClick: () => console.log('View', row.id) },
-          { label: 'Nạp tiền ví', icon: 'add_card', onClick: () => console.log('Top up', row.id) },
-          { label: 'Chỉnh sửa', icon: 'edit', onClick: () => console.log('Edit', row.id) },
-        ]}
-      />
-    ),
-  },
-]
+const normalizeBrand = (item) => ({
+  brandId: item.brandId,
+  brandName: item.brandName,
+  wallet: item.wallet,
+  description: item.description,
+  activeCampaignCount: item.activeCampaignCount,
+})
 
 export function BrandTable() {
+  const navigate = useNavigate()
+  const [brands, setBrands] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [search, setSearch] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deletingId, setDeletingId] = useState(null)
+
+  const fetchBrands = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await getBrands()
+      setBrands(Array.isArray(data) ? data.map(normalizeBrand) : [])
+    } catch (err) {
+      setError(err?.response?.data?.error || err.message || 'Không thể tải danh sách nhãn hàng.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchBrands()
+  }, [fetchBrands])
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeletingId(deleteTarget.brandId)
+    try {
+      await deleteBrand(deleteTarget.brandId)
+      setBrands((prev) => prev.filter((b) => b.brandId !== deleteTarget.brandId))
+      setDeleteTarget(null)
+    } catch (err) {
+      alert(err?.response?.data?.error || 'Xóa nhãn hàng thất bại.')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  const filtered = search.trim()
+    ? brands.filter((b) =>
+        b.brandName.toLowerCase().includes(search.toLowerCase())
+      )
+    : brands
+
+  const columns = [
+    {
+      key: 'brandName',
+      label: 'Nhãn Hàng',
+      render: (val, row) => (
+        <div>
+          <p className="font-medium text-smb-on-surface">{val}</p>
+          {row.description && (
+            <p className="mt-0.5 text-xs text-smb-on-surface-variant line-clamp-1">{row.description}</p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'wallet',
+      label: 'Số Dư Ví',
+      align: 'right',
+      render: (val) => (
+        <span className="font-medium tabular-nums text-smb-on-surface">
+          {formatVND(val)} đ
+        </span>
+      ),
+    },
+    {
+      key: 'activeCampaignCount',
+      label: 'Chiến Dịch Đang Chạy',
+      align: 'center',
+      render: (val) => (
+        <span className={`font-semibold tabular-nums ${val > 0 ? 'text-smb-primary-container' : 'text-smb-on-surface-variant'}`}>
+          {val ?? 0}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      label: '',
+      align: 'center',
+      render: (_, row) => (
+        <TableActions
+          actions={[
+            {
+              label: 'Chỉnh sửa',
+              icon: 'edit',
+              onClick: () => navigate(`/brand/update/${row.brandId}`),
+            },
+            {
+              label: 'Xóa nhãn hàng',
+              icon: 'delete',
+              danger: true,
+              disabled: deletingId === row.brandId || row.activeCampaignCount > 0,
+              onClick: () => {
+                if (row.activeCampaignCount > 0) {
+                  alert('Không thể xóa nhãn hàng đang có chiến dịch đang chạy.')
+                  return
+                }
+                setDeleteTarget(row)
+              },
+            },
+          ]}
+        />
+      ),
+    },
+  ]
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-smb-on-surface-variant">
+        <span className="material-symbols-outlined animate-spin text-2xl">progress_activity</span>
+        <span className="ml-2 text-sm">Đang tải dữ liệu...</span>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
+        <span className="material-symbols-outlined text-4xl text-smb-error">error</span>
+        <p className="text-sm text-smb-error">{error}</p>
+        <Button variant="secondary" onClick={fetchBrands}>Thử lại</Button>
+      </div>
+    )
+  }
+
   return (
-    <DataTable
-      columns={COLUMNS}
-      data={MOCK_BRANDS}
-      searchable
-      searchPlaceholder="Tìm kiếm nhãn hàng..."
-      emptyMessage="Không tìm thấy nhãn hàng nào."
-    />
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="relative">
+          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-smb-on-surface-variant">
+            <span className="material-symbols-outlined text-[18px]">search</span>
+          </span>
+          <input
+            type="text"
+            placeholder="Tìm kiếm nhãn hàng..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-64 rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest pl-9 pr-3 py-2 text-sm text-smb-on-surface placeholder:text-smb-on-surface-variant focus:border-smb-primary-container focus:outline-none focus:ring-1 focus:ring-smb-primary-container/30"
+          />
+        </div>
+        <Button
+          variant="primary"
+          icon="add"
+          onClick={() => navigate('/brand/create')}
+        >
+          Thêm Nhãn Hàng Mới
+        </Button>
+      </div>
+
+      <DataTable
+        columns={columns}
+        data={filtered}
+        loading={false}
+        emptyMessage="Không tìm thấy nhãn hàng nào."
+      />
+
+      {deleteTarget && (
+        <ConfirmModal
+          message={`Bạn có chắc muốn xóa nhãn hàng "${deleteTarget.brandName}" không? Hành động này không thể hoàn tác.`}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+    </div>
   )
 }
 

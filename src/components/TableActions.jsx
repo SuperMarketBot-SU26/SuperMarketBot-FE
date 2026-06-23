@@ -41,11 +41,14 @@ export function TableActions({ actions = [] }) {
               }}
               className={`
                 flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-left transition-colors
-                ${action.danger
+                ${action.disabled
+                  ? 'cursor-not-allowed text-smb-on-surface-variant/40'
+                  : action.danger
                   ? 'text-smb-error hover:bg-smb-error-container'
                   : 'text-smb-on-surface hover:bg-smb-surface-container'
                 }
               `}
+              disabled={action.disabled}
             >
               {action.icon && (
                 <Icon name={action.icon} className="text-[16px]" />
