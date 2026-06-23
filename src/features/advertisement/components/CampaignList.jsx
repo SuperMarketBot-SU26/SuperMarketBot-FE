@@ -1,91 +1,29 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FilterChip } from '../../../components/FilterBar'
 import { Badge, DataTable } from '../../../components/DataTable'
 import { TableActions } from '../../../components/TableActions'
 import { Button } from '../../../components/ui/Button'
 import { ConfirmModal } from '../../../components/ConfirmModal'
+import { getCampaigns, cancelCampaign } from '../api/adCampaignApi'
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'Tất Cả', icon: 'apps' },
-  { value: 'running', label: 'Đang Chạy', icon: 'play_circle' },
-  { value: 'paused', label: 'Tạm Dừng', icon: 'pause_circle' },
-  { value: 'cancelled', label: 'Đã Hủy', icon: 'cancel' },
-]
-
-const MOCK_CAMPAIGNS = [
-  {
-    id: 1,
-    name: 'Summer Sale - Vinamilk',
-    brand: 'Vinamilk',
-    package: 'Cao Cấp',
-    status: 'running',
-    startDate: '2026-06-01',
-    endDate: '2026-06-30',
-    budget: 45_000_000,
-    impressions: 128_450,
-    clicks: 3_842,
-  },
-  {
-    id: 2,
-    name: 'Flash Sale Tháng 6 - TH True Milk',
-    brand: 'TH True Milk',
-    package: 'Vàng',
-    status: 'running',
-    startDate: '2026-06-10',
-    endDate: '2026-06-25',
-    budget: 30_000_000,
-    impressions: 89_200,
-    clicks: 2_150,
-  },
-  {
-    id: 3,
-    name: 'Khuyến Mãi Mùa Hè - Nestlé',
-    brand: 'Nestlé',
-    package: 'Bạc',
-    status: 'paused',
-    startDate: '2026-06-05',
-    endDate: '2026-07-05',
-    budget: 20_000_000,
-    impressions: 54_800,
-    clicks: 980,
-  },
-  {
-    id: 4,
-    name: 'Back to School - Masan',
-    brand: 'Masan',
-    package: 'Bạc',
-    status: 'cancelled',
-    startDate: '2026-05-20',
-    endDate: '2026-06-15',
-    budget: 15_000_000,
-    impressions: 22_100,
-    clicks: 410,
-  },
-  {
-    id: 5,
-    name: 'Ramadan Promo - Acecook',
-    brand: 'Acecook',
-    package: 'Cơ Bản',
-    status: 'running',
-    startDate: '2026-06-15',
-    endDate: '2026-07-15',
-    budget: 10_000_000,
-    impressions: 41_300,
-    clicks: 720,
-  },
+  { value: 'Running', label: 'Đang Chạy', icon: 'play_circle' },
+  { value: 'Paused', label: 'Tạm Dừng', icon: 'pause_circle' },
+  { value: 'Cancelled', label: 'Đã Hủy', icon: 'cancel' },
 ]
 
 const statusVariant = (status) => ({
-  running: 'success',
-  paused: 'warning',
-  cancelled: 'danger',
+  Running: 'success',
+  Paused: 'warning',
+  Cancelled: 'danger',
 })[status] || 'neutral'
 
 const statusLabel = (status) => ({
-  running: 'Đang chạy',
-  paused: 'Tạm dừng',
-  cancelled: 'Đã hủy',
+  Running: 'Đang chạy',
+  Paused: 'Tạm dừng',
+  Cancelled: 'Đã hủy',
 })[status] || status
 
 const packageLabel = (pkg) => ({
@@ -96,20 +34,74 @@ const packageLabel = (pkg) => ({
   premium: 'Cao Cấp',
 })[pkg] || pkg
 
+const normalizeCampaign = (item) => ({
+  id: item.adCampaignId,
+  name: item.campaignName,
+  brand: item.brandName,
+  package: item.packageName,
+  status: item.status,
+  startDate: item.startDate,
+  endDate: item.endDate,
+  budget: item.totalSpent,
+  impressions: null,
+  clicks: null,
+})
+
 export function CampaignList({ onCreateNew }) {
   const navigate = useNavigate()
   const [statusFilter, setStatusFilter] = useState('all')
   const [confirmTarget, setConfirmTarget] = useState(null)
+  const [campaigns, setCampaigns] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [totalPages, setTotalPages] = useState(1)
+  const [pageNumber, setPageNumber] = useState(1)
+  const [cancellingId, setCancellingId] = useState(null)
+
+  const fetchCampaigns = useCallback(async (status, page = 1) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const params = { pageNumber: page, pageSize: 10 }
+      if (status !== 'all') params.status = status
+      const data = await getCampaigns(params)
+      setCampaigns((data.items || []).map(normalizeCampaign))
+      setTotalPages(data.totalPages || 1)
+      setPageNumber(data.pageNumber || 1)
+    } catch (err) {
+      setError(err?.response?.data?.error || err.message || 'Tải danh sách chiến dịch thất bại')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchCampaigns(statusFilter, pageNumber)
+  }, [statusFilter, pageNumber, fetchCampaigns])
+
+  const handleConfirmCancel = async () => {
+    if (!confirmTarget) return
+    setCancellingId(confirmTarget.id)
+    try {
+      await cancelCampaign(confirmTarget.id)
+      setConfirmTarget(null)
+      fetchCampaigns(statusFilter, pageNumber)
+    } catch (err) {
+      alert(err?.response?.data?.error || 'Hủy chiến dịch thất bại')
+    } finally {
+      setCancellingId(null)
+    }
+  }
 
   const filtered = statusFilter === 'all'
-    ? MOCK_CAMPAIGNS
-    : MOCK_CAMPAIGNS.filter((c) => c.status === statusFilter)
+    ? campaigns
+    : campaigns.filter((c) => c.status === statusFilter)
 
   const counts = {
-    all: MOCK_CAMPAIGNS.length,
-    running: MOCK_CAMPAIGNS.filter((c) => c.status === 'running').length,
-    paused: MOCK_CAMPAIGNS.filter((c) => c.status === 'paused').length,
-    cancelled: MOCK_CAMPAIGNS.filter((c) => c.status === 'cancelled').length,
+    all: campaigns.length,
+    Running: campaigns.filter((c) => c.status === 'Running').length,
+    Paused: campaigns.filter((c) => c.status === 'Paused').length,
+    Cancelled: campaigns.filter((c) => c.status === 'Cancelled').length,
   }
 
   const columns = [
@@ -147,11 +139,13 @@ export function CampaignList({ onCreateNew }) {
       key: 'startDate',
       label: 'Ngày Bắt Đầu',
       align: 'center',
+      render: (val) => val ? new Date(val).toLocaleDateString('vi-VN') : '—',
     },
     {
       key: 'endDate',
       label: 'Ngày Kết Thúc',
       align: 'center',
+      render: (val) => val ? new Date(val).toLocaleDateString('vi-VN') : '—',
     },
     {
       key: 'budget',
@@ -159,7 +153,7 @@ export function CampaignList({ onCreateNew }) {
       align: 'right',
       render: (val) => (
         <span className="tabular-nums font-medium">
-          {val.toLocaleString('vi-VN')} đ
+          {(val || 0).toLocaleString('vi-VN')} đ
         </span>
       ),
     },
@@ -167,7 +161,7 @@ export function CampaignList({ onCreateNew }) {
       key: 'clicks',
       label: 'Lượt Nhấn',
       align: 'right',
-      render: (val) => <span className="tabular-nums">{val.toLocaleString('vi-VN')}</span>,
+      render: (val) => <span className="tabular-nums">{val?.toLocaleString('vi-VN') ?? '—'}</span>,
     },
     {
       key: 'actions',
@@ -185,6 +179,7 @@ export function CampaignList({ onCreateNew }) {
               label: 'Hủy Chiến Dịch',
               icon: 'cancel',
               danger: true,
+              disabled: cancellingId === row.id,
               onClick: () => setConfirmTarget(row),
             },
           ]}
@@ -203,7 +198,7 @@ export function CampaignList({ onCreateNew }) {
             count: counts[opt.value],
           }))}
           value={statusFilter}
-          onChange={setStatusFilter}
+          onChange={(val) => { setStatusFilter(val); setPageNumber(1) }}
         />
         <div className="flex items-center gap-2">
           <Button variant="secondary" icon="search" size="sm">Tìm Kiếm</Button>
@@ -211,19 +206,45 @@ export function CampaignList({ onCreateNew }) {
         </div>
       </div>
 
+      {error && (
+        <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       <DataTable
         columns={columns}
         data={filtered}
-        emptyMessage="Không có chiến dịch nào phù hợp"
+        loading={loading}
+        emptyMessage={error ? '' : 'Không có chiến dịch nào phù hợp'}
       />
+
+      {!loading && !error && totalPages > 1 && (
+        <div className="flex justify-center gap-2 pt-2">
+          <Button
+            variant="outline" size="sm"
+            disabled={pageNumber <= 1}
+            onClick={() => setPageNumber((p) => p - 1)}
+          >
+            ← Trước
+          </Button>
+          <span className="flex items-center px-3 text-sm text-smb-on-surface-variant">
+            Trang {pageNumber} / {totalPages}
+          </span>
+          <Button
+            variant="outline" size="sm"
+            disabled={pageNumber >= totalPages}
+            onClick={() => setPageNumber((p) => p + 1)}
+          >
+            Sau →
+          </Button>
+        </div>
+      )}
 
       {confirmTarget && (
         <ConfirmModal
           message={`Bạn có chắc muốn hủy chiến dịch "${confirmTarget.name}" không?`}
-          onConfirm={() => {
-            console.log('Cancel campaign', confirmTarget.id)
-            setConfirmTarget(null)
-          }}
+          onConfirm={handleConfirmCancel}
           onCancel={() => setConfirmTarget(null)}
         />
       )}

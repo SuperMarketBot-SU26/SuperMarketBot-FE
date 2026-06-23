@@ -6,6 +6,7 @@ const navItems = [
   { icon: 'smart_toy', label: 'Giám Sát Robot' },
   { icon: 'groups', label: 'Quản Lý Khách Hàng' },
   { icon: 'campaign', label: 'Chiến Dịch Quảng Cáo', path: '/' },
+  { icon: 'sell', label: 'Gói Quảng Cáo', path: '/ad-packages' },
   { icon: 'account_balance_wallet', label: 'Quản Lý Nhãn Hàng', path: '/brand-dashboard' },
   { icon: 'reviews', label: 'Đánh Giá & Phản Hồi' },
   { icon: 'tune', label: 'Cấu Hình Thuật Toán', path: '/algorithm-settings' },

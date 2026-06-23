@@ -5,7 +5,25 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-    react(), 
+    react(),
     tailwindcss(),
   ],
+  server: {
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'https://interiorly-pinnatisect-adalyn.ngrok-free.dev',
+        changeOrigin: true,
+        rewrite: (path) => path,
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+        },
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            proxyReq.setHeader('ngrok-skip-browser-warning', 'true')
+          })
+        },
+      },
+    },
+  },
 })

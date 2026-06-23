@@ -22,7 +22,38 @@ export function Badge({ children, variant = 'neutral', icon, className = '' }) {
   )
 }
 
-export function DataTable({ columns, data, emptyMessage = 'Không có dữ liệu', onRowClick }) {
+export function DataTable({ columns, data, emptyMessage = 'Không có dữ liệu', onRowClick, loading = false }) {
+  if (loading) {
+    return (
+      <div className="overflow-x-auto rounded-lg border border-smb-outline-variant">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-smb-outline-variant bg-smb-surface-container-low">
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  className={`px-4 py-3 align-middle text-${col.align || 'left'} whitespace-nowrap font-semibold text-smb-on-surface`}
+                >
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td colSpan={columns.length} className="px-4 py-16 text-center text-smb-on-surface-variant">
+                <div className="flex flex-col items-center gap-3">
+                  <span className="material-symbols-outlined animate-spin text-[32px]">progress_activity</span>
+                  <p>Đang tải dữ liệu...</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+
   return (
     <div className="overflow-x-auto rounded-lg border border-smb-outline-variant">
       <table className="w-full text-sm">

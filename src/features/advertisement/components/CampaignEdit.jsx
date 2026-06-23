@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import Input from '../../../components/ui/Input'
 import Button from '../../../components/ui/Button'
 
-export function CampaignEdit({ data, onChange, onSave, onRestore, onDiscard, lastUpdated }) {
+export function CampaignEdit({ data, onChange, onSave, onRestore, onDiscard, lastUpdated, saving = false }) {
   const [formData, setFormData] = useState(data || {
     name: '',
     internalId: '',
@@ -156,7 +156,7 @@ export function CampaignEdit({ data, onChange, onSave, onRestore, onDiscard, las
             />
           </div>
 
-          {data?.status === 'running' && (
+          {data?.status === 'Running' && (
             <div className="mt-4 flex items-start gap-2 rounded-lg border border-smb-primary-container/30 bg-smb-primary-container/5 p-3">
               <span className="material-symbols-outlined mt-0.5 text-[16px] text-smb-primary-container">info</span>
               <p className="text-xs text-smb-on-surface-variant">
@@ -211,8 +211,9 @@ export function CampaignEdit({ data, onChange, onSave, onRestore, onDiscard, las
             variant="primary"
             icon="save"
             onClick={onSave}
+            disabled={saving}
           >
-            Lưu Cập Nhật & Đồng Bộ
+            {saving ? 'Đang Lưu...' : 'Lưu Cập Nhật & Đồng Bộ'}
           </Button>
         </div>
       </div>

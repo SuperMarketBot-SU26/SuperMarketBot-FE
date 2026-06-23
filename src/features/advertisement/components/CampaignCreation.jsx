@@ -2,12 +2,18 @@ import React, { useState } from 'react'
 import Input from '../../../components/ui/Input'
 import Select from '../../../components/ui/Select'
 
-export function CampaignForm({ data, onChange }) {
-  const [formData, setFormData] = useState(data || {
-    name: '',
-    brand: '',
-    startDate: '',
-    endDate: '',
+const FALLBACK_BRANDS = [
+  { value: '1', label: 'Vinamilk' },
+  { value: '2', label: 'TH True Milk' },
+  { value: '3', label: 'Nestlé' },
+]
+
+export function CampaignForm({ data, onChange, brandOptions = FALLBACK_BRANDS }) {
+  const [formData, setFormData] = useState({
+    name: data?.name ?? '',
+    brandId: data?.brandId ?? '',
+    startDate: data?.startDate ?? '',
+    endDate: data?.endDate ?? '',
   })
 
   const handleChange = (field, value) => {
@@ -15,12 +21,6 @@ export function CampaignForm({ data, onChange }) {
     setFormData(newData)
     onChange?.(newData)
   }
-
-  const brandOptions = [
-    { value: 'vinamilk', label: 'Vinamilk' },
-    { value: 'techcombank', label: 'Techcombank' },
-    { value: 'fpt', label: 'FPT Retail' },
-  ]
 
   return (
     <div className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest p-6">
@@ -49,8 +49,8 @@ export function CampaignForm({ data, onChange }) {
           label="Thương Hiệu (Brand)"
           placeholder="Chọn thương hiệu đối tác"
           options={brandOptions}
-          value={formData.brand}
-          onChange={(value) => handleChange('brand', value)}
+          value={formData.brandId}
+          onChange={(value) => handleChange('brandId', value)}
           required
         />
 
