@@ -8,22 +8,28 @@ import { ConfirmModal } from '../../../components/ConfirmModal'
 import { getCampaigns, cancelCampaign } from '../api/adCampaignApi'
 
 const STATUS_OPTIONS = [
-  { value: 'all', label: 'Tất Cả', icon: 'apps' },
-  { value: 'Running', label: 'Đang Chạy', icon: 'play_circle' },
-  { value: 'Paused', label: 'Tạm Dừng', icon: 'pause_circle' },
-  { value: 'Cancelled', label: 'Đã Hủy', icon: 'cancel' },
+  { value: 'all',       label: 'Tất Cả',            icon: 'apps'        },
+  { value: 'Inactive',  label: 'Không Hoạt Động',   icon: 'cancel'       },
+  { value: 'Active',    label: 'Hoạt Động',          icon: 'check_circle' },
+  { value: 'Paused',    label: 'Tạm Dừng',           icon: 'pause_circle' },
+  { value: 'Canceled',  label: 'Đã Hủy',             icon: 'block'        },
+  { value: 'Completed', label: 'Hoàn Thành',          icon: 'task_alt'     },
 ]
 
 const statusVariant = (status) => ({
-  Running: 'success',
-  Paused: 'warning',
-  Cancelled: 'danger',
+  Inactive:  'danger',
+  Active:    'success',
+  Paused:    'warning',
+  Canceled:  'danger',
+  Completed: 'neutral',
 })[status] || 'neutral'
 
 const statusLabel = (status) => ({
-  Running: 'Đang chạy',
-  Paused: 'Tạm dừng',
-  Cancelled: 'Đã hủy',
+  Inactive:  'Không hoạt động',
+  Active:    'Hoạt động',
+  Paused:    'Tạm dừng',
+  Canceled:  'Đã hủy',
+  Completed: 'Hoàn thành',
 })[status] || status
 
 const packageLabel = (pkg) => ({
@@ -98,10 +104,12 @@ export function CampaignList({ onCreateNew }) {
     : campaigns.filter((c) => c.status === statusFilter)
 
   const counts = {
-    all: campaigns.length,
-    Running: campaigns.filter((c) => c.status === 'Running').length,
-    Paused: campaigns.filter((c) => c.status === 'Paused').length,
-    Cancelled: campaigns.filter((c) => c.status === 'Cancelled').length,
+    all:       campaigns.length,
+    Inactive:  campaigns.filter((c) => c.status === 'Inactive').length,
+    Active:    campaigns.filter((c) => c.status === 'Active').length,
+    Paused:    campaigns.filter((c) => c.status === 'Paused').length,
+    Canceled:  campaigns.filter((c) => c.status === 'Canceled').length,
+    Completed: campaigns.filter((c) => c.status === 'Completed').length,
   }
 
   const columns = [
@@ -167,24 +175,27 @@ export function CampaignList({ onCreateNew }) {
       key: 'actions',
       label: '',
       align: 'center',
-      render: (_, row) => (
-        <TableActions
-          actions={[
-            {
-              label: 'Cập Nhật',
-              icon: 'edit',
-              onClick: () => navigate(`/advertisement/update/${row.id}`),
-            },
-            {
-              label: 'Hủy Chiến Dịch',
-              icon: 'cancel',
-              danger: true,
-              disabled: cancellingId === row.id,
-              onClick: () => setConfirmTarget(row),
-            },
-          ]}
-        />
-      ),
+      render: (_, row) => {
+        const isCancellable = ['Inactive', 'Active', 'Paused'].includes(row.status)
+        return (
+          <TableActions
+            actions={[
+              {
+                label: 'Cập Nhật',
+                icon: 'edit',
+                onClick: () => navigate(`/advertisement/update/${row.id}`),
+              },
+              {
+                label: 'Hủy Chiến Dịch',
+                icon: 'cancel',
+                danger: true,
+                disabled: cancellingId === row.id || !isCancellable,
+                onClick: () => setConfirmTarget(row),
+              },
+            ]}
+          />
+        )
+      },
     },
   ]
 

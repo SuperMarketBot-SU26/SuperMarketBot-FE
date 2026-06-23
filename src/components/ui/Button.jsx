@@ -22,6 +22,9 @@ export function Button({
     secondary: 'border border-smb-outline-variant bg-smb-surface-container-lowest text-smb-on-surface hover:bg-smb-surface-container',
     outline: 'border border-smb-outline-variant bg-transparent text-smb-on-surface-variant hover:bg-smb-surface-container-low',
     ghost: 'bg-transparent text-smb-on-surface-variant hover:bg-smb-surface-container-low',
+    success: 'bg-green-600 text-white hover:bg-green-700',
+    warning: 'bg-yellow-500 text-white hover:bg-yellow-600',
+    danger: 'bg-red-600 text-white hover:bg-red-700',
   }
 
   const sizes = {

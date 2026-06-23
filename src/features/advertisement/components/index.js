@@ -1,5 +1,7 @@
 export { default as CampaignCreation } from './CampaignCreation'
 export { default as CampaignEdit } from './CampaignEdit'
+export { default as CampaignInfo } from './CampaignInfo'
+export { default as CampaignStatusActions } from './CampaignStatusActions'
 export { default as PackageSelector } from './PackageSelector'
 export { default as CampaignList } from './CampaignList'
 export { default as DashboardWidgets } from './DashboardWidgets'
