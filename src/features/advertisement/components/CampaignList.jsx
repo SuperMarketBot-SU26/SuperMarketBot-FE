@@ -1,20 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FilterChip } from '../../../components/FilterBar'
 import { Badge, DataTable } from '../../../components/DataTable'
 import { TableActions } from '../../../components/TableActions'
 import { Button } from '../../../components/ui/Button'
 import { ConfirmModal } from '../../../components/ConfirmModal'
 import { getCampaigns, cancelCampaign } from '../api/adCampaignApi'
 
-const STATUS_OPTIONS = [
-  { value: 'all',       label: 'Tất Cả',            icon: 'apps'        },
-  { value: 'Inactive',  label: 'Không Hoạt Động',   icon: 'cancel'       },
-  { value: 'Active',    label: 'Hoạt Động',          icon: 'check_circle' },
-  { value: 'Paused',    label: 'Tạm Dừng',           icon: 'pause_circle' },
-  { value: 'Canceled',  label: 'Đã Hủy',             icon: 'block'        },
-  { value: 'Completed', label: 'Hoàn Thành',          icon: 'task_alt'     },
-]
+const STATUS_ICONS = {
+  Active: 'check_circle',
+  Inactive: 'cancel',
+  Paused: 'pause_circle',
+  Canceled: 'block',
+  Completed: 'task_alt',
+}
 
 const statusVariant = (status) => ({
   Inactive:  'danger',
@@ -53,9 +51,8 @@ const normalizeCampaign = (item) => ({
   sponsoredProducts: item.sponsoredProducts ?? [],
 })
 
-export function CampaignList({ onCreateNew }) {
+export function CampaignList({ onCreateNew, search = '', status = 'all' }) {
   const navigate = useNavigate()
-  const [statusFilter, setStatusFilter] = useState('all')
   const [confirmTarget, setConfirmTarget] = useState(null)
   const [campaigns, setCampaigns] = useState([])
   const [loading, setLoading] = useState(true)
@@ -64,12 +61,12 @@ export function CampaignList({ onCreateNew }) {
   const [pageNumber, setPageNumber] = useState(1)
   const [cancellingId, setCancellingId] = useState(null)
 
-  const fetchCampaigns = useCallback(async (status, page = 1) => {
+  const fetchCampaigns = useCallback(async (currentStatus, page = 1) => {
     setLoading(true)
     setError(null)
     try {
       const params = { pageNumber: page, pageSize: 10 }
-      if (status !== 'all') params.status = status
+      if (currentStatus !== 'all') params.status = currentStatus
       const data = await getCampaigns(params)
       setCampaigns((data.items || []).map(normalizeCampaign))
       setTotalPages(data.totalPages || 1)
@@ -82,8 +79,12 @@ export function CampaignList({ onCreateNew }) {
   }, [])
 
   useEffect(() => {
-    fetchCampaigns(statusFilter, pageNumber)
-  }, [statusFilter, pageNumber, fetchCampaigns])
+    setPageNumber(1)
+  }, [status])
+
+  useEffect(() => {
+    fetchCampaigns(status, pageNumber)
+  }, [status, pageNumber, fetchCampaigns])
 
   const handleConfirmCancel = async () => {
     if (!confirmTarget) return
@@ -91,7 +92,7 @@ export function CampaignList({ onCreateNew }) {
     try {
       await cancelCampaign(confirmTarget.id)
       setConfirmTarget(null)
-      fetchCampaigns(statusFilter, pageNumber)
+      fetchCampaigns(status, pageNumber)
     } catch (err) {
       alert(err?.response?.data?.error || 'Hủy chiến dịch thất bại')
     } finally {
@@ -99,18 +100,11 @@ export function CampaignList({ onCreateNew }) {
     }
   }
 
-  const filtered = statusFilter === 'all'
-    ? campaigns
-    : campaigns.filter((c) => c.status === statusFilter)
-
-  const counts = {
-    all:       campaigns.length,
-    Inactive:  campaigns.filter((c) => c.status === 'Inactive').length,
-    Active:    campaigns.filter((c) => c.status === 'Active').length,
-    Paused:    campaigns.filter((c) => c.status === 'Paused').length,
-    Canceled:  campaigns.filter((c) => c.status === 'Canceled').length,
-    Completed: campaigns.filter((c) => c.status === 'Completed').length,
-  }
+  const filtered = campaigns.filter((c) => {
+    const matchesSearch = !search || [c.name, c.brand, c.package]
+      .some((v) => (v || '').toLowerCase().includes(search.toLowerCase()))
+    return matchesSearch
+  })
 
   const columns = [
     {
@@ -138,7 +132,7 @@ export function CampaignList({ onCreateNew }) {
       label: 'Trạng Thái',
       align: 'center',
       render: (val) => (
-        <Badge variant={statusVariant(val)} icon={STATUS_OPTIONS.find((o) => o.value === val)?.icon}>
+        <Badge variant={statusVariant(val)} icon={STATUS_ICONS[val]}>
           {statusLabel(val)}
         </Badge>
       ),
@@ -201,22 +195,6 @@ export function CampaignList({ onCreateNew }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <FilterChip
-          label="Trạng thái"
-          options={STATUS_OPTIONS.map((opt) => ({
-            ...opt,
-            count: counts[opt.value],
-          }))}
-          value={statusFilter}
-          onChange={(val) => { setStatusFilter(val); setPageNumber(1) }}
-        />
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" icon="search" size="sm">Tìm Kiếm</Button>
-          <Button variant="primary" icon="add" onClick={onCreateNew}>Tạo Chiến Dịch Mới</Button>
-        </div>
-      </div>
-
       {error && (
         <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {error}

@@ -21,7 +21,7 @@ export function TableActions({ actions = [] }) {
   }, [open])
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div className="relative inline-block" ref={menuRef}>
       <button
         onClick={() => setOpen(!open)}
         className="flex size-8 items-center justify-center rounded text-smb-on-surface-variant hover:bg-smb-surface-container hover:text-smb-on-surface"
@@ -31,7 +31,7 @@ export function TableActions({ actions = [] }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 min-w-[160px] overflow-hidden rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest shadow-lg">
+        <div className="absolute right-0 top-full z-50 mt-1 min-w-[160px] overflow-visible rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest shadow-lg">
           {actions.map((action, idx) => (
             <button
               key={idx}

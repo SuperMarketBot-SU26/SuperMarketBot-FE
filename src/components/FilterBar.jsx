@@ -47,4 +47,28 @@ export function FilterChip({ label, options = [], value, onChange }) {
   )
 }
 
+export function SearchBar({ value, onChange, placeholder = 'Tìm kiếm...', className = '' }) {
+  return (
+    <div className={`relative flex items-center ${className}`}>
+      <Icon name="search" className="pointer-events-none absolute left-3 text-[18px] text-smb-outline" />
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange?.(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest py-2 pl-9 pr-8 text-sm text-smb-on-surface placeholder:text-smb-outline focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary transition-colors"
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange?.('')}
+          className="absolute right-2 rounded-full p-0.5 text-smb-outline hover:bg-smb-surface-container transition-colors"
+        >
+          <Icon name="close" className="text-[14px]" />
+        </button>
+      )}
+    </div>
+  )
+}
+
 export default FilterBar

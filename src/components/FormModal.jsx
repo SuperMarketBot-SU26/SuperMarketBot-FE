@@ -5,7 +5,7 @@ function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
 }
 
-export function FormModal({ title, onClose, onSubmit, children }) {
+export function FormModal({ title, onClose, onSubmit, children, footer }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="w-full max-w-lg rounded-2xl bg-smb-surface-container-lowest shadow-xl">
@@ -21,14 +21,16 @@ export function FormModal({ title, onClose, onSubmit, children }) {
 
         <form onSubmit={(e) => { e.preventDefault(); onSubmit?.() }} className="px-6 py-5 space-y-4">
           {children}
-          <div className="flex justify-end gap-3 pt-2">
-            <Button variant="secondary" type="button" onClick={onClose}>
-              Hủy
-            </Button>
-            <Button variant="primary" type="submit">
-              Lưu
-            </Button>
-          </div>
+          {footer || (
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="secondary" type="button" onClick={onClose}>
+                Hủy
+              </Button>
+              <Button variant="primary" type="submit">
+                Lưu
+              </Button>
+            </div>
+          )}
         </form>
       </div>
     </div>

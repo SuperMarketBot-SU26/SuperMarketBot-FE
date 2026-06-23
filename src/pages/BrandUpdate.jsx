@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import Navbar from '../components/Navbar'
 import Button from '../components/ui/Button'
-import { StatCard } from '../components/StatCard'
 import { FormModal, FormField } from '../components/FormModal'
 import { getBrand, updateBrand, topUpWallet } from '../features/brand/api/brandApi'
 
@@ -29,8 +28,8 @@ export function BrandUpdate() {
   })
 
   const [stats, setStats] = useState([
-    { label: 'Số Dư Ví Hiện Tại', value: '—', icon: 'account_balance_wallet', color: 'info' },
-    { label: 'Chiến Dịch Đang Chạy', value: 0, icon: 'campaign', color: 'success' },
+    { label: 'Số Dư Ví Hiện Tại', value: '—', color: 'info' },
+    { label: 'Chiến Dịch Đang Chạy', value: 0, color: 'success' },
   ])
 
   // Topup modal state
@@ -54,18 +53,11 @@ export function BrandUpdate() {
         {
           label: 'Số Dư Ví Hiện Tại',
           value: `${formatVND(data.wallet)} đ`,
-          icon: 'account_balance_wallet',
           color: 'info',
-          action: {
-            label: 'Nạp Tiền Ví',
-            icon: 'add_card',
-            onClick: () => setTopupOpen(true),
-          },
         },
         {
           label: 'Chiến Dịch Đang Chạy',
           value: data.activeCampaignCount ?? 0,
-          icon: 'campaign',
           color: 'success',
         },
       ])
@@ -115,20 +107,6 @@ export function BrandUpdate() {
     }
   }
 
-  const handleRestore = () => {
-    if (originalData) setForm({ ...originalData })
-  }
-
-  const handleDiscard = () => {
-    navigate('/brand')
-  }
-
-  const openTopup = () => {
-    setTopupAmount('')
-    setTopupSuccess(null)
-    setTopupOpen(true)
-  }
-
   const closeTopup = () => {
     setTopupOpen(false)
     setTopupAmount('')
@@ -164,11 +142,6 @@ export function BrandUpdate() {
     } finally {
       setTopupSubmitting(false)
     }
-  }
-
-  const formatLastUpdated = () => {
-    const now = new Date()
-    return `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')} bởi Admin_A`
   }
 
   if (loading) {
@@ -215,22 +188,24 @@ export function BrandUpdate() {
             )}
 
             {/* Stats */}
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               {stats.map((stat, idx) => (
-                <div key={idx} className="relative">
-                  <StatCard
-                    title={stat.label}
-                    value={String(stat.value)}
-                    icon={stat.icon}
-                    color={stat.color}
-                  />
-                  {stat.action && (
+                <div
+                  key={idx}
+                  className="flex flex-col justify-between rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest p-6 min-h-[120px]"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-smb-on-surface-variant">{stat.label}</p>
+                    <p className="mt-3 text-3xl font-bold text-smb-on-surface tabular-nums">{stat.value}</p>
+                  </div>
+                  {idx === 0 && (
                     <button
-                      onClick={stat.action.onClick}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-1.5 text-xs font-medium text-smb-primary-container hover:bg-smb-primary-container/10 transition-colors"
+                      type="button"
+                      onClick={() => setTopupOpen(true)}
+                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700 transition-colors"
                     >
-                      <span className="material-symbols-outlined text-[14px]">{stat.action.icon}</span>
-                      {stat.action.label}
+                      <span className="material-symbols-outlined text-[16px]">add_card</span>
+                      Nạp Tiền Ví
                     </button>
                   )}
                 </div>
@@ -258,8 +233,8 @@ export function BrandUpdate() {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex flex-col gap-1.5">
+              <div className="space-y-5">
+                <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-smb-on-surface">
                     Tên Nhãn Hàng <span className="text-smb-error">*</span>
                   </label>
@@ -269,7 +244,7 @@ export function BrandUpdate() {
                     value={form.brandName}
                     onChange={(e) => handleChange('brandName', e.target.value)}
                     maxLength={100}
-                    className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-4 py-2.5 text-sm text-smb-on-surface placeholder:text-smb-on-surface-variant/50 focus:border-smb-primary-container focus:outline-none focus:ring-2 focus:ring-smb-primary-container/20"
+                    className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-5 py-4 text-base text-smb-on-surface placeholder:text-smb-on-surface-variant/50 focus:border-smb-primary-container focus:outline-none focus:ring-2 focus:ring-smb-primary-container/20"
                     required
                   />
                   <p className="text-xs text-smb-on-surface-variant">
@@ -277,15 +252,15 @@ export function BrandUpdate() {
                   </p>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-smb-on-surface">Mô Tả</label>
                   <textarea
                     placeholder="Mô tả ngắn về nhãn hàng (tùy chọn)..."
                     value={form.description}
                     onChange={(e) => handleChange('description', e.target.value)}
-                    rows={4}
+                    rows={5}
                     maxLength={500}
-                    className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-4 py-2.5 text-sm text-smb-on-surface placeholder:text-smb-on-surface-variant/50 focus:border-smb-primary-container focus:outline-none focus:ring-2 focus:ring-smb-primary-container/20"
+                    className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-5 py-4 text-base text-smb-on-surface placeholder:text-smb-on-surface-variant/50 focus:border-smb-primary-container focus:outline-none focus:ring-2 focus:ring-smb-primary-container/20 resize-none"
                   />
                   <p className="text-xs text-smb-on-surface-variant">
                     Tối đa 500 ký tự ({form.description.length}/500)
@@ -296,24 +271,11 @@ export function BrandUpdate() {
 
             {/* Actions */}
             <div className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest p-6">
-              {formatLastUpdated && (
-                <p className="mb-4 text-xs text-smb-on-surface-variant">
-                  Lần cập nhật cuối: <strong>{formatLastUpdated()}</strong>
-                </p>
-              )}
-
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" icon="history" size="sm" onClick={handleRestore}>
-                    Khôi Phục Dữ Liệu Gốc
-                  </Button>
-                  <Button variant="outline" icon="delete_forever" size="sm" onClick={handleDiscard}>
-                    Hủy Thay Đổi
-                  </Button>
-                </div>
+              <div className="flex flex-wrap items-center justify-end gap-3">
                 <Button
                   variant="primary"
                   icon="save"
+                  size="md"
                   onClick={handleSave}
                   disabled={saving}
                 >
@@ -331,6 +293,23 @@ export function BrandUpdate() {
           title="Nạp Tiền Ví"
           onClose={closeTopup}
           onSubmit={handleTopupSubmit}
+          footer={
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="secondary" type="button" onClick={closeTopup}>
+                {topupSuccess?.ok ? 'Đóng' : 'Hủy'}
+              </Button>
+              {!topupSuccess?.ok && (
+                <Button
+                  variant="primary"
+                  icon="add_card"
+                  type="submit"
+                  disabled={topupSubmitting}
+                >
+                  {topupSubmitting ? 'Đang xử lý...' : 'Xác Nhận Nạp Tiền'}
+                </Button>
+              )}
+            </div>
+          }
         >
           {topupSuccess?.error && (
             <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -348,56 +327,44 @@ export function BrandUpdate() {
             </div>
           )}
 
-          <FormField label="Số tiền nạp (VNĐ)">
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder="VD: 5.000.000"
-              value={topupAmount}
-              onChange={(e) => {
-                const raw = e.target.value.replace(/[^0-9]/g, '')
-                if (raw === '') { setTopupAmount(''); return }
-                const num = Number(raw)
-                setTopupAmount(num.toLocaleString('vi-VN'))
-              }}
-              className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-4 py-2.5 text-sm text-smb-on-surface placeholder:text-smb-on-surface-variant/50 focus:border-smb-primary-container focus:outline-none focus:ring-2 focus:ring-smb-primary-container/20"
-              autoFocus
-            />
-          </FormField>
+          {!topupSuccess?.ok && (
+            <>
+              <FormField label="Số tiền nạp (VNĐ)">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="VD: 5.000.000"
+                  value={topupAmount}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/[^0-9]/g, '')
+                    if (raw === '') { setTopupAmount(''); return }
+                    const num = Number(raw)
+                    setTopupAmount(num.toLocaleString('vi-VN'))
+                  }}
+                  className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-4 py-2.5 text-sm text-smb-on-surface placeholder:text-smb-on-surface-variant/50 focus:border-smb-primary-container focus:outline-none focus:ring-2 focus:ring-smb-primary-container/20"
+                  autoFocus
+                />
+              </FormField>
 
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-smb-on-surface-variant">Nạp nhanh:</p>
-            <div className="flex flex-wrap gap-2">
-              {QUICK_AMOUNTS.map((amount) => (
-                <button
-                  key={amount}
-                  type="button"
-                  onClick={() => setTopupAmount(amount.toLocaleString('vi-VN'))}
-                  className="rounded-lg border border-smb-outline-variant bg-smb-surface-container px-3 py-1.5 text-xs font-medium text-smb-on-surface hover:bg-smb-primary-container/10 hover:border-smb-primary-container transition-colors"
-                >
-                  {amount >= 1_000_000
-                    ? `${amount / 1_000_000}M`
-                    : `${amount / 1000}K`}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <Button variant="secondary" type="button" onClick={closeTopup}>
-              {topupSuccess?.ok ? 'Đóng' : 'Hủy'}
-            </Button>
-            {!topupSuccess?.ok && (
-              <Button
-                variant="primary"
-                icon="add_card"
-                type="submit"
-                disabled={topupSubmitting}
-              >
-                {topupSubmitting ? 'Đang xử lý...' : 'Xác Nhận Nạp Tiền'}
-              </Button>
-            )}
-          </div>
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-smb-on-surface-variant">Nạp nhanh:</p>
+                <div className="flex flex-wrap gap-2">
+                  {QUICK_AMOUNTS.map((amount) => (
+                    <button
+                      key={amount}
+                      type="button"
+                      onClick={() => setTopupAmount(amount.toLocaleString('vi-VN'))}
+                      className="rounded-lg border border-smb-outline-variant bg-smb-surface-container px-3 py-1.5 text-xs font-medium text-smb-on-surface hover:bg-smb-primary-container/10 hover:border-smb-primary-container transition-colors"
+                    >
+                      {amount >= 1_000_000
+                        ? `${amount / 1_000_000}M`
+                        : `${amount / 1000}K`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </FormModal>
       )}
     </div>
