@@ -14,7 +14,7 @@ const statusVariant = (status) => ({
 
 const statusLabel = (status) => ({
   Active: 'Hoạt động',
-  Inactive: 'Tạm dừng',
+  Inactive: 'Không hoạt động',
 })[status] || status
 
 const mapStatusForApi = (status) => (status === 'active' ? 'Active' : 'Inactive')
@@ -216,8 +216,8 @@ export function AdPackageList() {
           actions={[
             { label: 'Chỉnh sửa', icon: 'edit', onClick: () => openEdit(row) },
             {
-              label: row.status === 'Active' ? 'Tạm dừng' : 'Kích hoạt',
-              icon: row.status === 'Active' ? 'pause_circle' : 'play_circle',
+              label: row.status === 'Active' ? 'Tắt kích hoạt' : 'Kích hoạt',
+              icon: row.status === 'Active' ? 'cancel' : 'play_circle',
               onClick: () => handleToggleStatus(row),
             },
             { label: 'Xóa', icon: 'delete', danger: true, onClick: () => setDeleteTarget(row) },
@@ -253,7 +253,7 @@ export function AdPackageList() {
           {[
             { value: 'all', label: 'Tất Cả' },
             { value: 'active', label: 'Hoạt Động' },
-            { value: 'inactive', label: 'Tạm Dừng' },
+            { value: 'inactive', label: 'Không Hoạt Động' },
           ].map((opt) => (
             <button
               key={opt.value}

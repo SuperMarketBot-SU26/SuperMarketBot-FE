@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
 function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
@@ -6,11 +7,16 @@ function Icon({ name, className = '' }) {
 
 export function TableActions({ actions = [] }) {
   const [open, setOpen] = useState(false)
+  const [coords, setCoords] = useState({ top: 0, left: 0 })
+  const buttonRef = useRef(null)
   const menuRef = useRef(null)
 
   useEffect(() => {
     function handleClickOutside(event) {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
+      if (
+        menuRef.current && !menuRef.current.contains(event.target) &&
+        buttonRef.current && !buttonRef.current.contains(event.target)
+      ) {
         setOpen(false)
       }
     }
@@ -20,18 +26,38 @@ export function TableActions({ actions = [] }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [open])
 
+  const handleOpen = () => {
+    if (!buttonRef.current) return
+    const rect = buttonRef.current.getBoundingClientRect()
+    const menuHeight = actions.length * 44 + 8  // approximate: ~44px per item + padding
+    const spaceBelow = window.innerHeight - rect.bottom
+    const top = spaceBelow >= menuHeight
+      ? rect.bottom + 4          // enough room below → open downward
+      : rect.top - menuHeight - 4 // not enough room → flip upward
+    setCoords({
+      top,
+      left: Math.max(0, rect.right - 160),
+    })
+    setOpen(true)
+  }
+
   return (
-    <div className="relative inline-block" ref={menuRef}>
+    <div className="relative inline-block">
       <button
-        onClick={() => setOpen(!open)}
+        ref={buttonRef}
+        onClick={handleOpen}
         className="flex size-8 items-center justify-center rounded text-smb-on-surface-variant hover:bg-smb-surface-container hover:text-smb-on-surface"
         title="Hành động"
       >
         <Icon name="more_vert" className="text-[20px]" />
       </button>
 
-      {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 min-w-[160px] overflow-visible rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest shadow-lg">
+      {open && createPortal(
+        <div
+          ref={menuRef}
+          style={{ top: coords.top, left: coords.left }}
+          className="fixed z-50 min-w-[160px] rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest shadow-lg"
+        >
           {actions.map((action, idx) => (
             <button
               key={idx}
@@ -56,7 +82,8 @@ export function TableActions({ actions = [] }) {
               {action.label}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
