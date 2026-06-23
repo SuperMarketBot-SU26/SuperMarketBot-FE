@@ -3,34 +3,34 @@ import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import Navbar from '../components/Navbar'
 import Button from '../components/ui/Button'
-import { CampaignCreation, PackageSelector } from '../features/advertisement'
+import { CampaignCreation, PackageSelector, ProductSelector } from '../features/advertisement'
 import { createCampaign } from '../features/advertisement/api/adCampaignApi'
 import { getBrands } from '../features/brand/api/brandApi'
-import { getPackages } from '../features/advertisement/api/adPackageApi'
+
+function Icon({ name, className = '' }) {
+  return <span className={`material-symbols-outlined ${className}`}>{name}</span>
+}
 
 export function AdvertisementCreation() {
   const navigate = useNavigate()
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
+  const [submitSuccess, setSubmitSuccess] = useState(false)
 
   const [campaignData, setCampaignData] = useState({
-    name: '',
+    campaignName: '',
     brandId: '',
     startDate: '',
     endDate: '',
   })
   const [selectedPackage, setSelectedPackage] = useState('')
+  const [selectedProducts, setSelectedProducts] = useState([])
   const [brands, setBrands] = useState([])
-  const [packages, setPackages] = useState([])
   const [brandOptions, setBrandOptions] = useState([])
-  const [packageOptions, setPackageOptions] = useState([])
 
   useEffect(() => {
     getBrands()
       .then(setBrands)
-      .catch(() => {})
-    getPackages()
-      .then(setPackages)
       .catch(() => {})
   }, [])
 
@@ -38,47 +38,51 @@ export function AdvertisementCreation() {
     setBrandOptions(brands.map((b) => ({ value: b.brandId, label: b.brandName })))
   }, [brands])
 
-  useEffect(() => {
-    setPackageOptions(packages.map((p) => ({ value: p.packageId, label: p.packageName })))
-  }, [packages])
-
-  const handleSubmit = async () => {
-    if (!campaignData.name.trim()) {
+  const validate = () => {
+    if (!campaignData.campaignName.trim()) {
       setSubmitError('Vui lòng nhập tên chiến dịch.')
-      return
+      return false
     }
     if (!campaignData.brandId) {
       setSubmitError('Vui lòng chọn thương hiệu.')
-      return
+      return false
     }
     if (!selectedPackage) {
       setSubmitError('Vui lòng chọn gói quảng cáo.')
-      return
+      return false
     }
     if (!campaignData.startDate) {
       setSubmitError('Vui lòng chọn ngày bắt đầu.')
-      return
+      return false
     }
     if (!campaignData.endDate) {
       setSubmitError('Vui lòng chọn ngày kết thúc.')
-      return
+      return false
     }
     if (new Date(campaignData.endDate) < new Date(campaignData.startDate)) {
       setSubmitError('Ngày kết thúc phải sau ngày bắt đầu.')
-      return
+      return false
     }
+    return true
+  }
+
+  const handleSubmit = async () => {
+    if (!validate()) return
 
     setSubmitting(true)
     setSubmitError(null)
     try {
       await createCampaign({
-        campaignName: campaignData.name.trim(),
-        brandId: Number(campaignData.brandId),
         packageId: Number(selectedPackage),
+        brandId: Number(campaignData.brandId),
+        robotZoneId: null,
+        campaignName: campaignData.campaignName.trim(),
         startDate: new Date(campaignData.startDate).toISOString(),
         endDate: new Date(campaignData.endDate).toISOString(),
+        productIds: selectedProducts,
       })
-      navigate('/advertisement')
+      setSubmitSuccess(true)
+      setTimeout(() => navigate('/advertisement'), 1500)
     } catch (err) {
       setSubmitError(err?.response?.data?.error || err.message || 'Tạo chiến dịch thất bại. Vui lòng thử lại.')
     } finally {
@@ -99,30 +103,72 @@ export function AdvertisementCreation() {
         <main className="px-6 py-6">
           <div className="mx-auto max-w-5xl space-y-6">
             {submitError && (
-              <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                <Icon name="error" className="text-[16px]" />
                 {submitError}
               </div>
             )}
 
+            {submitSuccess && (
+              <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+                <Icon name="check_circle" className="text-[16px]" />
+                Tạo chiến dịch thành công! Đang chuyển hướng...
+              </div>
+            )}
+
+            {/* Step 1: Campaign info */}
             <CampaignCreation
               data={campaignData}
               onChange={setCampaignData}
               brandOptions={brandOptions}
             />
 
+            {/* Step 2: Package selection */}
             <PackageSelector
               value={selectedPackage}
               onChange={setSelectedPackage}
+              loading={submitting}
             />
 
+            {/* Step 3: Product selection */}
+            <ProductSelector
+              value={selectedProducts}
+              onChange={setSelectedProducts}
+            />
+
+            {/* Step 4: Robot Zone (mock) */}
+            <div className="rounded-lg border border-dashed border-smb-outline-variant bg-smb-surface-container-lowest p-6">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-smb-primary-container/10">
+                  <Icon name="smart_toy" className="text-xl text-smb-primary-container" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-smb-on-surface">Khu Vực Robot</h3>
+                  <p className="text-sm text-smb-on-surface-variant">Chọn khu vực hoạt động của Robot (sẽ sớm)</p>
+                </div>
+              </div>
+              <div className="mt-4 rounded-lg border border-smb-outline bg-smb-surface-container-low p-4 text-sm text-smb-outline">
+                <div className="flex items-center gap-2">
+                  <Icon name="lock" className="text-[16px]" />
+                  Tính năng đang phát triển — robotZoneId sẽ được thiết lập tự động hoặc chọn thủ công sau.
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
             <div className="flex items-center justify-end gap-4 rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest p-4">
-              <Button variant="secondary" onClick={() => navigate('/advertisement')}>
+              <Button
+                variant="secondary"
+                onClick={() => navigate('/advertisement')}
+                disabled={submitting}
+              >
                 Hủy
               </Button>
               <Button
                 variant="primary"
+                icon="add"
                 onClick={handleSubmit}
-                disabled={submitting}
+                disabled={submitting || submitSuccess}
               >
                 {submitting ? 'Đang Tạo...' : 'Tạo Chiến Dịch'}
               </Button>

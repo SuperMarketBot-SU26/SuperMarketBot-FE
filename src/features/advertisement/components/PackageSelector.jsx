@@ -1,58 +1,73 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { getPackages } from '../api/adPackageApi'
 
 function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
 }
 
-const packages = [
-  {
-    id: 'basic',
-    name: 'Cơ Bản',
-    icon: 'inventory_2',
-    price: '5,000,000',
-    period: 'tháng',
-    description: 'Dành cho robot đơn lẻ',
-    features: ['Quản lý 1 robot', 'Báo cáo cơ bản', 'Hỗ trợ email'],
-  },
-  {
-    id: 'silver',
-    name: 'Bạc',
-    icon: 'military_tech',
-    price: '12,000,000',
-    period: 'tháng',
-    description: 'Tối đa 5 điểm bán',
-    features: ['Quản lý 5 robot', 'Báo cáo nâng cao', 'Hỗ trợ 24/7'],
-    badge: null,
-  },
-  {
-    id: 'gold',
-    name: 'Vàng',
-    icon: 'stars',
-    price: '25,000,000',
-    period: 'tháng',
-    description: 'Ưu tiên hiển thị màn hình',
-    features: ['Quản lý 10 robot', 'Báo cáo chi tiết', 'Hỗ trợ ưu tiên', 'Hiển thị ưu tiên'],
-    badge: 'Phổ biến nhất',
-    popular: true,
-  },
-  {
-    id: 'diamond',
-    name: 'Cao Cấp',
-    icon: 'diamond',
-    price: '50,000,000',
-    period: 'tháng',
-    description: 'Toàn quyền tùy chỉnh nội dung',
-    features: ['Không giới hạn robot', 'Báo cáo AI', 'Hỗ trợ VIP', 'Toàn quyền tùy chỉnh'],
-  },
+const FEATURE_LABELS = [
+  'Quản lý 1 robot',
+  'Quản lý 3 robot',
+  'Quản lý 5 robot',
+  'Quản lý 10 robot',
+  'Không giới hạn robot',
+  'Báo cáo cơ bản',
+  'Báo cáo nâng cao',
+  'Báo cáo chi tiết',
+  'Báo cáo AI',
+  'Hỗ trợ email',
+  'Hỗ trợ 24/7',
+  'Hỗ trợ ưu tiên',
+  'Hỗ trợ VIP',
+  'Hiển thị ưu tiên',
+  'Toàn quyền tùy chỉnh',
 ]
 
-export function PackageSelector({ value, onChange }) {
-  const [selectedPackage, setSelectedPackage] = useState(value || 'gold')
+const pkgFeatures = (pkg) => {
+  const score = pkg.adScore ?? 0
+  const feats = []
+  if (score >= 10) feats.push('Quản lý 1 robot')
+  if (score >= 30) feats.push('Quản lý 3 robot')
+  if (score >= 50) feats.push('Quản lý 5 robot')
+  if (score >= 80) feats.push('Quản lý 10 robot')
+  if (score >= 100) feats.push('Không giới hạn robot')
+  if (score >= 10) feats.push('Báo cáo cơ bản')
+  if (score >= 30) feats.push('Báo cáo nâng cao')
+  if (score >= 50) feats.push('Báo cáo chi tiết')
+  if (score >= 100) feats.push('Báo cáo AI')
+  if (score >= 10) feats.push('Hỗ trợ email')
+  if (score >= 30) feats.push('Hỗ trợ 24/7')
+  if (score >= 50) feats.push('Hỗ trợ ưu tiên')
+  if (score >= 100) feats.push('Hỗ trợ VIP')
+  if (score >= 50) feats.push('Hiển thị ưu tiên')
+  if (score >= 100) feats.push('Toàn quyền tùy chỉnh')
+  return feats.slice(0, 5)
+}
 
-  const handleSelect = (packageId) => {
-    setSelectedPackage(packageId)
-    onChange?.(packageId)
-  }
+const pkgIcon = (name) => {
+  const n = (name || '').toLowerCase()
+  if (n.includes('basic') || n.includes('bạc')) return 'inventory_2'
+  if (n.includes('silver')) return 'military_tech'
+  if (n.includes('gold') || n.includes('vàng')) return 'stars'
+  if (n.includes('diamond') || n.includes('cấp')) return 'diamond'
+  return 'package_2'
+}
+
+export function PackageSelector({ value, onChange, loading }) {
+  const [packages, setPackages] = useState([])
+  const [fetching, setFetching] = useState(true)
+
+  useEffect(() => {
+    getPackages()
+      .then((data) => {
+        const active = Array.isArray(data) ? data.filter((p) => p.status === 'Active') : []
+        setPackages(active)
+      })
+      .catch(() => setPackages([]))
+      .finally(() => setFetching(false))
+  }, [])
+
+  const selected = packages.find((p) => p.packageId === value)
 
   return (
     <div className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest p-6">
@@ -61,70 +76,96 @@ export function PackageSelector({ value, onChange }) {
           <Icon name="package_2" className="text-xl text-smb-primary-container" />
         </div>
         <div>
-          <h3 className="text-base font-semibold text-smb-on-surface">Cấu Hình Gói Sản Phẩm</h3>
+          <h3 className="text-base font-semibold text-smb-on-surface">Cấu Hình Gói Quảng Cáo</h3>
           <p className="text-sm text-smb-on-surface-variant">Chọn gói phù hợp với nhu cầu của bạn</p>
         </div>
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {packages.map((pkg) => (
-          <button
-            key={pkg.id}
-            type="button"
-            onClick={() => handleSelect(pkg.id)}
-            className={`
-              relative rounded-lg border-2 p-4 text-left transition-all
-              ${selectedPackage === pkg.id
-                ? 'border-smb-primary-container bg-smb-active-bg'
-                : 'border-smb-outline-variant bg-smb-surface-container-lowest hover:border-smb-outline'
-              }
-            `}
-          >
-            {pkg.badge && (
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-smb-primary-container px-3 py-1 text-xs font-medium text-smb-on-primary">
-                {pkg.badge}
-              </span>
-            )}
-
-            <div className={`
-              mb-3 flex size-10 items-center justify-center rounded-lg
-              ${selectedPackage === pkg.id ? 'bg-smb-primary-container text-smb-on-primary' : 'bg-smb-surface-container text-smb-on-surface-variant'}
-            `}>
-              <Icon name={pkg.icon} className="text-xl" />
-            </div>
-
-            <h4 className={`font-semibold ${selectedPackage === pkg.id ? 'text-smb-primary-container' : 'text-smb-on-surface'}`}>
-              {pkg.name}
-            </h4>
-
-            <p className="mt-1 text-xs text-smb-on-surface-variant">
-              {pkg.description}
-            </p>
-
-            <div className="mt-3">
-              <span className="text-xl font-bold text-smb-on-surface">
-                {pkg.price.toLocaleString('vi-VN')}
-              </span>
-              <span className="text-sm text-smb-on-surface-variant">đ /{pkg.period}</span>
-            </div>
-
-            {selectedPackage === pkg.id && (
-              <div className="absolute right-3 top-3">
-                <div className="flex size-5 items-center justify-center rounded-full bg-smb-primary-container">
-                  <Icon name="check" className="text-xs text-smb-on-primary" />
-                </div>
-              </div>
-            )}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-6 rounded-lg border border-smb-outline-variant bg-smb-surface-container-low p-4">
-        <div className="flex items-center gap-2 text-sm text-smb-on-surface-variant">
-          <Icon name="info" className="text-[18px] text-smb-primary-container" />
-          <span>Chi phí sẽ được tính theo số ngày sử dụng thực tế nếu chiến dịch kết thúc sớm hơn dự kiến.</span>
+      {(fetching || loading) ? (
+        <div className="flex items-center justify-center py-8 text-sm text-smb-on-surface-variant">
+          <Icon name="progress_activity" className="animate-spin mr-2 text-[16px]" />
+          Đang tải gói quảng cáo...
         </div>
-      </div>
+      ) : packages.length === 0 ? (
+        <div className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-low py-8 text-center text-sm text-smb-on-surface-variant">
+          Không có gói quảng cáo nào đang hoạt động.
+        </div>
+      ) : (
+        <>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {packages.map((pkg) => {
+              const isSelected = value === pkg.packageId
+              return (
+                <button
+                  key={pkg.packageId}
+                  type="button"
+                  onClick={() => onChange?.(pkg.packageId)}
+                  className={`
+                    relative rounded-lg border-2 p-4 text-left transition-all
+                    ${isSelected
+                      ? 'border-smb-primary-container bg-smb-active-bg'
+                      : 'border-smb-outline-variant bg-smb-surface-container-lowest hover:border-smb-outline'
+                    }
+                  `}
+                >
+                  <div className={`
+                    mb-3 flex size-10 items-center justify-center rounded-lg
+                    ${isSelected ? 'bg-smb-primary-container text-smb-on-primary' : 'bg-smb-surface-container text-smb-on-surface-variant'}
+                  `}>
+                    <Icon name={pkgIcon(pkg.packageName)} className="text-xl" />
+                  </div>
+
+                  <h4 className={`font-semibold ${isSelected ? 'text-smb-primary-container' : 'text-smb-on-surface'}`}>
+                    {pkg.packageName}
+                  </h4>
+
+                  <div className="mt-2">
+                    <span className="text-xl font-bold text-smb-on-surface">
+                      {Number(pkg.pricePackage).toLocaleString('vi-VN')}
+                    </span>
+                    <span className="text-sm text-smb-on-surface-variant"> đ</span>
+                  </div>
+
+                  <div className="mt-1 text-xs text-smb-on-surface-variant">
+                    Ad Score: {pkg.adScore}
+                  </div>
+
+                  {isSelected && (
+                    <div className="absolute right-3 top-3">
+                      <div className="flex size-5 items-center justify-center rounded-full bg-smb-primary-container">
+                        <Icon name="check" className="text-xs text-white" />
+                      </div>
+                    </div>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Selected package detail */}
+          {selected && (
+            <div className="mt-6 space-y-3">
+              <div className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-low p-4">
+                <h4 className="text-sm font-semibold text-smb-on-surface">Tính năng gói {selected.packageName}</h4>
+                <ul className="mt-2 space-y-1">
+                  {pkgFeatures(selected).map((f) => (
+                    <li key={f} className="flex items-center gap-2 text-xs text-smb-on-surface-variant">
+                      <Icon name="check" className="text-[14px] text-green-600" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="flex items-start gap-2 rounded-lg border border-smb-outline-variant bg-smb-surface-container-low p-4">
+                <Icon name="info" className="mt-0.5 text-[16px] text-smb-primary-container" />
+                <span className="text-xs text-smb-on-surface-variant">
+                  Chi phí sẽ được tính theo số ngày sử dụng thực tế nếu chiến dịch kết thúc sớm hơn dự kiến.
+                </span>
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }

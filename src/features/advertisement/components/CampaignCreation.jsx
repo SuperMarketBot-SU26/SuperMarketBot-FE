@@ -10,16 +10,16 @@ const FALLBACK_BRANDS = [
 
 export function CampaignForm({ data, onChange, brandOptions = FALLBACK_BRANDS }) {
   const [formData, setFormData] = useState({
-    name: data?.name ?? '',
+    campaignName: data?.campaignName ?? '',
     brandId: data?.brandId ?? '',
     startDate: data?.startDate ?? '',
     endDate: data?.endDate ?? '',
   })
 
   const handleChange = (field, value) => {
-    const newData = { ...formData, [field]: value }
-    setFormData(newData)
-    onChange?.(newData)
+    const next = { ...formData, [field]: value }
+    setFormData(next)
+    onChange?.(next)
   }
 
   return (
@@ -40,8 +40,8 @@ export function CampaignForm({ data, onChange, brandOptions = FALLBACK_BRANDS })
         <Input
           label="Tên Chiến Dịch"
           placeholder="Nhập tên chiến dịch"
-          value={formData.name}
-          onChange={(e) => handleChange('name', e.target.value)}
+          value={formData.campaignName}
+          onChange={(e) => handleChange('campaignName', e.target.value)}
           required
         />
 
