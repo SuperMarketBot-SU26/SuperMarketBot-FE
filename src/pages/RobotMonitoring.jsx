@@ -69,7 +69,7 @@ export function RobotMonitoring() {
           subtitle="Theo dõi đội robot, vị trí trên bản đồ và gán lộ trình di chuyển"
         />
 
-        <main className="flex flex-col gap-4 px-6 py-6">
+        <main className="flex flex-col gap-6 px-6 py-6">
           <FleetStatsHeader robots={robots} />
 
           {mapLoading || robotsLoading ? (
