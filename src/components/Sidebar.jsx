@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 
 const navItems = [
   { icon: 'inventory_2', label: 'Tổng Quan' },
-  { icon: 'smart_toy', label: 'Giám Sát Robot' },
+  { icon: 'smart_toy', label: 'Giám Sát Robot', path: '/robots' },
   { icon: 'groups', label: 'Quản Lý Khách Hàng' },
   { icon: 'campaign', label: 'Chiến Dịch Quảng Cáo', path: '/' },
   { icon: 'sell', label: 'Gói Quảng Cáo', path: '/ad-packages' },

@@ -10,6 +10,7 @@ import BrandWallet from './pages/BrandWallet'
 import ProductManagement from './pages/ProductManagement'
 import ProductDetail from './pages/ProductDetail'
 import ParameterSettings from './pages/ParameterSettings'
+import RobotMonitoring from './pages/RobotMonitoring'
 
 function App() {
   return (
@@ -35,6 +36,10 @@ function App() {
         {/* Products */}
         <Route path="/products" element={<ProductManagement />} />
         <Route path="/products/:id" element={<ProductDetail />} />
+
+        {/* Robot monitoring */}
+        <Route path="/robots" element={<RobotMonitoring />} />
+        <Route path="/robot-monitoring" element={<RobotMonitoring />} />
       </Routes>
     </BrowserRouter>
   )
