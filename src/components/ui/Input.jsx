@@ -12,11 +12,16 @@ export function Input({
   onChange,
   icon,
   error,
+  success = false,
+  hint,
   disabled = false,
   required = false,
   className = '',
   ...props
 }) {
+  const hasError = Boolean(error)
+  const hasSuccess = success && !hasError
+
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
       {label && (
@@ -25,10 +30,25 @@ export function Input({
           {required && <span className="text-smb-error ml-0.5">*</span>}
         </label>
       )}
-      <div className="relative">
+      <div
+        className={`
+          group relative flex items-center rounded border bg-smb-surface-container-lowest
+          transition-[box-shadow,border-color,background-color] duration-[180ms]
+          ease-[cubic-bezier(0.16,1,0.3,1)]
+          focus-within:bg-smb-surface-container-lowest
+          focus-within:shadow-[0_0_0_3px_rgb(74_222_128/0.30)]
+          hover:border-smb-outline
+          ${hasError
+            ? 'border-smb-error focus-within:border-smb-error focus-within:shadow-[0_0_0_3px_rgb(186_26_26/0.18)]'
+            : hasSuccess
+              ? 'border-smb-success focus-within:border-smb-success focus-within:shadow-[0_0_0_3px_rgb(21_128_61/0.18)]'
+              : 'border-smb-outline-variant focus-within:border-smb-primary-container'}
+          ${disabled ? 'cursor-not-allowed opacity-50' : ''}
+        `}
+      >
         {icon && (
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-            <Icon name={icon} className="text-[18px] text-smb-on-surface-variant" />
+          <div className="pointer-events-none flex items-center pl-3 text-smb-on-surface-variant transition-colors duration-150 group-focus-within:text-smb-primary-container">
+            <Icon name={icon} className="text-[18px]" />
           </div>
         )}
         <input
@@ -39,18 +59,28 @@ export function Input({
           disabled={disabled}
           required={required}
           className={`
-            w-full rounded border bg-smb-surface-container-lowest px-4 py-2.5 text-sm text-smb-on-surface
+            w-full bg-transparent px-3.5 py-2.5 text-sm text-smb-on-surface
             placeholder:text-smb-on-surface-variant/50
-            focus:border-smb-primary-container focus:outline-none focus:ring-2 focus:ring-smb-primary-container/20
-            disabled:cursor-not-allowed disabled:opacity-50
-            ${icon ? 'pl-10' : ''}
-            ${error ? 'border-smb-error focus:border-smb-error focus:ring-smb-error/20' : 'border-smb-outline-variant'}
+            focus:outline-none
+            disabled:cursor-not-allowed
+            ${icon ? 'pl-9' : ''}
           `}
           {...props}
         />
+        {hasSuccess && (
+          <div className="pointer-events-none pr-3 text-smb-success">
+            <Icon name="check_circle" className="text-[18px]" />
+          </div>
+        )}
       </div>
+      {hint && !hasError && (
+        <p className="text-xs text-smb-on-surface-variant">{hint}</p>
+      )}
       {error && (
-        <p className="text-xs text-smb-error">{error}</p>
+        <p className="flex items-center gap-1 text-xs text-smb-error">
+          <Icon name="error" className="text-[14px]" />
+          {error}
+        </p>
       )}
     </div>
   )

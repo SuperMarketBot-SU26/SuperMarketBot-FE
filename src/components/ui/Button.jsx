@@ -15,16 +15,42 @@ export function Button({
   className = '',
   ...props
 }) {
-  const baseStyles = 'inline-flex items-center justify-center gap-2 font-medium rounded transition-all focus:outline-none focus:ring-2 focus:ring-smb-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed'
+  const baseStyles =
+    'inline-flex items-center justify-center gap-2 font-medium rounded ' +
+    'transition-[transform,box-shadow,background-color,border-color,color,opacity] ' +
+    'duration-[180ms] ease-[cubic-bezier(0.16,1,0.3,1)] ' +
+    'focus:outline-none focus-visible:shadow-[0_0_0_3px_rgb(74_222_128/0.30)] ' +
+    'disabled:opacity-50 disabled:cursor-not-allowed ' +
+    'active:translate-y-px active:scale-[0.985] ' +
+    'motion-reduce:transition-none motion-reduce:active:transform-none'
 
   const variants = {
-    primary: 'bg-smb-primary-container text-smb-on-primary hover:opacity-90',
-    secondary: 'border border-smb-outline-variant bg-smb-surface-container-lowest text-smb-on-surface hover:bg-smb-surface-container',
-    outline: 'border border-smb-outline-variant bg-transparent text-smb-on-surface-variant hover:bg-smb-surface-container-low',
-    ghost: 'bg-transparent text-smb-on-surface-variant hover:bg-smb-surface-container-low',
-    success: 'bg-green-600 text-white hover:bg-green-700',
-    warning: 'bg-yellow-500 text-white hover:bg-yellow-600',
-    danger: 'bg-red-600 text-white hover:bg-red-700',
+    primary:
+      'bg-smb-primary-container text-smb-on-primary ' +
+      'shadow-[0_1px_0_0_rgb(255_255_255/0.15)_inset,0_1px_2px_0_rgb(15_23_42/0.10)] ' +
+      'hover:bg-smb-primary-container/95 hover:shadow-[0_1px_0_0_rgb(255_255_255/0.18)_inset,0_4px_10px_-2px_rgb(15_23_42/0.18)]',
+    secondary:
+      'border border-smb-outline-variant bg-smb-surface-container-lowest text-smb-on-surface ' +
+      'shadow-[0_1px_2px_0_rgb(15_23_42/0.04)] ' +
+      'hover:bg-smb-surface-container hover:border-smb-outline hover:shadow-[0_2px_6px_-2px_rgb(15_23_42/0.08)]',
+    outline:
+      'border border-smb-outline-variant bg-transparent text-smb-on-surface-variant ' +
+      'hover:bg-smb-surface-container-low hover:text-smb-on-surface hover:border-smb-outline',
+    ghost:
+      'bg-transparent text-smb-on-surface-variant ' +
+      'hover:bg-smb-surface-container-low hover:text-smb-on-surface',
+    success:
+      'bg-green-600 text-white ' +
+      'shadow-[0_1px_2px_0_rgb(15_23_42/0.10)] ' +
+      'hover:bg-green-700 hover:shadow-[0_4px_10px_-2px_rgb(15_23_42/0.18)]',
+    warning:
+      'bg-yellow-500 text-white ' +
+      'shadow-[0_1px_2px_0_rgb(15_23_42/0.10)] ' +
+      'hover:bg-yellow-600 hover:shadow-[0_4px_10px_-2px_rgb(15_23_42/0.18)]',
+    danger:
+      'bg-red-600 text-white ' +
+      'shadow-[0_1px_2px_0_rgb(15_23_42/0.10)] ' +
+      'hover:bg-red-700 hover:shadow-[0_4px_10px_-2px_rgb(15_23_42/0.18)]',
   }
 
   const sizes = {
@@ -40,17 +66,20 @@ export function Button({
       {...props}
     >
       {loading ? (
-        <span className="animate-spin">
-          <Icon name="progress_activity" className="text-[18px]" />
-        </span>
+        <>
+          <span className="smb-spin inline-flex">
+            <Icon name="progress_activity" className="text-[18px]" />
+          </span>
+          <span className="opacity-80">{children}</span>
+        </>
       ) : (
         <>
           {icon && iconPosition === 'left' && (
-            <Icon name={icon} className="text-[18px]" />
+            <Icon name={icon} className="text-[18px] transition-transform duration-150 group-hover:translate-x-[-1px]" />
           )}
-          {children}
+          <span>{children}</span>
           {icon && iconPosition === 'right' && (
-            <Icon name={icon} className="text-[18px]" />
+            <Icon name={icon} className="text-[18px] transition-transform duration-150 group-hover:translate-x-[1px]" />
           )}
         </>
       )}

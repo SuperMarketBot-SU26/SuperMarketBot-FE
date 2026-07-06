@@ -4,57 +4,57 @@
   /* Typography */
   --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
 
-  /* Color - Primary */
-  --color-smb-primary: #00236f;
-  --color-smb-primary-container: #1e3a8a;
+  /* Color - Primary (green) */
+  --color-smb-primary: #14532d;
+  --color-smb-primary-container: #166534;
   --color-smb-on-primary: #ffffff;
-  --color-smb-on-primary-container: #90a8ff;
-  --color-smb-primary-fixed: #dce1ff;
-  --color-smb-primary-fixed-dim: #b6c4ff;
-  --color-smb-on-primary-fixed: #00164e;
-  --color-smb-on-primary-fixed-variant: #264191;
-  --color-smb-inverse-primary: #b6c4ff;
+  --color-smb-on-primary-container: #86efac;
+  --color-smb-primary-fixed: #dcfce7;
+  --color-smb-primary-fixed-dim: #bbf7d0;
+  --color-smb-on-primary-fixed: #052e16;
+  --color-smb-on-primary-fixed-variant: #14532d;
+  --color-smb-inverse-primary: #86efac;
 
   /* Color - Secondary */
-  --color-smb-secondary: #505f76;
-  --color-smb-secondary-container: #d0e1fb;
+  --color-smb-secondary: #3f5d4a;
+  --color-smb-secondary-container: #d6ecdf;
   --color-smb-on-secondary: #ffffff;
-  --color-smb-on-secondary-container: #54647a;
-  --color-smb-secondary-fixed: #d3e4fe;
-  --color-smb-secondary-fixed-dim: #b7c8e1;
-  --color-smb-on-secondary-fixed: #0b1c30;
-  --color-smb-on-secondary-fixed-variant: #38485d;
+  --color-smb-on-secondary-container: #46624f;
+  --color-smb-secondary-fixed: #daecdf;
+  --color-smb-secondary-fixed-dim: #bed0c5;
+  --color-smb-on-secondary-fixed: #0b1c14;
+  --color-smb-on-secondary-fixed-variant: #31493b;
 
   /* Color - Tertiary */
-  --color-smb-tertiary: #4b1c00;
-  --color-smb-tertiary-container: #6e2c00;
+  --color-smb-tertiary: #1f4d3a;
+  --color-smb-tertiary-container: #2f6a4e;
   --color-smb-on-tertiary: #ffffff;
-  --color-smb-on-tertiary-container: #f39461;
-  --color-smb-tertiary-fixed: #ffdbcb;
-  --color-smb-tertiary-fixed-dim: #ffb691;
-  --color-smb-on-tertiary-fixed: #341100;
-  --color-smb-on-tertiary-fixed-variant: #773205;
+  --color-smb-on-tertiary-container: #95d6b1;
+  --color-smb-tertiary-fixed: #c8ecdb;
+  --color-smb-tertiary-fixed-dim: #aedac4;
+  --color-smb-on-tertiary-fixed: #062516;
+  --color-smb-on-tertiary-fixed-variant: #1f4d3a;
 
   /* Color - Surface */
-  --color-smb-surface: #f8f9fa;
-  --color-smb-surface-dim: #d9dadb;
-  --color-smb-surface-bright: #f8f9fa;
+  --color-smb-surface: #f7faf7;
+  --color-smb-surface-dim: #e6ebe6;
+  --color-smb-surface-bright: #f7faf7;
   --color-smb-surface-container-lowest: #ffffff;
-  --color-smb-surface-container-low: #f3f4f5;
-  --color-smb-surface-container: #edeeef;
-  --color-smb-surface-container-high: #e7e8e9;
-  --color-smb-surface-container-highest: #e1e3e4;
-  --color-smb-surface-tint: #4059aa;
+  --color-smb-surface-container-low: #f3f8f4;
+  --color-smb-surface-container: #edf3ee;
+  --color-smb-surface-container-high: #e6eee7;
+  --color-smb-surface-container-highest: #dee8df;
+  --color-smb-surface-tint: #4f9b6b;
 
   /* Color - On Surface */
-  --color-smb-on-surface: #191c1d;
-  --color-smb-on-surface-variant: #444651;
-  --color-smb-inverse-surface: #2e3132;
-  --color-smb-inverse-on-surface: #f0f1f2;
+  --color-smb-on-surface: #11201a;
+  --color-smb-on-surface-variant: #4a5a52;
+  --color-smb-inverse-surface: #25342d;
+  --color-smb-inverse-on-surface: #ecf3ee;
 
   /* Color - Outline */
-  --color-smb-outline: #757682;
-  --color-smb-outline-variant: #c5c5d3;
+  --color-smb-outline: #6a7c72;
+  --color-smb-outline-variant: #cad6cf;
 
   /* Color - Error */
   --color-smb-error: #ba1a1a;
@@ -63,16 +63,30 @@
   --color-smb-on-error-container: #93000a;
 
   /* Color - Background */
-  --color-smb-background: #f8f9fa;
-  --color-smb-on-background: #191c1d;
+  --color-smb-background: #f7faf7;
+  --color-smb-on-background: #11201a;
 
   /* Color - Surface Variant */
-  --color-smb-surface-variant: #e1e3e4;
+  --color-smb-surface-variant: #dee8df;
 
   /* Design System Custom Colors */
-  --color-smb-active-bg: #eff6ff;
+  --color-smb-active-bg: #ecfdf5;
   --color-smb-success: #15803d;
   --color-smb-success-bg: #dcfce7;
+
+  /* Shadows — mild, admin-portal-appropriate */
+  --shadow-smb-1: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 1px 0 rgb(15 23 42 / 0.03);
+  --shadow-smb-2: 0 2px 6px -2px rgb(15 23 42 / 0.06), 0 4px 12px -4px rgb(15 23 42 / 0.05);
+  --shadow-smb-3: 0 8px 24px -8px rgb(15 23 42 / 0.10), 0 2px 6px -2px rgb(15 23 42 / 0.05);
+  --shadow-smb-focus: 0 0 0 3px rgb(74 222 128 / 0.30);
+  --shadow-smb-inset: inset 0 1px 0 0 rgb(255 255 255 / 0.6);
+
+  /* Animation timings */
+  --ease-smb-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-smb-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-smb-fast: 120ms;
+  --dur-smb: 180ms;
+  --dur-smb-slow: 260ms;
 
   /* Spacing */
   --spacing-sidebar-width: 260px;
@@ -190,4 +204,98 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-smb-outline);
+}
+
+/* ---------------------------------------------------------------- */
+/*  Effects — mild, admin-portal-appropriate                          */
+/* ---------------------------------------------------------------- */
+
+/* Subtle elevation tokens. Use these instead of arbitrary shadow-* */
+.smb-elev-0 { box-shadow: none; }
+.smb-elev-1 { box-shadow: var(--shadow-smb-1); }
+.smb-elev-2 { box-shadow: var(--shadow-smb-2); }
+.smb-elev-3 { box-shadow: var(--shadow-smb-3); }
+
+/* Top highlight stroke (used on filled surfaces for a subtle sheen) */
+.smb-inset-highlight {
+  box-shadow: var(--shadow-smb-inset);
+}
+
+/* Animated press feedback — pair with transform on :active */
+.smb-press {
+  transition-property: transform, box-shadow, background-color, border-color, color, opacity;
+  transition-duration: var(--dur-smb);
+  transition-timing-function: var(--ease-smb-out);
+  will-change: transform;
+}
+.smb-press:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+}
+
+/* Hover lift used on cards / clickable containers */
+.smb-lift {
+  transition: transform var(--dur-smb) var(--ease-smb-out),
+              box-shadow var(--dur-smb) var(--ease-smb-out),
+              border-color var(--dur-smb) var(--ease-smb-out);
+  will-change: transform;
+}
+.smb-lift:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-smb-2);
+}
+
+/* Focus ring (light) — used by buttons / cards */
+.smb-focus-ring:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-smb-focus);
+}
+
+/* Soft fade-in (used for dropdowns, modals, panels) */
+@keyframes smb-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.smb-fade-in { animation: smb-fade-in var(--dur-smb) var(--ease-smb-out) both; }
+
+/* Small slide-down (used for select popover / menu) */
+@keyframes smb-pop-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+.smb-pop-in { animation: smb-pop-in var(--dur-smb) var(--ease-smb-out) both; transform-origin: top; }
+
+/* Skeleton shimmer (used in loading states) */
+@keyframes smb-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.smb-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-smb-surface-container-low) 0%,
+    var(--color-smb-surface-container-high) 50%,
+    var(--color-smb-surface-container-low) 100%
+  );
+  background-size: 200% 100%;
+  animation: smb-shimmer 1.4s linear infinite;
+}
+
+/* Spinner keyframes (kept here so it lives next to the design tokens) */
+@keyframes smb-spin {
+  to { transform: rotate(360deg); }
+}
+.smb-spin { animation: smb-spin 0.7s linear infinite; }
+
+/* Respect user motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .smb-press,
+  .smb-lift,
+  .smb-fade-in,
+  .smb-pop-in,
+  .smb-skeleton,
+  .smb-spin {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+  }
 }
