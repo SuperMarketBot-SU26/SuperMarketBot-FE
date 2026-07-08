@@ -17,6 +17,7 @@ import {
   formatVND,
   statusLabel,
 } from '../features/product'
+import { getProducts as fetchPublicProducts } from '../features/product/api/productApi'
 
 const STATUS_OPTIONS = [
   { value: 'Available', label: 'Còn hàng' },
@@ -51,6 +52,8 @@ export function ProductManagement() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [formError, setFormError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [substituteOptions, setSubstituteOptions] = useState([])
+  const [substituteLoading, setSubstituteLoading] = useState(false)
 
   // Delete confirm state
   const [deletingProduct, setDeletingProduct] = useState(null)
@@ -88,14 +91,15 @@ export function ProductManagement() {
     discontinued: products.filter((p) => p.status === 'Discontinued').length,
   }
 
-  const openCreate = () => {
+  const openCreate = async () => {
     setEditingProduct(null)
     setForm(EMPTY_FORM)
     setFormError(null)
     setModalOpen(true)
+    await loadSubstituteOptions(null)
   }
 
-  const openEdit = (product) => {
+  const openEdit = async (product) => {
     setEditingProduct(product)
     setForm({
       productTypeId: product.productTypeId ?? '',
@@ -109,6 +113,30 @@ export function ProductManagement() {
     })
     setFormError(null)
     setModalOpen(true)
+    await loadSubstituteOptions(product.productId)
+  }
+
+  /**
+   * Fetch the full product list to populate the Substitute dropdown.
+   * Excludes the product being edited so it can't substitute itself.
+   */
+  const loadSubstituteOptions = async (excludeProductId) => {
+    setSubstituteLoading(true)
+    try {
+      const data = await fetchPublicProducts()
+      const list = Array.isArray(data) ? data : []
+      const options = list
+        .filter((p) => p.productId !== excludeProductId)
+        .map((p) => ({
+          value: String(p.productId),
+          label: `#${p.productId} — ${p.productName}`,
+        }))
+      setSubstituteOptions(options)
+    } catch {
+      setSubstituteOptions([])
+    } finally {
+      setSubstituteLoading(false)
+    }
   }
 
   const closeModal = () => {
@@ -149,7 +177,8 @@ export function ProductManagement() {
       imageUrl: form.imageUrl.trim() || null,
       description: form.description.trim() || null,
       status: form.status || 'Available',
-      substituteProductId: form.substituteProductId === '' ? null : Number(form.substituteProductId),
+      substituteProductId:
+        form.substituteProductId === '' ? null : Number(form.substituteProductId),
     }
 
     setSubmitting(true)
@@ -454,13 +483,19 @@ export function ProductManagement() {
                 step="0.01"
               />
             </FormField>
-            <FormField label="Sản Phẩm Thay Thế (ID)">
-              <Input
-                type="number"
-                placeholder="(tuỳ chọn)"
-                value={form.substituteProductId}
-                onChange={(e) => handleChange('substituteProductId', e.target.value)}
-                min={1}
+            <FormField label="Sản Phẩm Thay Thế">
+              <Select
+                placeholder={
+                  substituteLoading
+                    ? 'Đang tải danh sách...'
+                    : substituteOptions.length === 0
+                      ? 'Không có sản phẩm khác'
+                      : 'Chọn sản phẩm thay thế'
+                }
+                options={substituteOptions}
+                value={form.substituteProductId === '' ? '' : String(form.substituteProductId)}
+                onChange={(v) => handleChange('substituteProductId', v)}
+                disabled={substituteLoading || substituteOptions.length === 0}
               />
             </FormField>
           </div>

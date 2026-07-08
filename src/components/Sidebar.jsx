@@ -5,14 +5,13 @@ import { useAuth } from '../features/auth/useAuth'
 const navItems = [
   { icon: 'inventory_2', label: 'Tổng Quan' },
   { icon: 'smart_toy', label: 'Giám Sát Robot', path: '/robots' },
-  { icon: 'groups', label: 'Quản Lý Khách Hàng' },
+  { icon: 'manage_accounts', label: 'Quản Lý Tài Khoản', path: '/accounts' },
   { icon: 'campaign', label: 'Chiến Dịch Quảng Cáo', path: '/' },
   { icon: 'sell', label: 'Gói Quảng Cáo', path: '/ad-packages' },
   { icon: 'account_balance_wallet', label: 'Quản Lý Nhãn Hàng', path: '/brand-dashboard' },
   { icon: 'inventory_2', label: 'Quản Lý Sản Phẩm', path: '/products' },
   { icon: 'reviews', label: 'Đánh Giá & Phản Hồi' },
   { icon: 'tune', label: 'Cấu Hình Thuật Toán', path: '/algorithm-settings' },
-  { icon: 'manage_accounts', label: 'Quản Lý Tài Khoản' },
   { icon: 'history', label: 'Nhật Ký Hệ Thống' },
 ]
 

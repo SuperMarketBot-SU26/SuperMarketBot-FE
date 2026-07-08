@@ -12,6 +12,7 @@ import Forbidden from './pages/Forbidden'
 import Login from './pages/Login'
 import ProductManagement from './pages/ProductManagement'
 import ProductDetail from './pages/ProductDetail'
+import AccountManagement from './pages/AccountManagement'
 import ParameterSettings from './pages/ParameterSettings'
 import Register from './pages/Register'
 import RobotMonitoring from './pages/RobotMonitoring'
@@ -140,6 +141,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ProductDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/accounts"
+            element={
+              <ProtectedRoute>
+                <AccountManagement />
               </ProtectedRoute>
             }
           />
