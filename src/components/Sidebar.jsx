@@ -1,5 +1,6 @@
 import React from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { useAuth } from '../features/auth/useAuth'
 
 const navItems = [
   { icon: 'inventory_2', label: 'Tổng Quan' },
@@ -19,9 +20,18 @@ function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
 }
 
+function initialsFromName(name) {
+  if (!name) return '?'
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
 export function Sidebar({ activeItem = 'Khuyến Mãi & Trợ Giá' }) {
   const navigate = useNavigate()
   const location = useLocation()
+  const { user, logout } = useAuth()
+  const [menuOpen, setMenuOpen] = React.useState(false)
 
   const handleNav = (item) => {
     if (item.path) navigate(item.path)
@@ -31,6 +41,16 @@ export function Sidebar({ activeItem = 'Khuyến Mãi & Trợ Giá' }) {
     if (item.path) return location.pathname === item.path
     return activeItem === item.label
   }
+
+  const handleLogout = async () => {
+    setMenuOpen(false)
+    await logout()
+    navigate('/login', { replace: true })
+  }
+
+  const displayName = user?.fullName || user?.email || 'Khách'
+  const primaryRole = user?.roles?.[0] || 'Member'
+  const initials = initialsFromName(user?.fullName || user?.email)
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-[260px] flex-col border-r border-smb-outline-variant bg-smb-surface-container-lowest">
@@ -94,19 +114,54 @@ export function Sidebar({ activeItem = 'Khuyến Mãi & Trợ Giá' }) {
       </nav>
 
       <div className="border-t border-smb-outline-variant p-4">
-        <div className="flex items-center gap-3 rounded-md border border-smb-outline-variant bg-smb-surface-container-low px-3 py-2.5 transition-colors hover:bg-smb-surface-container">
-          <div className="flex size-8 items-center justify-center rounded-full bg-smb-secondary-container text-xs font-semibold text-smb-on-secondary-container">
-            TH
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-smb-on-surface">
-              Trần Hoàng Nam
-            </p>
-            <p className="truncate text-xs text-smb-on-surface-variant">
-              Quản trị viên
-            </p>
-          </div>
-          <Icon name="unfold_more" className="text-[18px] text-smb-outline" />
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((o) => !o)}
+            className="flex w-full items-center gap-3 rounded-md border border-smb-outline-variant bg-smb-surface-container-low px-3 py-2.5 text-left transition-colors hover:bg-smb-surface-container"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+          >
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-smb-secondary-container text-xs font-semibold text-smb-on-secondary-container">
+              {initials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-smb-on-surface">
+                {displayName}
+              </p>
+              <p className="truncate text-xs text-smb-on-surface-variant">
+                {primaryRole}
+              </p>
+            </div>
+            <Icon
+              name={menuOpen ? 'expand_less' : 'unfold_more'}
+              className="text-[18px] text-smb-outline"
+            />
+          </button>
+
+          {menuOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-20"
+                onClick={() => setMenuOpen(false)}
+                aria-hidden
+              />
+              <div
+                role="menu"
+                className="absolute bottom-full left-0 right-0 z-30 mb-1 overflow-hidden rounded-md border border-smb-outline-variant bg-smb-surface-container-lowest shadow-[var(--shadow-smb-2)] smb-pop-in"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleLogout}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-smb-on-surface hover:bg-smb-surface-container-low"
+                >
+                  <Icon name="logout" className="text-[18px] text-smb-error" />
+                  Đăng xuất
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </aside>
