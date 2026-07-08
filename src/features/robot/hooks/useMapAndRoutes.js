@@ -15,19 +15,26 @@ export function useMapAndRoutes({ mapId = 1 } = {}) {
   const [error, setError] = useState(null)
 
   const load = useCallback(async () => {
-    try {
-      const [latest, routeList] = await Promise.all([
-        getLatestMap({ floorId: 1 }),
-        getRoutes({ mapId }),
-      ])
-      setMap(latest)
-      setRoutes(routeList ?? [])
+    // Use allSettled so a failure on the map (e.g. no MAP row for floorId=1
+    // on Azure) doesn't wipe the routes out. The panel's RouteList only needs
+    // the route list, so load it independently and let the FleetMap show its
+    // own empty-state when the map is missing.
+    const [mapResult, routeResult] = await Promise.allSettled([
+      getLatestMap({ floorId: 1 }),
+      getRoutes({ mapId }),
+    ])
+    if (mapResult.status === 'fulfilled') setMap(mapResult.value)
+    else setMap(null)
+
+    if (routeResult.status === 'fulfilled') setRoutes(routeResult.value ?? [])
+    else setRoutes([])
+
+    if (mapResult.status === 'rejected' && routeResult.status === 'rejected') {
+      setError(mapResult.reason?.message ?? 'Failed to load map/routes')
+    } else {
       setError(null)
-    } catch (err) {
-      setError(err?.message ?? 'Failed to load map/routes')
-    } finally {
-      setLoading(false)
     }
+    setLoading(false)
   }, [mapId])
 
   useEffect(() => {

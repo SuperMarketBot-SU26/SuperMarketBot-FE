@@ -72,7 +72,7 @@ export function Select({
   const hasError = Boolean(error)
 
   return (
-    <div className={`flex flex-col gap-1.5 ${className}`} ref={selectRef}>
+    <div className={`relative flex flex-col gap-1.5 ${className}`} ref={selectRef}>
       {label && (
         <label className="text-sm font-medium text-smb-on-surface">
           {label}
