@@ -20,26 +20,23 @@ const ROUTE_TYPES = [
 /**
  * RobotAssignmentPanel
  * Sidebar for the Giám Sát Robot page. Tabbed view:
- *   • Tab 1 — "Gán lộ trình"   : route-centric. Lists every route in the
- *                                 system; each route card lets you pick
- *                                 which robots run it (multi-select).
- *                                 Sub-form: "Tạo mới" matching the backend
- *                                 RobotRouteCreateDto contract (dropdowns for
- *                                 Map/Zone; chip-based ordered node picker).
+ *   • Tab 1 — "Gán lộ trình"   : route-centric. Lists every route; lets the
+ *                                 operator preview its polyline on the map and
+ *                                 create a new route (dropdowns for Map/Zone,
+ *                                 chip-based ordered node picker).
  *   • Tab 2 — "Robot"          : list of robots, click to select.
+ *
+ * Route↔robot assignment is not wired because the BE doesn't expose
+ * `POST /v1/routes/{id}/assign`. Once that endpoint lands, reintroduce the
+ * assign UI; until then this panel stays read-only for the assignment side.
  */
 export function RobotAssignmentPanel({
   robots = [],
   poses = {},
-  // { [routeId]: robotCode[] }
-  assignmentsByRoute = {},
   routes = [],
   map = null,
   selectedRobotCode = null,
-  getAssignedRoute,
   onSelectRobot,
-  onAssignRobot,
-  onUnassignRobot,
   onPreviewRoute,
   onRouteCreated,
 }) {
@@ -57,21 +54,15 @@ export function RobotAssignmentPanel({
       {tab === 'assign'
         ? <AssignTab
             robots={robots}
-            assignmentsByRoute={assignmentsByRoute}
             routes={routes}
             map={map}
-            onAssignRobot={onAssignRobot}
-            onUnassignRobot={onUnassignRobot}
             onPreviewRoute={onPreviewRoute}
             onRouteCreated={onRouteCreated}
           />
         : <RobotsTab
             robots={robots}
             poses={poses}
-            assignmentsByRoute={assignmentsByRoute}
-            routes={routes}
             selectedRobotCode={selectedRobotCode}
-            getAssignedRoute={getAssignedRoute}
             onSelectRobot={onSelectRobot}
           />
       }
@@ -116,24 +107,12 @@ function Tabs({ value, onChange }) {
 /*  Tab 1 — Robot list                                                  */
 /* -------------------------------------------------------------------- */
 
-function RobotsTab({ robots, poses, assignmentsByRoute, routes, selectedRobotCode, getAssignedRoute, onSelectRobot }) {
+function RobotsTab({ robots, poses, selectedRobotCode, onSelectRobot }) {
   const summary = useMemo(() => {
     const acc = { Moving: 0, Idle: 0, Interacting: 0, Offline_Charging: 0, Power_Off: 0 }
     robots.forEach((r) => { acc[r.status] = (acc[r.status] ?? 0) + 1 })
     return acc
   }, [robots])
-
-  // Count how many routes a robot is on, for a small badge.
-  const routesPerRobot = useMemo(() => {
-    const out = new Map()
-    for (const [routeId, codes] of Object.entries(assignmentsByRoute)) {
-      for (const code of codes) {
-        if (!out.has(code)) out.set(code, [])
-        out.get(code).push(Number(routeId))
-      }
-    }
-    return out
-  }, [assignmentsByRoute])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -173,8 +152,6 @@ function RobotsTab({ robots, poses, assignmentsByRoute, routes, selectedRobotCod
             const pose = poses[r.robotCode]
             const p = statusPalette(r.status)
             const isSel = selectedRobotCode === r.robotCode
-            const assignedRoute = getAssignedRoute?.(r.robotCode)
-            const assignedCount = routesPerRobot.get(r.robotCode)?.length ?? 0
             return (
               <li key={r.robotId}>
                 <button
@@ -193,20 +170,9 @@ function RobotsTab({ robots, poses, assignmentsByRoute, routes, selectedRobotCod
                       <p className="truncate text-xs text-smb-on-surface-variant">
                         {labelForStatus(r.status)} · {r.mode}
                       </p>
-                      {assignedRoute ? (
-                        <p className="mt-0.5 truncate text-[11px] text-smb-primary-container">
-                          ▸ {assignedRoute.routeName}
-                          {assignedCount > 1 && (
-                            <span className="ml-1 text-smb-on-surface-variant">
-                              (+{assignedCount - 1} khác)
-                            </span>
-                          )}
-                        </p>
-                      ) : (
-                        <p className="mt-0.5 truncate text-[11px] italic text-smb-on-surface-variant">
-                          Chưa gán lộ trình
-                        </p>
-                      )}
+                      <p className="mt-0.5 truncate text-[11px] italic text-smb-on-surface-variant">
+                        Chưa gán lộ trình
+                      </p>
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
@@ -228,12 +194,12 @@ function RobotsTab({ robots, poses, assignmentsByRoute, routes, selectedRobotCod
 }
 
 /* -------------------------------------------------------------------- */
-/*  Tab 2 — Assign route (route-centric)                                */
+/*  Tab 2 — Assign route (route-centric, read-only assignment side)     */
 /* -------------------------------------------------------------------- */
 
 function AssignTab({
-  robots, assignmentsByRoute, routes, map,
-  onAssignRobot, onUnassignRobot, onPreviewRoute, onRouteCreated,
+  robots, routes, map,
+  onPreviewRoute, onRouteCreated,
 }) {
   const [mode, setMode] = useState('list') // 'list' | 'new'
 
@@ -242,7 +208,7 @@ function AssignTab({
       <header className="border-b border-smb-outline-variant p-4">
         <h3 className="text-sm font-semibold text-smb-on-surface">Gán lộ trình</h3>
         <p className="mt-1 text-xs text-smb-on-surface-variant">
-          Quản lý lộ trình cố định của robot và phân công robot chạy lộ trình đó.
+          Xem trước lộ trình trên bản đồ và tạo lộ trình mới.
         </p>
       </header>
 
@@ -259,10 +225,6 @@ function AssignTab({
         {mode === 'list' ? (
           <RouteList
             routes={routes}
-            robots={robots}
-            assignmentsByRoute={assignmentsByRoute}
-            onAssignRobot={onAssignRobot}
-            onUnassignRobot={onUnassignRobot}
             onPreviewRoute={onPreviewRoute}
           />
         ) : (
@@ -296,12 +258,9 @@ function SubTab({ active, onClick, children }) {
   )
 }
 
-/* --- Route list (route-centric) ------------------------------------- */
+/* --- Route list (route-centric, no assignment actions) -------------- */
 
-function RouteList({
-  routes, robots, assignmentsByRoute,
-  onAssignRobot, onUnassignRobot, onPreviewRoute,
-}) {
+function RouteList({ routes, onPreviewRoute }) {
   if (!routes.length) {
     return (
       <div className="flex flex-col items-center gap-2 py-10 text-center text-smb-on-surface-variant">
@@ -315,8 +274,6 @@ function RouteList({
   return (
     <ul className="space-y-3">
       {routes.map((r) => {
-        const assignedCodes = assignmentsByRoute[r.robotRouteId] ?? []
-        const assignedSet = new Set(assignedCodes)
         const isOwner = r.robotId
         return (
           <li
@@ -336,46 +293,15 @@ function RouteList({
                   </p>
                 )}
               </div>
-              <div className="flex shrink-0 flex-col items-end gap-1">
-                <span className="rounded-full bg-smb-secondary-container px-2 py-0.5 text-[10px] font-medium text-smb-on-secondary-container">
-                  {r.routeType}
-                </span>
-                <span className="text-[10px] text-smb-on-surface-variant">
-                  {assignedCodes.length}/{robots.length} robot
-                </span>
-              </div>
+              <span className="shrink-0 rounded-full bg-smb-secondary-container px-2 py-0.5 text-[10px] font-medium text-smb-on-secondary-container">
+                {r.routeType}
+              </span>
             </div>
 
-            {/* Owner (who created the route) */}
+            {/* Owner (which robot owns this route) */}
             <div className="border-t border-smb-outline-variant px-3 py-1.5 text-[11px] text-smb-on-surface-variant">
               Tạo bởi robot <span className="font-mono">#{isOwner ?? '—'}</span>
             </div>
-
-            {/* Assigned-robot chips */}
-            {assignedCodes.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 border-t border-smb-outline-variant px-3 py-2">
-                {assignedCodes.map((code) => {
-                  const robot = robots.find((x) => x.robotCode === code)
-                  return (
-                    <span
-                      key={code}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-smb-active-bg px-2 py-0.5 text-[11px] font-medium text-smb-on-surface"
-                    >
-                      <Icon name="smart_toy" className="text-[12px]" />
-                      {robot?.robotName ?? code}
-                      <button
-                        type="button"
-                        onClick={() => onUnassignRobot?.(r.robotRouteId, code)}
-                        className="-mr-1 ml-1 flex h-4 w-4 items-center justify-center rounded-full text-smb-on-surface-variant hover:bg-smb-error-container hover:text-smb-on-error-container"
-                        aria-label={`Bỏ gán ${code}`}
-                      >
-                        <Icon name="close" className="text-[12px]" />
-                      </button>
-                    </span>
-                  )
-                })}
-              </div>
-            )}
 
             {/* Action row */}
             <div className="flex gap-2 border-t border-smb-outline-variant px-3 py-2">
@@ -385,62 +311,15 @@ function RouteList({
                   const detail = await getRoute(r.robotRouteId)
                   onPreviewRoute?.(detail)
                 }}
-                className="flex flex-1 items-center justify-center gap-1 rounded border border-smb-outline-variant px-2 py-1.5 text-xs font-medium text-smb-on-surface-variant hover:bg-smb-surface-container-lowest"
+                className="flex w-full items-center justify-center gap-1 rounded border border-smb-outline-variant px-2 py-1.5 text-xs font-medium text-smb-on-surface-variant hover:bg-smb-surface-container-lowest"
               >
-                <Icon name="visibility" className="text-[14px]" /> Xem trước
+                <Icon name="visibility" className="text-[14px]" /> Xem trước trên bản đồ
               </button>
-              <details className="flex-[1.4]">
-                <summary className="flex cursor-pointer list-none items-center justify-center gap-1 rounded bg-smb-primary-container px-2 py-1.5 text-xs font-medium text-smb-on-primary hover:bg-smb-primary-container/90">
-                  <Icon name="group_add" className="text-[14px]" /> Gán robot
-                </summary>
-                <RobotMultiSelect
-                  robots={robots}
-                  assignedSet={assignedSet}
-                  onToggle={(code) => {
-                    if (assignedSet.has(code)) onUnassignRobot?.(r.robotRouteId, code)
-                    else onAssignRobot?.(r.robotRouteId, code)
-                  }}
-                />
-              </details>
             </div>
           </li>
         )
       })}
     </ul>
-  )
-}
-
-function RobotMultiSelect({ robots, assignedSet, onToggle }) {
-  return (
-    <div className="mt-2 max-h-44 overflow-y-auto rounded border border-smb-outline-variant bg-smb-surface-container-lowest p-1.5">
-      {!robots.length && (
-        <p className="px-2 py-1 text-xs text-smb-on-surface-variant">
-          Chưa có robot nào.
-        </p>
-      )}
-      {robots.map((r) => {
-        const checked = assignedSet.has(r.robotCode)
-        const p = statusPalette(r.status)
-        return (
-          <label
-            key={r.robotId}
-            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-smb-surface-container-low"
-          >
-            <input
-              type="checkbox"
-              checked={checked}
-              onChange={() => onToggle(r.robotCode)}
-              className="size-3.5 accent-smb-primary-container"
-            />
-            <span className={`size-2 rounded-full ${p.dot}`} />
-            <span className="flex-1 truncate text-smb-on-surface">{r.robotName}</span>
-            <span className="shrink-0 text-[10px] tabular-nums text-smb-on-surface-variant">
-              {r.batteryPct}%
-            </span>
-          </label>
-        )
-      })}
-    </div>
   )
 }
 
@@ -538,7 +417,7 @@ function NewRouteForm({ robots, map, onCreated }) {
   }
 
   const validate = () => {
-    if (!form.routeName.trim()) return 'Vui lòng nhập tên lộ trình.'
+    if (!form.routeName.trim()) return 'Vui lòng nhận tên lộ trình.'
     if (!form.mapId) return 'Vui lòng chọn map.'
     if (!form.robotId) return 'Vui lòng chọn robot sở hữu.'
     if (!form.nodeIds.length) return 'Cần chọn ít nhất 1 node cho lộ trình.'

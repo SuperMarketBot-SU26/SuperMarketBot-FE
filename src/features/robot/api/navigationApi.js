@@ -1,36 +1,29 @@
 /**
- * Navigation API — maps to /api/Navigation
+ * Navigation API — /api/Navigation
  *
  * Backend endpoints (NavigationController.cs):
  *   GET  /api/Navigation/route?startX&startY&endObjectId=&endNodeId=
- *   POST /api/Navigation/route                       → Dijkstra (không gửi xuống robot)
- *   POST /api/Navigation/navigate                    → Dijkstra + publish xuống robot
- *   POST /api/Navigation/reroute                     → re-route khi có vùng cấm
- *   POST /api/Navigation/unblock-nodes               → bỏ block nodes
+ *   POST /api/Navigation/route                       → Dijkstra (does not send to robot)
+ *   POST /api/Navigation/navigate                    → Dijkstra + publish to robot via MQTT
+ *   POST /api/Navigation/reroute                     → re-route around new obstacles
+ *   POST /api/Navigation/unblock-nodes               → unblock nodes
  *   POST /api/Navigation/optimize-shopping-route     → TSP + Dijkstra + ForbiddenZones
- *   POST /api/Navigation/nodes/{id}/block            → block / unblock 1 node
+ *   POST /api/Navigation/nodes/{id}/block            → block / unblock a single node
  *
- * NOTE: returns LOCAL MOCK DATA until backend wiring is enabled.
+ * RoutePlanRequestDto: { startNodeId, endNodeId }          (no mapId, no robotId)
+ * RoutePlanResultDto:  { totalDistance, nodes: [{ nodeId, x, y, distanceFromStart }] }
  */
 
 import client from '../../../api/client'
 
 const ENDPOINT = '/Navigation'
 
-const USE_MOCK = true
-
-export const planRoute = async (payload) => {
-  if (USE_MOCK) {
-    // Pretend the backend returned a 2-stop loop. Real impl will hit Dijkstra.
-    return {
-      distance: 42.5,
-      estimatedSeconds: 180,
-      waypoints: (payload.nodeIds ?? []).map((id, idx) => ({
-        nodeId: id,
-        sequenceOrder: idx,
-      })),
-    }
+export const planRoute = async ({ startNodeId, endNodeId } = {}) => {
+  const res = await client.post(`${ENDPOINT}/route`, { startNodeId, endNodeId })
+  // Wire → camelCase JSON. Backend PascalCase fields arrive camelCased.
+  const data = res.data ?? {}
+  return {
+    totalDistance: data.totalDistance ?? 0,
+    nodes: Array.isArray(data.nodes) ? data.nodes : [],
   }
-  const res = await client.post(`${ENDPOINT}/route`, payload)
-  return res.data
 }

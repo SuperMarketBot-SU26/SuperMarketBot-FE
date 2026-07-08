@@ -3,9 +3,9 @@ import { getRobots, getRobotPose } from '../api/robotApi'
 
 /**
  * useRobotFleet
- * - Loads /Robots (mocked) once on mount.
- * - Polls /Robots/{code}/pose every `pollMs` so the map markers stay fresh.
- *   When the BE / SignalR / MQTT bridge is wired up, replace this with a real
+ * - Loads /api/Robots on mount.
+ * - Polls /api/Robots/{code}/pose every `pollMs` so the map markers stay fresh.
+ *   When the SignalR / MQTT bridge is wired up, replace the polling with a
  *   subscription; everything downstream reads `robots`, `poses`, and `refresh()`.
  *
  * Returns: { robots, poses, loading, error, refresh, tick }

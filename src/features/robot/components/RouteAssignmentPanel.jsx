@@ -8,22 +8,21 @@ function Icon({ name, className = '' }) {
 
 /**
  * RouteAssignmentPanel
- * - Lists existing routes
- * - Lets the operator pick a route for the currently-selected robot
- * - Lets the operator plan a brand-new route by entering a start/end node id
+ * - Lists existing routes and lets the operator preview them on the map.
+ * - Plans a brand-new route by entering start / end node IDs (calls BE Dijkstra).
  *
  * Props:
  *   robot             RobotDto | null            currently-selected robot
  *   routes            RobotRouteListDto[]
- *   assignments       Record<robotCode, routeId>
- *   onAssign          (robotCode, routeId) => void
  *   onPreviewRoute    (routeDetail) => void      tells FleetMap to draw the polyline
+ *
+ * Route assignment (assigning a robot to a route) is NOT supported here — the
+ * BE has no `POST /v1/routes/{id}/assign` endpoint. When it lands, reintroduce
+ * an "Gán cho robot" button.
  */
 export function RouteAssignmentPanel({
   robot = null,
   routes = [],
-  assignments = {},
-  onAssign,
   onPreviewRoute,
 }) {
   const [mode, setMode] = useState('list') // 'list' | 'new'
@@ -39,9 +38,6 @@ export function RouteAssignmentPanel({
     return m
   }, [routes])
 
-  const currentRouteId = robot ? assignments[robot.robotCode] : null
-  const currentRoute = currentRouteId ? routeById.get(currentRouteId) : null
-
   // Reset when the target robot changes
   useEffect(() => {
     setMode('list')
@@ -56,11 +52,6 @@ export function RouteAssignmentPanel({
     onPreviewRoute?.(detail)
   }
 
-  const handleSelectRoute = (routeId) => {
-    if (!robot) return
-    onAssign?.(robot.robotCode, routeId)
-  }
-
   const handlePlanRoute = async () => {
     if (!startNode || !endNode) {
       setPlanError('Vui lòng nhập cả node bắt đầu và node kết thúc.')
@@ -71,14 +62,10 @@ export function RouteAssignmentPanel({
     setPlanResult(null)
     try {
       const result = await planRoute({
-        mapId: 1,
-        robotId: robot?.robotId ?? 1,
         startNodeId: Number(startNode),
         endNodeId: Number(endNode),
       })
       setPlanResult(result)
-      // Note: thiết bị thật sẽ POST /Navigation/route để Dijkstra chạy lại phía BE.
-      // Hiện tại placeholders tạm thời trả về mock — khi BE wiring xong hàm sẽ tự dùng API thật.
     } catch (err) {
       setPlanError(err?.message ?? 'Tính route thất bại.')
     } finally {
@@ -100,7 +87,7 @@ export function RouteAssignmentPanel({
                 {robot.robotName}
               </p>
               <p className="truncate text-xs text-smb-on-surface-variant">
-                {currentRoute ? currentRoute.routeName : 'Chưa có lộ trình được gán'}
+                Chưa có lộ trình được gán
               </p>
             </div>
           </div>
@@ -126,8 +113,6 @@ export function RouteAssignmentPanel({
             {mode === 'list' ? (
               <RouteLibrary
                 routes={routes}
-                currentRouteId={currentRouteId}
-                onSelect={handleSelectRoute}
                 onPreview={handlePreview}
               />
             ) : (
@@ -165,7 +150,7 @@ function TabButton({ active, onClick, children }) {
   )
 }
 
-function RouteLibrary({ routes, currentRouteId, onSelect, onPreview }) {
+function RouteLibrary({ routes, onPreview }) {
   if (!routes.length) {
     return (
       <p className="py-8 text-center text-sm text-smb-on-surface-variant">
@@ -176,15 +161,10 @@ function RouteLibrary({ routes, currentRouteId, onSelect, onPreview }) {
   return (
     <ul className="space-y-2">
       {routes.map((r) => {
-        const isCurrent = r.robotRouteId === currentRouteId
         return (
           <li
             key={r.robotRouteId}
-            className={`rounded-lg border p-3 transition-colors ${
-              isCurrent
-                ? 'border-smb-primary-container bg-smb-active-bg'
-                : 'border-smb-outline-variant bg-smb-surface-container-low'
-            }`}
+            className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-low p-3"
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -194,34 +174,23 @@ function RouteLibrary({ routes, currentRouteId, onSelect, onPreview }) {
                 <p className="mt-0.5 text-xs text-smb-on-surface-variant">
                   {r.zoneName ?? 'Toàn bộ bản đồ'} · {r.waypointCount} điểm dừng
                 </p>
-                <p className="mt-1 line-clamp-2 text-xs text-smb-on-surface-variant">
-                  {r.description}
-                </p>
+                {r.description && (
+                  <p className="mt-1 line-clamp-2 text-xs text-smb-on-surface-variant">
+                    {r.description}
+                  </p>
+                )}
               </div>
               <span className="shrink-0 rounded-full bg-smb-secondary-container px-2 py-0.5 text-[10px] font-medium text-smb-on-secondary-container">
                 {r.routeType}
               </span>
             </div>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex">
               <button
                 type="button"
                 onClick={() => onPreview(r.robotRouteId)}
-                className="flex flex-1 items-center justify-center gap-1 rounded border border-smb-outline-variant px-2 py-1.5 text-xs font-medium text-smb-on-surface-variant hover:bg-smb-surface-container-low"
+                className="flex w-full items-center justify-center gap-1 rounded border border-smb-outline-variant px-2 py-1.5 text-xs font-medium text-smb-on-surface-variant hover:bg-smb-surface-container-lowest"
               >
-                <Icon name="visibility" className="text-[14px]" /> Xem trước
-              </button>
-              <button
-                type="button"
-                onClick={() => onSelect(r.robotRouteId)}
-                disabled={isCurrent}
-                className={`flex flex-1 items-center justify-center gap-1 rounded px-2 py-1.5 text-xs font-medium transition-colors ${
-                  isCurrent
-                    ? 'cursor-not-allowed bg-smb-surface-container-high text-smb-on-surface-variant'
-                    : 'bg-smb-primary-container text-smb-on-primary hover:bg-smb-primary-container/90'
-                }`}
-              >
-                <Icon name="check" className="text-[14px]" />
-                {isCurrent ? 'Đang gán' : 'Gán cho robot'}
+                <Icon name="visibility" className="text-[14px]" /> Xem trước trên bản đồ
               </button>
             </div>
           </li>
@@ -238,7 +207,8 @@ function NewRouteForm({
   return (
     <div className="space-y-4">
       <p className="text-xs text-smb-on-surface-variant">
-        Nhập ID của node bắt đầu và node kết thúc. Hệ thống sẽ gọi <span className="font-mono">POST /api/Navigation/route</span> để BE tính Dijkstra (hiện đang trả mock).
+        Nhập ID của node bắt đầu và node kết thúc. Hệ thống sẽ gọi{' '}
+        <span className="font-mono">POST /api/Navigation/route</span> để BE tính Dijkstra.
       </p>
 
       <div className="grid grid-cols-2 gap-3">
@@ -266,14 +236,30 @@ function NewRouteForm({
         <div className="rounded border border-smb-outline-variant bg-smb-surface-container-low p-3 text-xs">
           <p className="font-semibold text-smb-on-surface">Đường đi mẫu</p>
           <p className="mt-1 text-smb-on-surface-variant">
-            Khoảng cách ước tính: <span className="font-semibold tabular-nums">{planResult.distance} m</span>
+            Khoảng cách ước tính:{' '}
+            <span className="font-semibold tabular-nums">
+              {(planResult.totalDistance ?? 0).toFixed(2)} m
+            </span>
           </p>
-          <p className="text-smb-on-surface-variant">
-            Thời gian di chuyển: <span className="font-semibold tabular-nums">~{planResult.estimatedSeconds} s</span>
-          </p>
-          <p className="mt-2 italic text-smb-on-surface-variant">
-            * Kết quả thật sẽ trả polyline tọa độ để vẽ lên bản đồ (đang chờ BE wiring).
-          </p>
+          {Array.isArray(planResult.nodes) && planResult.nodes.length > 0 && (
+            <div className="mt-2">
+              <p className="text-smb-on-surface-variant">Các node đi qua:</p>
+              <ol className="mt-1 flex flex-wrap gap-1.5">
+                {planResult.nodes.map((n, idx) => (
+                  <li
+                    key={`${n.nodeId}-${idx}`}
+                    className="inline-flex items-center gap-1 rounded-full bg-smb-primary-container px-2 py-0.5 text-[11px] font-medium text-smb-on-primary"
+                  >
+                    <span className="font-mono text-[10px] opacity-80">{idx + 1}.</span>
+                    Node #{n.nodeId}
+                    <span className="font-mono text-[10px] opacity-80">
+                      ({(n.x ?? 0).toFixed(1)}, {(n.y ?? 0).toFixed(1)})
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
         </div>
       )}
     </div>

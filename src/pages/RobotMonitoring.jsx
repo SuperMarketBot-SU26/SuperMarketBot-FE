@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import Navbar from '../components/Navbar'
 import {
@@ -9,9 +9,7 @@ import {
 import {
   useRobotFleet,
   useMapAndRoutes,
-  useAssignments,
 } from '../features/robot/hooks'
-import { mockAssignments } from '../features/robot/utils/mockData'
 
 /**
  * Robot Monitoring — "Giám Sát Robot" page.
@@ -25,31 +23,15 @@ import { mockAssignments } from '../features/robot/utils/mockData'
  *   │                                      │  · robots  │
  *   │                                      │  · routes  │
  *   └──────────────────────────────────────┴────────────┘
+ *
+ * All data is loaded live from the backend (`/api/Robots`, `/api/v1/maps/latest`,
+ * `/api/v1/routes`). Route↔robot assignment is currently read-only because the
+ * BE has no `POST /routes/{id}/assign` endpoint — only the route listing,
+ * detail preview, and route creation are wired up.
  */
 export function RobotMonitoring() {
   const { robots, poses, loading: robotsLoading, tick } = useRobotFleet({ pollMs: 5000 })
   const { map, routes, loading: mapLoading, refresh: refreshRoutes } = useMapAndRoutes({ mapId: 1 })
-  const {
-    assignments,
-    assignRobot,
-    unassignRobot,
-    getAssignedRoute,
-  } = useAssignments(mockAssignments)
-
-  // Serialise the Set<robotCode> into a plain array for downstream components
-  // (Sets don't round-trip well through props / JSON.stringify / devtools).
-  const assignmentsByRoute = useMemo(() => {
-    const out = {}
-    for (const [routeId, set] of Object.entries(assignments)) {
-      out[routeId] = Array.from(set)
-    }
-    return out
-  }, [assignments])
-
-  const getAssignedRouteForRobot = useCallback(
-    (robotCode) => getAssignedRoute(robotCode, routes),
-    [getAssignedRoute, routes]
-  )
 
   const [selectedRobotCode, setSelectedRobotCode] = useState(null)
   const [previewedRoute, setPreviewedRoute] = useState(null)
@@ -97,26 +79,16 @@ export function RobotMonitoring() {
                 <RobotAssignmentPanel
                   robots={robots}
                   poses={poses}
-                  assignmentsByRoute={assignmentsByRoute}
                   routes={routes}
                   map={map}
                   selectedRobotCode={selectedRobotCode}
-                  getAssignedRoute={getAssignedRouteForRobot}
                   onSelectRobot={handleSelectRobot}
-                  onAssignRobot={assignRobot}
-                  onUnassignRobot={unassignRobot}
                   onPreviewRoute={(detail) => setPreviewedRoute(detail)}
                   onRouteCreated={refreshRoutes}
                 />
               </div>
             </div>
           )}
-
-          <p className="text-center text-[11px] text-smb-on-surface-variant">
-            Dữ liệu đang hiển thị từ placeholder. Khi backend sẵn sàng, bật cờ{' '}
-            <span className="font-mono">USE_MOCK = false</span> trong các file trong{' '}
-            <span className="font-mono">src/features/robot/api</span> để chuyển sang gọi API thật.
-          </p>
         </main>
       </div>
     </div>
