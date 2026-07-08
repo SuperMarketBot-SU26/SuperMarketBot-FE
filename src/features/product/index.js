@@ -1,4 +1,5 @@
 export * from './components'
 export * from './api/productApi'
+export * from './api/adminProductApi'
 export * from './utils/productHelpers'
 export { statusVariantInline } from './utils/productHelpers'
