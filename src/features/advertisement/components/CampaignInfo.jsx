@@ -52,13 +52,6 @@ export function CampaignInfo({ data }) {
           </div>
 
           <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-smb-on-surface-variant">Khu Vực Robot</p>
-            <p className="mt-1 text-sm font-semibold text-smb-on-surface">
-              {data.robotZoneId ? `Zone #${data.robotZoneId}` : '—'}
-            </p>
-          </div>
-
-          <div>
             <p className="text-xs font-medium uppercase tracking-wider text-smb-on-surface-variant">Ngày Bắt Đầu</p>
             <p className="mt-1 text-sm font-semibold text-smb-on-surface">{formatDate(data.startDate)}</p>
           </div>
@@ -66,6 +59,28 @@ export function CampaignInfo({ data }) {
           <div>
             <p className="text-xs font-medium uppercase tracking-wider text-smb-on-surface-variant">Ngày Kết Thúc</p>
             <p className="mt-1 text-sm font-semibold text-smb-on-surface">{formatDate(data.endDate)}</p>
+          </div>
+
+          {/* Targeting summary */}
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wider text-smb-on-surface-variant">Đối Tượng Nhắm Đích</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {data.semanticObjectId ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-smb-secondary-container/20 px-2 py-0.5 text-xs text-smb-secondary-container">
+                  <span className="material-symbols-outlined text-[12px]">inventory_2</span>
+                  1 Kệ
+                </span>
+              ) : null}
+              {Array.isArray(data.routeIds) && data.routeIds.length > 0 ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-smb-primary-container/20 px-2 py-0.5 text-xs text-smb-primary-container">
+                  <span className="material-symbols-outlined text-[12px]">route</span>
+                  {data.routeIds.length} Tuyến
+                </span>
+              ) : null}
+              {!data.semanticObjectId && (!Array.isArray(data.routeIds) || data.routeIds.length === 0) ? (
+                <span className="text-xs text-smb-on-surface-variant">Chưa có nhắm đích</span>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>

@@ -35,6 +35,12 @@ export function AdvertisementUpdate() {
     }
   }, [id])
 
+  // Activate (POST /campaigns/{id}/activate) is decoupled from Update
+  // (PUT /campaigns/{id}). Activate sends only the campaign id — the BE acts
+  // on whatever targeting was last persisted via "Lưu Cập Nhật". If no
+  // targeting is saved, the BE returns a localized 400 which we surface
+  // verbatim through the parent banner (no separate client-side guard).
+
   useEffect(() => {
     fetchCampaign()
   }, [fetchCampaign])
@@ -57,16 +63,23 @@ export function AdvertisementUpdate() {
     setActionError(null)
     try {
       await updateCampaign(Number(id), {
-        campaignName: formData.campaignName.trim(),
-        startDate: new Date(formData.startDate).toISOString(),
-        endDate: new Date(formData.endDate).toISOString(),
-        robotZoneId: campaign.robotZoneId ?? null,
+        campaignName:     formData.campaignName.trim(),
+        startDate:        new Date(formData.startDate).toISOString(),
+        endDate:          new Date(formData.endDate).toISOString(),
+        semanticObjectId: formData.semanticObjectId ?? null,
+        zoneIds:          formData.zoneIds          ?? null,
+        routeIds:         formData.routeIds         ?? null,
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
       fetchCampaign()
     } catch (err) {
-      setActionError(err?.response?.data?.error || err.message || 'Cập nhật chiến dịch thất bại.')
+      // BE returns structured errors; fall back to generic message
+      const msg = err?.response?.data?.error
+               || err?.response?.data?.message
+               || err?.message
+               || 'Cập nhật chiến dịch thất bại.'
+      setActionError(msg)
     } finally {
       setActionLoading(false)
     }
@@ -78,9 +91,15 @@ export function AdvertisementUpdate() {
     try {
       await activateCampaign(Number(id))
       fetchCampaign()
+      return true
     } catch (err) {
-      setActionError(err?.response?.data?.error || err.message || 'Kích hoạt chiến dịch thất bại.')
-      throw err
+      // BE throws InvalidOperationException with localized message as `error` field
+      const msg = err?.response?.data?.error
+               || err?.response?.data?.message
+               || err?.message
+               || 'Kích hoạt chiến dịch thất bại.'
+      setActionError(msg)
+      return false
     } finally {
       setActionLoading(false)
     }

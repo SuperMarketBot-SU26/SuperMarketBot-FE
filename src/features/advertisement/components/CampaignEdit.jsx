@@ -1,15 +1,17 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import Input from '../../../components/ui/Input'
 import Button from '../../../components/ui/Button'
+import { TargetingSelector } from '../'
 
 export function CampaignEdit({ data, onSave, onDiscard, saving = false }) {
+  const targetingRef = useRef(null)
+
   const [formData, setFormData] = useState({
     campaignName: data?.campaignName ?? '',
-    startDate: data?.startDate ?? '',
-    endDate: data?.endDate ?? '',
+    startDate:    data?.startDate    ?? '',
+    endDate:      data?.endDate      ?? '',
   })
 
-  // Only lock editing while the campaign is Active (running)
   const isLocked = data?.status === 'Active'
 
   const formatDateInput = (val) => {
@@ -23,10 +25,15 @@ export function CampaignEdit({ data, onSave, onDiscard, saving = false }) {
   }
 
   const handleClick = () => {
+    // Collect targeting from TargetingSelector's current state via ref
+    const targeting = targetingRef.current?.getTargeting?.() ?? {}
     onSave?.({
-      campaignName: formData.campaignName,
-      startDate: formatDateInput(formData.startDate),
-      endDate: formatDateInput(formData.endDate),
+      campaignName:     formData.campaignName,
+      startDate:        formatDateInput(formData.startDate),
+      endDate:          formatDateInput(formData.endDate),
+      semanticObjectId: targeting.semanticObjectId ?? null,
+      zoneIds:          targeting.zoneIds          ?? null,
+      routeIds:         targeting.routeIds         ?? null,
     })
   }
 
@@ -83,6 +90,15 @@ export function CampaignEdit({ data, onSave, onDiscard, saving = false }) {
           )}
         </div>
       </div>
+
+      {/* Targeting — fetches assigned routes via GET /campaigns/{id}/routes on mount */}
+      <TargetingSelector
+        ref={targetingRef}
+        campaignId={data?.adCampaignId}
+        initialRouteIds={data?.routeIds ?? []}
+        initialSemanticObjectId={data?.semanticObjectId ?? null}
+        disabled={isLocked}
+      />
 
       {/* Actions */}
       <div className="flex flex-wrap items-center justify-end gap-3">

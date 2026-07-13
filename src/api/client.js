@@ -21,6 +21,18 @@ const EXPLICIT_BASE = import.meta.env.VITE_API_BASE_URL
 export const ACTIVE_BACKEND_MODE = ACTIVE_BACKEND
 export const ACTIVE_BACKEND_URL = ABSOLUTE_BASE_URL
 
+/**
+ * Extract a user-facing message from an Axios error in the standard SmartMarketBot
+ * shape: GlobalExceptionMiddleware writes `{ error, statusCode }`, while a few
+ * legacy endpoints still write `{ message }`. Prefer `error`; fall back to
+ * `message`; finally to a generic default.
+ */
+export const getErrorMessage = (err, fallback = 'Có lỗi xảy ra. Vui lòng thử lại.') => {
+  const data = err?.response?.data
+  if (!data) return err?.message || fallback
+  return data.error || data.message || err?.message || fallback
+}
+
 const baseURL =
   EXPLICIT_BASE ||
   (import.meta.env.DEV ? DEV_PROXY_BASE : ABSOLUTE_BASE_URL)

@@ -22,11 +22,12 @@ export function CampaignStatusActions({ status, onActivate, onPause, onCancel, l
 
   const handleConfirm = async () => {
     if (!confirmAction) return
-    try {
-      await confirmAction.handler()
-    } finally {
-      setConfirmAction(null)
-    }
+    const result = await confirmAction.handler()
+    // Close the modal whether the action succeeded or failed — the parent
+    // already surfaces the error via its own banner, so the modal closing
+    // prevents an unhandled promise rejection from bubbling up.
+    setConfirmAction(null)
+    return result
   }
 
   const config = STATUS_CONFIG[status] || { label: status, icon: 'help', color: 'neutral' }
@@ -49,7 +50,11 @@ export function CampaignStatusActions({ status, onActivate, onPause, onCancel, l
         {/* Action buttons */}
         {isActionable && (
           <div className="flex flex-wrap gap-2">
-            {/* Activate — shown for Inactive */}
+            {/* Activate — shown for Inactive.
+                Per BE, Activate takes only the campaign id — it operates on
+                whatever targeting was last persisted via the Update button.
+                If no targeting was saved, the BE returns a localized 400 and
+                the parent's error banner surfaces it. */}
             {isInactive && (
               <Button
                 variant="success"

@@ -6,6 +6,7 @@ import { Button } from '../../../components/ui/Button'
 import { ConfirmModal } from '../../../components/ConfirmModal'
 import { FormModal, FormField } from '../../../components/FormModal'
 import { getPackages, createPackage, updatePackage, deletePackage } from '../api/adPackageApi'
+import { getErrorMessage } from '../../../api/client'
 
 const statusVariant = (status) => ({
   Active: 'success',
@@ -45,7 +46,7 @@ export function AdPackageList() {
       const data = await getPackages()
       setPackages(Array.isArray(data) ? data : [])
     } catch (err) {
-      setError(err.response?.data?.message || 'Không thể tải danh sách gói quảng cáo.')
+      setError(getErrorMessage(err, 'Không thể tải danh sách gói quảng cáo.'))
     } finally {
       setLoading(false)
     }
@@ -109,7 +110,7 @@ export function AdPackageList() {
       }
       closeModal()
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra. Vui lòng thử lại.')
+      alert(getErrorMessage(err, 'Có lỗi xảy ra. Vui lòng thử lại.'))
     } finally {
       setSubmitting(false)
     }
@@ -121,7 +122,7 @@ export function AdPackageList() {
       setPackages((prev) => prev.filter((p) => p.packageId !== deleteTarget.packageId))
       setDeleteTarget(null)
     } catch (err) {
-      alert(err.response?.data?.message || 'Không thể xóa gói. Vui lòng thử lại.')
+      alert(getErrorMessage(err, 'Không thể xóa gói. Vui lòng thử lại.'))
     }
   }
 
@@ -141,7 +142,7 @@ export function AdPackageList() {
         prev.map((p) => (p.packageId === pkg.packageId ? updated : p))
       )
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra. Vui lòng thử lại.')
+      alert(getErrorMessage(err, 'Có lỗi xảy ra. Vui lòng thử lại.'))
     }
   }
 
