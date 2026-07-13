@@ -11,11 +11,27 @@ function Icon({ name, className = '' }) {
 }
 
 const ROUTE_TYPES = [
-  { value: 'patrol',   label: 'Patrol (tuần tra)' },
-  { value: 'restock',  label: 'Restock (nhập hàng)' },
-  { value: 'delivery', label: 'Delivery (giao hàng)' },
-  { value: 'custom',   label: 'Custom (tùy chỉnh)' },
+  { value: 'patrol',     label: 'Patrol (tuần tra)' },
+  { value: 'restock',    label: 'Restock (nhập hàng)' },
+  { value: 'delivery',   label: 'Delivery (giao hàng)' },
+  { value: 'ad',         label: 'Ad (quảng cáo / tuyến nhắm đích)' },
+  { value: 'navigation', label: 'Navigation (điều hướng thẳng)' },
+  { value: 'custom',     label: 'Custom (tùy chỉnh)' },
 ]
+
+export const ROUTE_TYPE_META = {
+  patrol:     { label: 'Tuần tra',   color: '#264191', dot: 'bg-blue-700',    text: 'text-blue-700',   border: 'border-blue-200',   bg: 'bg-blue-50',    icon: 'shield'        },
+  restock:    { label: 'Nhập hàng',  color: '#7c3aed', dot: 'bg-purple-600',  text: 'text-purple-700', border: 'border-purple-200', bg: 'bg-purple-50',  icon: 'inventory_2'   },
+  delivery:   { label: 'Giao hàng',  color: '#0891b2', dot: 'bg-cyan-600',    text: 'text-cyan-700',   border: 'border-cyan-200',   bg: 'bg-cyan-50',    icon: 'local_shipping'},
+  ad:         { label: 'Quảng cáo',  color: '#ea580c', dot: 'bg-orange-600',  text: 'text-orange-700', border: 'border-orange-200', bg: 'bg-orange-50',  icon: 'campaign'      },
+  navigation: { label: 'Điều hướng', color: '#16a34a', dot: 'bg-green-600',   text: 'text-green-700',  border: 'border-green-200',  bg: 'bg-green-50',   icon: 'navigation'    },
+  custom:     { label: 'Tùy chỉnh',  color: '#6b7280', dot: 'bg-gray-500',    text: 'text-gray-700',   border: 'border-gray-200',   bg: 'bg-gray-50',    icon: 'route'         },
+  default:    { label: 'Khác',       color: '#264191', dot: 'bg-blue-700',    text: 'text-blue-700',   border: 'border-blue-200',   bg: 'bg-blue-50',    icon: 'route'         },
+}
+
+export function getRouteTypeMeta(type) {
+  return ROUTE_TYPE_META[type] || ROUTE_TYPE_META.default
+}
 
 /**
  * RobotAssignmentPanel
@@ -293,8 +309,17 @@ function RouteList({ routes, onPreviewRoute }) {
                   </p>
                 )}
               </div>
-              <span className="shrink-0 rounded-full bg-smb-secondary-container px-2 py-0.5 text-[10px] font-medium text-smb-on-secondary-container">
-                {r.routeType}
+              <span
+                className="shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                style={{
+                  backgroundColor: getRouteTypeMeta(r.routeType).color + '20',
+                  color: getRouteTypeMeta(r.routeType).color,
+                }}
+              >
+                <span className="material-symbols-outlined text-[12px]">
+                  {getRouteTypeMeta(r.routeType).icon}
+                </span>
+                {getRouteTypeMeta(r.routeType).label}
               </span>
             </div>
 

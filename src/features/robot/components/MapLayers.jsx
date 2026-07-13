@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react'
+import { getRouteTypeMeta } from './RobotAssignmentPanel'
 
 /**
  * EdgesLayer — pure SVG lines connecting two nodes by id.
@@ -82,12 +83,17 @@ export function RouteLayer({ route, nodesById, metersToPx }) {
     .map((p) => `${metersToPx(p.xCoord)},${metersToPx(p.yCoord)}`)
     .join(' ')
 
+  // Stroke color follows the route's RouteType. Falls back to the panel default
+  // (blue) for unknown / missing types. Keeping the same color hex everywhere
+  // means a route looks identical in the panel list and on the map.
+  const stroke = getRouteTypeMeta(route.routeType).color
+
   return (
     <g pointerEvents="none">
       <polyline
         points={polylinePts}
         fill="none"
-        stroke="#264191"
+        stroke={stroke}
         strokeWidth={3}
         strokeDasharray="6 4"
         strokeLinecap="round"
@@ -95,10 +101,10 @@ export function RouteLayer({ route, nodesById, metersToPx }) {
       />
       {pts.map((p, idx) => (
         <g key={`${route.robotRouteId}-${idx}`} transform={`translate(${metersToPx(p.xCoord)}, ${metersToPx(p.yCoord)})`}>
-          <circle r={6} fill="#264191" />
+          <circle r={6} fill={stroke} />
           <text
             y={3} textAnchor="middle"
-            className="fill-smb-on-primary"
+            className="fill-white"
             style={{ fontSize: 10, fontWeight: 700 }}
           >
             {idx + 1}

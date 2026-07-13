@@ -7,6 +7,17 @@ import {
 } from './MapLayers'
 import { FloorplanLayer } from './Floorplan'
 import { statusPalette, metersToPx, clampZoom, poseToPx } from '../utils/robotHelpers'
+import { ROUTE_TYPE_META } from './RobotAssignmentPanel'
+
+/**
+ * Compact legend showing only the route types a user is likely to encounter.
+ * Unknown routeType values won't appear here; their default blue polyline is
+ * what `RouteLayer` falls back to.
+ */
+const routeTypeLegend = Object.fromEntries(
+  ['patrol', 'delivery', 'ad', 'navigation', 'restock', 'custom']
+    .map((t) => [t, ROUTE_TYPE_META[t]])
+)
 
 /**
  * FleetMap
@@ -211,23 +222,43 @@ export function FleetMap({
       </div>
 
       {/* Map legend */}
-      <div className="absolute bottom-4 left-4 z-20 rounded-lg bg-smb-surface-container-lowest/95 p-3 text-xs shadow-md">
-        <p className="mb-2 font-semibold text-smb-on-surface">Trạng thái Robot</p>
-        {Object.entries({
-          'Đang di chuyển': 'Moving',
-          'Đang rảnh': 'Idle',
-          'Đang tương tác': 'Interacting',
-          'Sạc / ngoại tuyến': 'Offline_Charging',
-          'Đã tắt nguồn': 'Power_Off',
-        }).map(([label, status]) => {
-          const p = statusPalette(status)
-          return (
-            <div key={status} className="flex items-center gap-2 py-0.5">
-              <span className={`size-2.5 rounded-full ${p.dot}`} />
-              <span className="text-smb-on-surface-variant">{label}</span>
+      <div className="absolute bottom-4 left-4 z-20 flex gap-2">
+        <div className="rounded-lg bg-smb-surface-container-lowest/95 p-3 text-xs shadow-md">
+          <p className="mb-2 font-semibold text-smb-on-surface">Trạng thái Robot</p>
+          {Object.entries({
+            'Đang di chuyển': 'Moving',
+            'Đang rảnh': 'Idle',
+            'Đang tương tác': 'Interacting',
+            'Sạc / ngoại tuyến': 'Offline_Charging',
+            'Đã tắt nguồn': 'Power_Off',
+          }).map(([label, status]) => {
+            const p = statusPalette(status)
+            return (
+              <div key={status} className="flex items-center gap-2 py-0.5">
+                <span className={`size-2.5 rounded-full ${p.dot}`} />
+                <span className="text-smb-on-surface-variant">{label}</span>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="rounded-lg bg-smb-surface-container-lowest/95 p-3 text-xs shadow-md">
+          <p className="mb-2 font-semibold text-smb-on-surface">Loại Lộ Trình</p>
+          {Object.entries(routeTypeLegend).map(([type, meta]) => (
+            <div key={type} className="flex items-center gap-2 py-0.5">
+              <svg width="18" height="6">
+                <line
+                  x1="0" y1="3" x2="18" y2="3"
+                  stroke={meta.color}
+                  strokeWidth="2.5"
+                  strokeDasharray="4 3"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <span className="text-smb-on-surface-variant">{meta.label}</span>
             </div>
-          )
-        })}
+          ))}
+        </div>
       </div>
     </div>
   )
