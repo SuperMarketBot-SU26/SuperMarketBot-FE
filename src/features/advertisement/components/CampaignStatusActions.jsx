@@ -17,7 +17,7 @@ const colorMap = {
   neutral: 'bg-gray-100 text-gray-600 border-gray-200',
 }
 
-export function CampaignStatusActions({ status, onActivate, onPause, onCancel, loading }) {
+export function CampaignStatusActions({ status, onActivate, onPause, onCancel, onViewLogs, loading }) {
   const [confirmAction, setConfirmAction] = useState(null)
 
   const handleConfirm = async () => {
@@ -50,6 +50,16 @@ export function CampaignStatusActions({ status, onActivate, onPause, onCancel, l
         {/* Action buttons */}
         {isActionable && (
           <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              icon="history"
+              size="sm"
+              disabled={loading}
+              onClick={() => onViewLogs?.()}
+            >
+              Xem Nhật Ký
+            </Button>
+
             {/* Activate — shown for Inactive.
                 Per BE, Activate takes only the campaign id — it operates on
                 whatever targeting was last persisted via the Update button.

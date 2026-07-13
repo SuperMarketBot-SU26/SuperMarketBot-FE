@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import AdvertisementDashboard from './pages/AdvertisementDashboard'
 import AdvertisementCreation from './pages/AdvertisementCreation'
 import AdvertisementUpdate from './pages/AdvertisementUpdate'
+import AdvertisementLogs from './pages/AdvertisementLogs'
 import AdPackageCreation from './pages/AdPackageCreation'
 import BrandDashboard from './pages/BrandDashboard'
 import BrandCreation from './pages/BrandCreation'
@@ -69,6 +70,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <AdvertisementUpdate />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/advertisement/logs/:id"
+            element={
+              <ProtectedRoute>
+                <AdvertisementLogs />
               </ProtectedRoute>
             }
           />

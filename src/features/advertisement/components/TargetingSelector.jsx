@@ -57,11 +57,6 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
   const [selectedZoneIds, setSelectedZoneIds] = useState([])
   const [selectedRouteIds, setSelectedRouteIds] = useState(initialRouteIds ?? [])
 
-  // Sync when props change (e.g. parent re-fetches campaign)
-  useEffect(() => {
-    setSelectedShelfId(initialSemanticObjectId ?? null)
-  }, [initialSemanticObjectId])
-
   useEffect(() => {
     setSelectedRouteIds(initialRouteIds ?? [])
   }, [initialRouteIds])
@@ -100,11 +95,11 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
         const assigned = new Set(campaignRoutesRes.data.routes.map((r) => r.robotRouteId))
         setSelectedRouteIds(Array.from(assigned))
 
-        // Derive selected zones from assigned routes
-        const selectedZones = new Set(
-          routeList.filter((r) => assigned.has(r.id) && r.zoneId != null).map((r) => r.zoneId)
-        )
-        setSelectedZoneIds(Array.from(selectedZones))
+        // NOTE: BE exposes no endpoint to fetch assigned zones for a campaign
+        // (zoneIds is not in CampaignResponseDto, no /campaigns/{id}/zones exists).
+        // Zones therefore start empty on mount; user must re-pick them or rely on
+        // routes covering them. If the user picked only routes, charge is
+        // PricePackage + PriceRoute × count — no implicit zone charge.
       }
     } catch {
       // Non-critical — degrade gracefully

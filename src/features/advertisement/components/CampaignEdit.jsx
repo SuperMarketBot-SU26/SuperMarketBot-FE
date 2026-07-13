@@ -1,9 +1,18 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useImperativeHandle, forwardRef } from 'react'
 import Input from '../../../components/ui/Input'
 import Button from '../../../components/ui/Button'
 import { TargetingSelector } from '../'
 
-export function CampaignEdit({ data, onSave, onDiscard, saving = false }) {
+/**
+ * CampaignEdit — controlled section for campaign name/dates/targeting.
+ *
+ * Exposes `getPayload()` via ref so the parent (`AdvertisementUpdate`) can
+ * build the same PUT payload when wiring Activate to auto-save first.
+ */
+export const CampaignEdit = forwardRef(function CampaignEdit(
+  { data, onSave, onDiscard, saving = false },
+  ref,
+) {
   const targetingRef = useRef(null)
 
   const [formData, setFormData] = useState({
@@ -24,18 +33,25 @@ export function CampaignEdit({ data, onSave, onDiscard, saving = false }) {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleClick = () => {
-    // Collect targeting from TargetingSelector's current state via ref
+  const buildPayload = () => {
     const targeting = targetingRef.current?.getTargeting?.() ?? {}
-    onSave?.({
+    return {
       campaignName:     formData.campaignName,
       startDate:        formatDateInput(formData.startDate),
       endDate:          formatDateInput(formData.endDate),
       semanticObjectId: targeting.semanticObjectId ?? null,
       zoneIds:          targeting.zoneIds          ?? null,
       routeIds:         targeting.routeIds         ?? null,
-    })
+    }
   }
+
+  const handleClick = () => {
+    onSave?.(buildPayload())
+  }
+
+  useImperativeHandle(ref, () => ({
+    getPayload: buildPayload,
+  }), [formData, targetingRef.current])
 
   return (
     <div className="space-y-6">
@@ -121,6 +137,6 @@ export function CampaignEdit({ data, onSave, onDiscard, saving = false }) {
       </div>
     </div>
   )
-}
+})
 
 export default CampaignEdit

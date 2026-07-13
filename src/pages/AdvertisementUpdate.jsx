@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import Navbar from '../components/Navbar'
@@ -22,6 +22,8 @@ export function AdvertisementUpdate() {
   const [saved, setSaved] = useState(false)
   const [campaign, setCampaign] = useState(null)
 
+  const editRef = useRef(null)
+
   const fetchCampaign = useCallback(async () => {
     setLoading(true)
     setFetchError(null)
@@ -35,28 +37,25 @@ export function AdvertisementUpdate() {
     }
   }, [id])
 
-  // Activate (POST /campaigns/{id}/activate) is decoupled from Update
-  // (PUT /campaigns/{id}). Activate sends only the campaign id — the BE acts
-  // on whatever targeting was last persisted via "Lưu Cập Nhật". If no
-  // targeting is saved, the BE returns a localized 400 which we surface
-  // verbatim through the parent banner (no separate client-side guard).
-
   useEffect(() => {
     fetchCampaign()
   }, [fetchCampaign])
 
-  const handleSave = async (formData) => {
+  // `handleSave` is reused by both the explicit "Lưu Cập Nhật" button and the
+  // implicit auto-save-before-Activate chain. Returns true on success, false
+  // on failure (so callers can short-circuit).
+  const handleSave = useCallback(async (formData) => {
     if (!formData.campaignName?.trim()) {
       setActionError('Tên chiến dịch không được để trống.')
-      return
+      return false
     }
     if (!formData.startDate) {
       setActionError('Ngày bắt đầu là bắt buộc.')
-      return
+      return false
     }
     if (!formData.endDate) {
       setActionError('Ngày kết thúc là bắt buộc.')
-      return
+      return false
     }
 
     setActionLoading(true)
@@ -72,28 +71,36 @@ export function AdvertisementUpdate() {
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
-      fetchCampaign()
+      await fetchCampaign()
+      return true
     } catch (err) {
-      // BE returns structured errors; fall back to generic message
       const msg = err?.response?.data?.error
                || err?.response?.data?.message
                || err?.message
                || 'Cập nhật chiến dịch thất bại.'
       setActionError(msg)
+      return false
     } finally {
       setActionLoading(false)
     }
-  }
+  }, [id, fetchCampaign])
 
+  // Activate reads targeting from DB rows, NOT from in-memory form state.
+  // We therefore must persist any pending edits via PUT before POSTing
+  // /activate — otherwise BE returns 400 CampaignNoTargeting.
   const handleActivate = async () => {
+    const payload = editRef.current?.getPayload?.()
+    if (!payload) return false
+    const savedOk = await handleSave(payload)
+    if (!savedOk) return false
+
     setActionLoading(true)
     setActionError(null)
     try {
       await activateCampaign(Number(id))
-      fetchCampaign()
+      await fetchCampaign()
       return true
     } catch (err) {
-      // BE throws InvalidOperationException with localized message as `error` field
       const msg = err?.response?.data?.error
                || err?.response?.data?.message
                || err?.message
@@ -142,6 +149,8 @@ export function AdvertisementUpdate() {
   }
 
   const handleDiscard = () => navigate(-1)
+
+  const handleViewLogs = () => navigate(`/advertisement/logs/${id}`)
 
   const formatLastUpdated = () => {
     const now = new Date()
@@ -197,13 +206,14 @@ export function AdvertisementUpdate() {
               </div>
             )}
 
-            {/* Status actions — Activate / Pause / Cancel */}
+            {/* Status actions — Activate / Pause / Cancel / Logs */}
             <div className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest p-6">
               <CampaignStatusActions
                 status={campaign.status}
                 onActivate={handleActivate}
                 onPause={handlePause}
                 onCancel={handleCancel}
+                onViewLogs={handleViewLogs}
                 loading={actionLoading}
               />
             </div>
@@ -213,6 +223,7 @@ export function AdvertisementUpdate() {
 
             {/* Editable fields */}
             <CampaignEdit
+              ref={editRef}
               data={campaign}
               onSave={handleSave}
               onDiscard={handleDiscard}

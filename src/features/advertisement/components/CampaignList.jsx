@@ -180,6 +180,11 @@ export function CampaignList({ onCreateNew, search = '', status = 'all' }) {
                 onClick: () => navigate(`/advertisement/update/${row.id}`),
               },
               {
+                label: 'Xem Nhật Ký',
+                icon: 'history',
+                onClick: () => navigate(`/advertisement/logs/${row.id}`),
+              },
+              {
                 label: 'Hủy Chiến Dịch',
                 icon: 'cancel',
                 danger: true,

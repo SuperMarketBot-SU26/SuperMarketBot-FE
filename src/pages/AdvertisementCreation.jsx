@@ -136,25 +136,6 @@ export function AdvertisementCreation() {
               onChange={setSelectedProducts}
             />
 
-            {/* Step 4: Robot Zone (sẽ gán qua backend khi endpoint sẵn sàng) */}
-            <div className="rounded-lg border border-dashed border-smb-outline-variant bg-smb-surface-container-lowest p-6">
-              <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-lg bg-smb-primary-container/10">
-                  <Icon name="smart_toy" className="text-xl text-smb-primary-container" />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-smb-on-surface">Khu Vực Robot</h3>
-                  <p className="text-sm text-smb-on-surface-variant">Chọn khu vực hoạt động của Robot</p>
-                </div>
-              </div>
-              <div className="mt-4 rounded-lg border border-smb-outline bg-smb-surface-container-low p-4 text-sm text-smb-outline">
-                <div className="flex items-center gap-2">
-                  <Icon name="lock" className="text-[16px]" />
-                  Tính năng đang phát triển — robotZoneId sẽ được thiết lập tự động hoặc chọn thủ công sau khi BE có endpoint.
-                </div>
-              </div>
-            </div>
-
             {/* Actions */}
             <div className="flex items-center justify-end gap-4 rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest p-4">
               <Button
