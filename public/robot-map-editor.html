@@ -406,20 +406,58 @@
         if (CONFIG.token) headers['Authorization'] = `Bearer ${CONFIG.token}`;
         const res = await fetch(CONFIG.apiBase + path, { ...options, headers });
         if (!res.ok) {
-            const body = await res.json().catch(() => ({}));
-            throw new Error(body.error || body.message || `HTTP ${res.status}`);
+            // Read raw response text once, then try to parse JSON in any of the
+            // common ASP.NET shapes (GlobalExceptionMiddleware {error}, ProblemDetails,
+            // {message}, ModelState {errors:{field:[msgs]}}).
+            const text = await res.text().catch(() => '');
+            let body = {};
+            try { body = text ? JSON.parse(text) : {}; } catch { /* not JSON */ }
+
+            const candidates = [
+                body.error,
+                body.title,
+                body.detail,
+                body.message,
+                body.Message,
+            ].filter(Boolean);
+            let msg = candidates[0];
+
+            if (!msg && body.errors && typeof body.errors === 'object') {
+                // ASP.NET ModelState errors are nested: { errors: { Field: ["msg"] } }
+                const flat = Object.entries(body.errors)
+                    .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join('; ') : String(v)}`)
+                    .join(' | ');
+                if (flat) msg = flat;
+            }
+
+            // Always log the raw response body so the user can see exactly what the
+            // backend returned (otherwise ASP.NET 400s look like "HTTP 400" with no detail).
+            console.error('[API]', res.status, path, body);
+            throw new Error(msg || text || `HTTP ${res.status}`);
         }
         if (res.status === 204) return null;
-        return res.json();
+        const raw = await res.json();
+        // Normalize PascalCase → camelCase
+        const toCam = (s) => s.charAt(0).toLowerCase() + s.slice(1);
+        const conv = (v) => {
+            if (Array.isArray(v)) return v.map(conv);
+            if (v && typeof v === 'object') {
+                const out = {};
+                for (const k of Object.keys(v)) out[toCam(k)] = conv(v[k]);
+                return out;
+            }
+            return v;
+        };
+        return conv(raw);
     }
 
     const API = {
         getMap: (floorId) => apiFetch(`/v1/maps/latest?floorId=${floorId ?? 1}`),
-        syncMap: (payload) => apiFetch('/v1/maps/sync', { method: 'POST', body: JSON.stringify(payload) }),
+        syncMap: (payload) => apiFetch('/v1/maps/sync', { method: 'POST', body: JSON.stringify(toPascal(payload)) }),
         getRoutes: (mapId) => apiFetch(`/v1/routes?mapId=${mapId ?? 1}`),
-        createRoute: (payload) => apiFetch('/v1/routes', { method: 'POST', body: JSON.stringify(payload) }),
+        createRoute: (payload) => apiFetch('/v1/routes', { method: 'POST', body: JSON.stringify(toPascal(payload)) }),
         deleteRoute: (id) => apiFetch(`/v1/routes/${id}`, { method: 'DELETE' }),
-        planRoute: (payload) => apiFetch('/Navigation/route', { method: 'POST', body: JSON.stringify(payload) }),
+        planRoute: (payload) => apiFetch('/Navigation/route', { method: 'POST', body: JSON.stringify(toPascal(payload)) }),
     };
 
     // ── Logging ───────────────────────────────────────────────────
@@ -630,7 +668,7 @@
             gCtx.fillStyle = '#e2e8f0';
             gCtx.font = `bold ${11 / zoom}px Inter, sans-serif`;
             gCtx.textAlign = 'center';
-            gCtx.fillText(node.label || '', node.x, node.y - 16 / zoom);
+            gCtx.fillText(node.nodeName || node.label || '', node.x, node.y - 16 / zoom);
         }
 
         gCtx.restore();
@@ -674,16 +712,17 @@
                 nodeId: nextNodeId++,
                 x: world.x,
                 y: world.y,
-                label: `N-${String(nextNodeId - 1).padStart(3, '0')}`,
+                nodeName: `N-${String(nextNodeId - 1).padStart(3, '0')}`,
+                nodeType: 'landmark',
             };
             nodes.push(newNode);
-            log(`Tạo node: ${newNode.label}`);
+            log(`Tạo node: ${newNode.nodeName}`);
             render();
         } else if (currentTool === 'edge') {
             if (!hit) return;
             if (!edgeStartNode) {
                 edgeStartNode = hit;
-                log(`Nối từ: ${hit.label}`);
+                log(`Nối từ: ${hit.nodeName || hit.label}`);
             } else {
                 if (hit.nodeId !== edgeStartNode.nodeId) {
                     const exists = edges.some(ed =>
@@ -696,7 +735,7 @@
                             targetNodeId: hit.nodeId,
                             width: 3, color: '#475569',
                         });
-                        log(`Nối: ${edgeStartNode.label} → ${hit.label}`);
+                        log(`Nối: ${edgeStartNode.nodeName || edgeStartNode.label} → ${hit.nodeName || hit.label}`);
                     } else {
                         log('Cạnh đã tồn tại', 'error');
                     }
@@ -801,8 +840,8 @@
     function showPropertiesPanel(node) {
         const panel = document.getElementById('propertiesPanel');
         panel.classList.remove('hidden');
-        document.getElementById('propName').value = node.label || '';
-        document.getElementById('propType').value = node.objectType || 'landmark';
+        document.getElementById('propName').value = node.nodeName || '';
+        document.getElementById('propType').value = node.nodeType || 'landmark';
         document.getElementById('propX').value = (node.x / SCALE).toFixed(2);
         document.getElementById('propY').value = (node.y / SCALE).toFixed(2);
     }
@@ -813,13 +852,13 @@
 
     document.getElementById('propName').addEventListener('input', (e) => {
         if (selectedNode) {
-            selectedNode.label = e.target.value;
+            selectedNode.nodeName = e.target.value;
             render();
         }
     });
     document.getElementById('propType').addEventListener('change', (e) => {
         if (selectedNode) {
-            selectedNode.objectType = e.target.value;
+            selectedNode.nodeType = e.target.value;
         }
     });
 
@@ -876,15 +915,53 @@
     });
 
     // ── Load map from server ───────────────────────────────────────
-    document.getElementById('btnLoadMapFromServer').addEventListener('click', async () => {
+    // Convert camelCase → PascalCase for requests (C# backend expects PascalCase).
+    function toPascal(obj) {
+        if (!obj) return obj;
+        const toPas = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+        if (Array.isArray(obj)) return obj.map(toPascal);
+        if (typeof obj === 'object') {
+            const out = {};
+            for (const k of Object.keys(obj)) {
+                out[toPas(k)] = toPascal(obj[k]);
+            }
+            return out;
+        }
+        return obj;
+    }
+
+    async function loadMapFromServer() {
         showLoading('Đang tải bản đồ...');
         try {
             const data = await API.getMap(1);
+            console.log('[loadMapFromServer] raw data:', data);
             currentMap = data;
-            nodes = data.nodes || [];
-            edges = data.edges || [];
-            semanticObjects = data.semanticObjects || [];
-            if (nodes.length) nextNodeId = Math.max(...nodes.map(n => n.nodeId)) + 1;
+            const rawNodes = data?.nodes || [];
+            nodes = rawNodes.map((n) => {
+                // Defensive: handle either camelCase or PascalCase from BE.
+                const nodeId = n.nodeId ?? n.NodeId;
+                // Backend stores X/Y in meters (XCoord/YCoord or x/y). The editor's
+                // render loop draws at pixel scale, so convert meters → pixels here.
+                const metersX = n.xCoord ?? n.XCoord ?? n.x ?? n.X ?? 0;
+                const metersY = n.yCoord ?? n.YCoord ?? n.y ?? n.Y ?? 0;
+                return {
+                    ...n,
+                    nodeId,
+                    x: metersX * SCALE,
+                    y: metersY * SCALE,
+                    nodeName: n.nodeName ?? n.NodeName ?? n.label ?? `N-${String(nodeId).padStart(3, '0')}`,
+                    nodeType: n.nodeType ?? n.NodeType ?? 'landmark',
+                };
+            });
+            edges = (data?.edges || []).map((e) => ({
+                ...e,
+                sourceNodeId: e.sourceNodeId ?? e.SourceNodeId,
+                targetNodeId: e.targetNodeId ?? e.TargetNodeId,
+            }));
+            semanticObjects = data?.semanticObjects ?? data?.SemanticObjects ?? [];
+            console.log('[loadMapFromServer] parsed nodes:', nodes, 'edges:', edges);
+            log(`Tải: ${nodes.length} nodes, ${edges.length} edges, ${semanticObjects.length} objects`);
+            if (nodes.length) nextNodeId = Math.max(...nodes.map(n => n.nodeId || 0)) + 1;
             if (data.floorplanImageUrl) {
                 const base = CONFIG.apiBase.replace('/api', '');
                 const imgUrl = data.floorplanImageUrl.startsWith('http')
@@ -893,32 +970,42 @@
                 const img = new Image();
                 img.crossOrigin = 'anonymous';
                 img.onload = () => { bgImg = img; render(); };
+                img.onerror = () => { log('Không tải được ảnh nền', 'error'); render(); };
                 img.src = imgUrl;
+            } else {
+                render();
             }
             fitToView();
-            log(`Đã tải bản đồ: ${data.mapName || 'Không rõ'} (${nodes.length} nodes, ${edges.length} edges)`, 'success');
+            log(`Đã tải: ${data.mapName || 'Không rõ'} (${nodes.length} nodes, ${edges.length} edges)`, 'success');
         } catch (e) {
             log(`Lỗi tải: ${e.message}`, 'error');
         }
         hideLoading();
-    });
+    }
+
+    document.getElementById('btnLoadMapFromServer').addEventListener('click', () => loadMapFromServer());
+    document.getElementById('btnLoadMapFromServer2')?.addEventListener('click', () => loadMapFromServer());
+    // Auto-load on page open so the canvas reflects server state
+    loadMapFromServer();
 
     // ── Save map to server ─────────────────────────────────────────
     document.getElementById('btnSaveMap').addEventListener('click', async () => {
         showLoading('Đang lưu bản đồ...');
+        const payload = {
+            floorId: 1,
+            mapName: currentMap?.mapName || 'Untitled',
+            nodes,
+            edges,
+            semanticObjects,
+            widthMeters: currentMap?.widthMeters || 20,
+            heightMeters: currentMap?.heightMeters || 15,
+        };
         try {
-            await API.syncMap({
-                floorId: 1,
-                mapName: currentMap?.mapName || 'Untitled',
-                nodes,
-                edges,
-                semanticObjects,
-                widthMeters: currentMap?.widthMeters || 20,
-                heightMeters: currentMap?.heightMeters || 15,
-            });
+            await API.syncMap(payload);
             log('Đã lưu bản đồ lên server!', 'success');
         } catch (e) {
             log(`Lỗi lưu: ${e.message}`, 'error');
+            console.error('[SaveMap] payload:', payload);
         }
         hideLoading();
     });
@@ -1050,7 +1137,7 @@
         const hit = hitTestNode(world.x, world.y);
         if (hit) {
             routeNodes.push(hit);
-            log(`Thêm: ${hit.label}`);
+            log(`Thêm: ${hit.nodeName || hit.label}`);
             updateRouteNodesDisplay();
             render();
         }
@@ -1061,7 +1148,7 @@
         if (routeNodes.length === 0) {
             el.innerHTML = '<div class="text-slate-500 italic">Chưa chọn nút nào...</div>';
         } else {
-            el.innerHTML = routeNodes.map(n => `<div>${n.label} <span class="text-slate-500">(${n.nodeId})</span></div>`).join('');
+            el.innerHTML = routeNodes.map(n => `<div>${n.nodeName || n.label} <span class="text-slate-500">(${n.nodeId})</span></div>`).join('');
         }
     }
 
@@ -1069,16 +1156,16 @@
     document.getElementById('btnSetStart').addEventListener('click', () => {
         if (!selectedNode) { log('Chọn 1 node trên bản đồ trước', 'error'); return; }
         dijkstraStart = selectedNode;
-        document.getElementById('lblStartNode').textContent = selectedNode.label + ' (' + selectedNode.nodeId + ')';
-        log('Start: ' + selectedNode.label);
+        document.getElementById('lblStartNode').textContent = (selectedNode.nodeName || selectedNode.label || '') + ' (' + selectedNode.nodeId + ')';
+        log('Start: ' + (selectedNode.nodeName || selectedNode.label));
         render();
     });
 
     document.getElementById('btnSetEnd').addEventListener('click', () => {
         if (!selectedNode) { log('Chọn 1 node trên bản đồ trước', 'error'); return; }
         dijkstraEnd = selectedNode;
-        document.getElementById('lblEndNode').textContent = selectedNode.label + ' (' + selectedNode.nodeId + ')';
-        log('End: ' + selectedNode.label);
+        document.getElementById('lblEndNode').textContent = (selectedNode.nodeName || selectedNode.label || '') + ' (' + selectedNode.nodeId + ')';
+        log('End: ' + (selectedNode.nodeName || selectedNode.label));
         render();
     });
 
@@ -1111,7 +1198,7 @@
         pendingDelete = { type, obj };
         document.getElementById('deleteTitle').textContent = type === 'node' ? 'Xóa Node' : 'Xóa';
         document.getElementById('deleteMsg').textContent = type === 'node'
-            ? `Xóa "${obj.label}"? Các cạnh liên quan sẽ bị xóa.`
+            ? `Xóa "${obj.nodeName || obj.label}"? Các cạnh liên quan sẽ bị xóa.`
             : 'Xóa đối tượng này?';
         document.getElementById('deleteOverlay').classList.remove('hidden');
     }
@@ -1128,7 +1215,7 @@
             edges = edges.filter(e => e.sourceNodeId !== obj.nodeId && e.targetNodeId !== obj.nodeId);
             selectedNode = null;
             hidePropertiesPanel();
-            log('Đã xóa: ' + obj.label);
+            log('Đã xóa: ' + (obj.nodeName || obj.label));
             render();
         }
         document.getElementById('deleteOverlay').classList.add('hidden');
