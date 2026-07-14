@@ -546,6 +546,9 @@
             bCtx.translate(panX, panY);
             bCtx.scale(zoom, zoom);
             bCtx.imageSmoothingEnabled = zoom < 1.2;
+            // Origin (0,0) is the top-left of the floorplan image. This matches the
+            // DB convention (coords in [0, widthMeters] × [0, heightMeters]) used by
+            // NavigationNode, SemanticObject, and robot ROBOT_LOG rows.
             bCtx.drawImage(bgImg, 0, 0);
             bCtx.restore();
         }
@@ -559,6 +562,8 @@
             gCtx.scale(zoom, zoom);
             gCtx.strokeStyle = '#334155';
             gCtx.lineWidth = 2 / zoom;
+            // Origin (0,0) is the top-left of the floorplan — matches the DB and
+            // robot pose convention. Coords are stored in [0, widthMeters] × [0, heightMeters].
             gCtx.strokeRect(0, 0, mapW, mapH);
             gCtx.restore();
         }
@@ -889,6 +894,7 @@
         const mapW = (currentMap.widthMeters || 20) * SCALE;
         const mapH = (currentMap.heightMeters || 15) * SCALE;
         zoom = Math.min((rect.width - 40) / mapW, (rect.height - 40) / mapH, MAX_ZOOM);
+        // Origin (0,0) is the floorplan's top-left.
         panX = (rect.width - mapW * zoom) / 2;
         panY = (rect.height - mapH * zoom) / 2;
         render();
@@ -1009,21 +1015,53 @@
     // ── Save map to server ─────────────────────────────────────────
     document.getElementById('btnSaveMap').addEventListener('click', async () => {
         showLoading('Đang lưu bản đồ...');
+        // Map the editor's internal shape to the BE's exact MapSyncRequestDto shape.
+        // Generic toPascal() is insufficient because the BE DTOs use specific field names
+        // (XCoord/YCoord, FromNodeId/ToNodeId) that don't line up with a naïve 1st-letter
+        // upper-case of our camelCase keys (x/y, sourceNodeId/targetNodeId).
         const payload = {
-            floorId: 1,
-            mapName: currentMap?.mapName || 'Untitled',
-            nodes,
-            edges,
-            semanticObjects,
-            widthMeters: currentMap?.widthMeters || 20,
-            heightMeters: currentMap?.heightMeters || 15,
+            FloorId: 1,
+            MapName: currentMap?.mapName || 'Untitled',
+            WidthMeters: currentMap?.widthMeters || 20,
+            HeightMeters: currentMap?.heightMeters || 15,
+            Nodes: nodes.map((n) => ({
+                NodeId: n.nodeId > 0 ? n.nodeId : null,
+                NodeName: n.nodeName || `N-${n.nodeId}`,
+                XCoord: (n.x || 0) / SCALE,
+                YCoord: (n.y || 0) / SCALE,
+                NodeType: n.nodeType || 'landmark',
+                IsBlocked: !!n.isBlocked,
+            })),
+            Edges: edges.map((e) => ({
+                EdgeId: e.edgeId > 0 ? e.edgeId : null,
+                FromNodeId: e.sourceNodeId,
+                ToNodeId: e.targetNodeId,
+                Distance: e.distance || 0,
+                IsBidirectional: e.isBidirectional !== false,
+            })),
+            SemanticObjects: (semanticObjects || []).map((o) => ({
+                ObjectId: o.objectId > 0 ? o.objectId : null,
+                ObjectType: o.objectType || o.ObjectType,
+                XMin: o.xMin ?? o.XMin,
+                YMin: o.yMin ?? o.YMin,
+                XMax: o.xMax ?? o.XMax,
+                YMax: o.yMax ?? o.YMax,
+                Label: o.label,
+                Confidence: o.confidence,
+                DetectedAt: o.detectedAt,
+                ImageUrl: o.imageUrl,
+            })),
         };
+        console.log('[SaveMap] sending payload:', payload);
         try {
-            await API.syncMap(payload);
-            log('Đã lưu bản đồ lên server!', 'success');
+            const res = await API.syncMap(payload);
+            console.log('[SaveMap] response:', res);
+            log(`Đã lưu bản đồ lên server! (created/updated: ${res?.nodesCreated ?? '?'} / ${res?.nodesUpdated ?? '?'})`, 'success');
+            // Reload so canvas reflects server truth (and any ID remappings).
+            await loadMapFromServer();
         } catch (e) {
             log(`Lỗi lưu: ${e.message}`, 'error');
-            console.error('[SaveMap] payload:', payload);
+            console.error('[SaveMap] payload:', payload, 'error:', e);
         }
         hideLoading();
     });
@@ -1035,6 +1073,8 @@
         const mapW = (currentMap.widthMeters || 20) * SCALE;
         const mapH = (currentMap.heightMeters || 15) * SCALE;
         zoom = Math.min((rect.width - 40) / mapW, (rect.height - 40) / mapH, MAX_ZOOM);
+        // Origin (0,0) is the floorplan's top-left, so the floorplan top-left
+        // is the canvas point we offset from.
         panX = (rect.width - mapW * zoom) / 2;
         panY = (rect.height - mapH * zoom) / 2;
         render();

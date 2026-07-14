@@ -6,7 +6,7 @@ import {
   SemanticObjectsLayer,
 } from './MapLayers'
 import { FloorplanLayer } from './Floorplan'
-import { statusPalette, metersToPx, clampZoom, poseToPx } from '../utils/robotHelpers'
+import { statusPalette, clampZoom } from '../utils/robotHelpers'
 import { ROUTE_TYPE_META } from './RobotAssignmentPanel'
 
 const routeTypeLegend = Object.fromEntries(
@@ -37,9 +37,36 @@ export function FleetMap({
   const isDragging = useRef(false)
   const lastPos = useRef({ x: 0, y: 0 })
 
-  // Calculate map size
-  const svgW = map ? metersToPx(map.widthMeters, scale) : 0
-  const svgH = map ? metersToPx(map.heightMeters, scale) : 0
+  // Effective map dimensions. Defaults to the BE values; FloorplanLayer will
+  // update these once it loads the floorplan image so its rendered box matches
+  // its natural pixel size. All other layers (nodes, edges, semantic objects,
+  // routes, robots) read from these so node positions always line up with the
+  // visible image.
+  const [effSize, setEffSize] = useState({ widthMeters: 20, heightMeters: 15, widthPx: 20 * 64, heightPx: 15 * 64 })
+
+  // Reset to BE values whenever the map changes (new map loaded).
+  useEffect(() => {
+    if (!map) return
+    setEffSize({
+      widthMeters: map.widthMeters || 20,
+      heightMeters: map.heightMeters || 15,
+      widthPx: (map.widthMeters || 20) * scale,
+      heightPx: (map.heightMeters || 15) * scale,
+    })
+  }, [map?.mapId, scale, map?.widthMeters, map?.heightMeters])
+
+  // svgW/svgH are the actual rendered size of the floorplan (in pixels),
+  // matching exactly what FloorplanLayer draws — not just `widthMeters * scale`.
+  const svgW = effSize.widthPx
+  const svgH = effSize.heightPx
+
+  // Pixels-per-meter derived from the rendered size. When the image is loaded
+  // this matches its natural aspect exactly; when it isn't, it falls back to
+  // the BE values at the default scale. Using this single conversion function
+  // everywhere guarantees nodes/edges/routes land on the same pixel positions
+  // as the floorplan image — no aspect-ratio mismatch.
+  const pxPerMeter = effSize.widthMeters > 0 ? effSize.widthPx / effSize.widthMeters : scale
+  const effScale = (m) => m * pxPerMeter
 
   // Wheel zoom - use native event with passive: false to prevent page scroll
   useEffect(() => {
@@ -136,17 +163,18 @@ export function FleetMap({
     if (!pose) return
 
     const rect = containerRef.current.getBoundingClientRect()
-    const robotX = metersToPx(pose.x, scale)
-    const robotY = metersToPx(pose.y, scale)
+    const robotX = effScale(pose.x)
+    const robotY = effScale(pose.y)
     const zoom = currentTransform.zoom
 
-    // Center the robot in the viewport
+    // Origin (0,0) is the floorplan's top-left — same convention as the editor and
+    // the DB. Centre the robot in the viewport by offsetting from its world position.
     setTargetTransform({
       x: rect.width / 2 - robotX * zoom,
       y: rect.height / 2 - robotY * zoom,
       zoom,
     })
-  }, [robots, robotPoses, scale, currentTransform.zoom])
+  }, [robots, robotPoses, scale, effSize, currentTransform.zoom])
 
   // Focus on robot when selectedRobotCode changes (from robot list/panel click)
   useEffect(() => {
@@ -255,17 +283,18 @@ export function FleetMap({
       >
         <svg width="100%" height="100%" style={{ userSelect: 'none' }}>
           <g transform={`translate(${currentTransform.x}, ${currentTransform.y}) scale(${currentTransform.zoom})`}>
-            <FloorplanLayer map={map} metersToPx={(m) => metersToPx(m, scale)} />
-            <SemanticObjectsLayer objects={map.semanticObjects} metersToPx={(m) => metersToPx(m, scale)} />
-            <EdgesLayer nodes={map.nodes} edges={map.edges} metersToPx={(m) => metersToPx(m, scale)} />
-            <RouteLayer route={selectedRoute} nodesById={nodesById} metersToPx={(m) => metersToPx(m, scale)} />
-            <NodesLayer nodes={map.nodes} metersToPx={(m) => metersToPx(m, scale)} onNodeClick={onNodeClick} />
+            <FloorplanLayer map={map} scale={scale} onEffectiveSize={setEffSize} />
+            <SemanticObjectsLayer objects={map.semanticObjects} metersToPx={effScale} />
+            <EdgesLayer nodes={map.nodes} edges={map.edges} metersToPx={effScale} />
+            <RouteLayer route={selectedRoute} nodesById={nodesById} metersToPx={effScale} />
+            <NodesLayer nodes={map.nodes} metersToPx={effScale} onNodeClick={onNodeClick} />
 
             {/* Robots */}
             {robots.map((r) => {
               const pose = robotPoses[r.robotCode]
               if (!pose) return null
-              const { x, y } = poseToPx(pose, scale)
+              const x = effScale(pose.x)
+              const y = effScale(pose.y)
               const palette = statusPalette(r.status)
               const isFocused = focusedRobot === r.robotCode
 
