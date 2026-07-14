@@ -8,6 +8,25 @@ import {
 import { FloorplanLayer } from './Floorplan'
 import { statusPalette, clampZoom } from '../utils/robotHelpers'
 import { ROUTE_TYPE_META } from './RobotAssignmentPanel'
+import logoUrl from '../../../assets/logo.png'
+
+// Status → hex mapping for SVG fills (the palette helper returns Tailwind
+// classes which we can't use directly as `fill` values).
+const STATUS_HEX = {
+  Power_Off:         '#79747e',
+  Idle:              '#4a4458',
+  Moving:            '#22c55e',
+  Interacting:       '#7d5260',
+  Offline_Charging:  '#cac4d0',
+  Unknown:           '#cac4d0',
+}
+
+// Robot marker sizing.
+const ROBOT_LOGO_HALF = 12   // half-width of the logo image in svg units
+const ROBOT_ARROW_OFFSET = 22 // distance from centre to arrow tip
+const ROBOT_ARROW_HALF_W = 5
+const ROBOT_ARROW_HALF_H = 7
+const ROBOT_RING_R = 18       // selection ring radius
 
 const routeTypeLegend = Object.fromEntries(
   ['patrol', 'delivery', 'ad', 'navigation', 'restock', 'custom']
@@ -297,6 +316,7 @@ export function FleetMap({
               const y = effScale(pose.y)
               const palette = statusPalette(r.status)
               const isFocused = focusedRobot === r.robotCode
+              const statusHex = STATUS_HEX[r.status] ?? STATUS_HEX.Unknown
 
               return (
                 <g
@@ -305,14 +325,36 @@ export function FleetMap({
                   onClick={() => handleRobotClick(r)}
                   className="cursor-pointer"
                 >
-                  {/* Selection ring */}
-                  {isFocused && <circle r={18} fill="#264191" fillOpacity={0.15} />}
+                  {/* Selection ring — bright green when focused, neutral otherwise */}
+                  <circle
+                    r={ROBOT_RING_R}
+                    fill={isFocused ? '#22c55e' : '#264191'}
+                    fillOpacity={isFocused ? 0.22 : 0.15}
+                    stroke={isFocused ? '#22c55e' : 'transparent'}
+                    strokeWidth={isFocused ? 2 : 0}
+                  />
 
-                  {/* Robot body */}
-                  <circle r={10} fill={palette.dot} stroke="#ffffff" strokeWidth={2.5} />
+                  {/* Status halo so the robot's status is still visible behind the logo */}
+                  <circle r={ROBOT_LOGO_HALF + 1} fill={statusHex} fillOpacity={0.18} />
 
-                  {/* Direction indicator */}
-                  <polygon points="0,-14 -4,-7 4,-7" fill={palette.dot} stroke="#ffffff" strokeWidth={1} />
+                  {/* Robot body — logo image */}
+                  <image
+                    href={logoUrl}
+                    x={-ROBOT_LOGO_HALF}
+                    y={-ROBOT_LOGO_HALF}
+                    width={ROBOT_LOGO_HALF * 2}
+                    height={ROBOT_LOGO_HALF * 2}
+                    preserveAspectRatio="xMidYMid meet"
+                  />
+
+                  {/* Direction indicator — pushed out beyond the logo */}
+                  <polygon
+                    points={`0,${-ROBOT_ARROW_OFFSET} ${-ROBOT_ARROW_HALF_W},${-ROBOT_ARROW_OFFSET + ROBOT_ARROW_HALF_H} ${ROBOT_ARROW_HALF_W},${-ROBOT_ARROW_OFFSET + ROBOT_ARROW_HALF_H}`}
+                    fill={statusHex}
+                    stroke="#ffffff"
+                    strokeWidth={1}
+                    strokeLinejoin="round"
+                  />
                 </g>
               )
             })}
