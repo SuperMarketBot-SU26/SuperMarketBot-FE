@@ -569,16 +569,18 @@
         gCtx.translate(panX, panY);
         gCtx.scale(zoom, zoom);
 
-        // Edges
+        // Edges — use the same look as a freshly drawn edge (Nối Cạnh).
+        const EDGE_COLOR = '#3b82f6';
+        const EDGE_WIDTH = 3;
         for (const edge of edges) {
-            const a = nodes.find(n => n.nodeId === edge.sourceNodeId);
-            const b = nodes.find(n => n.nodeId === edge.targetNodeId);
+            const a = nodes.find(n => Number(n.nodeId) === Number(edge.sourceNodeId));
+            const b = nodes.find(n => Number(n.nodeId) === Number(edge.targetNodeId));
             if (!a || !b) continue;
             gCtx.beginPath();
             gCtx.moveTo(a.x, a.y);
             gCtx.lineTo(b.x, b.y);
-            gCtx.strokeStyle = edge.color || '#475569';
-            gCtx.lineWidth = (edge.width || 3) / zoom;
+            gCtx.strokeStyle = EDGE_COLOR;
+            gCtx.lineWidth = EDGE_WIDTH / zoom;
             if (edge.dash) {
                 gCtx.setLineDash([8 / zoom, 4 / zoom]);
             }
@@ -953,13 +955,29 @@
                     nodeType: n.nodeType ?? n.NodeType ?? 'landmark',
                 };
             });
-            edges = (data?.edges || []).map((e) => ({
+            // Find edges: sometimes BE wraps them under .map.edges / .graph.edges
+            const edgesRaw =
+                data?.edges ?? data?.Edges ??
+                data?.map?.edges ?? data?.Map?.Edges ??
+                data?.graph?.edges ?? data?.Graph?.Edges ??
+                data?.navigationEdges ?? data?.NavigationEdges ??
+                [];
+            edges = edgesRaw.map((e) => ({
                 ...e,
-                sourceNodeId: e.sourceNodeId ?? e.SourceNodeId,
-                targetNodeId: e.targetNodeId ?? e.TargetNodeId,
+                sourceNodeId: e.sourceNodeId ?? e.SourceNodeId ?? e.sourceNode ?? e.SourceNode ?? e.sourceNodeId ?? e.fromNodeId ?? e.FromNodeId,
+                targetNodeId: e.targetNodeId ?? e.TargetNodeId ?? e.targetNode ?? e.TargetNode ?? e.toNodeId ?? e.ToNodeId,
+                edgeId: e.edgeId ?? e.EdgeId ?? e.id ?? e.Id,
             }));
-            semanticObjects = data?.semanticObjects ?? data?.SemanticObjects ?? [];
-            console.log('[loadMapFromServer] parsed nodes:', nodes, 'edges:', edges);
+            // Diagnostics: report how many edges reference known nodes.
+            const knownIds = new Set(nodes.map(n => n.nodeId));
+            const edgeDiag = edges.map((e) => ({
+                edgeId: e.edgeId,
+                sourceNodeId: e.sourceNodeId,
+                targetNodeId: e.targetNodeId,
+                sourceKnown: knownIds.has(Number(e.sourceNodeId)),
+                targetKnown: knownIds.has(Number(e.targetNodeId)),
+            }));
+            console.log('[loadMapFromServer] parsed nodes:', nodes, 'edges:', edges, 'edgeDiag:', edgeDiag);
             log(`Tải: ${nodes.length} nodes, ${edges.length} edges, ${semanticObjects.length} objects`);
             if (nodes.length) nextNodeId = Math.max(...nodes.map(n => n.nodeId || 0)) + 1;
             if (data.floorplanImageUrl) {
