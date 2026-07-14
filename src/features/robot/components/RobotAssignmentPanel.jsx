@@ -4,19 +4,22 @@ import {
   getRoute,
   createRoute,
 } from '../api/robotRoutesApi'
-import { getMaps, getZones } from '../api/mapsApi'
+import { getRouteTypes as fetchRouteTypes } from '../api/routeTypesApi'
+import { getMaps } from '../api/mapsApi'
+import { getZones as fetchZones } from '../api/zonesApi'
 
 function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
 }
 
-const ROUTE_TYPES = [
-  { value: 'patrol',     label: 'Patrol (tuần tra)' },
-  { value: 'restock',    label: 'Restock (nhập hàng)' },
-  { value: 'delivery',   label: 'Delivery (giao hàng)' },
-  { value: 'ad',         label: 'Ad (quảng cáo / tuyến nhắm đích)' },
-  { value: 'navigation', label: 'Navigation (điều hướng thẳng)' },
-  { value: 'custom',     label: 'Custom (tùy chỉnh)' },
+// Local fallback route types — used only if the BE's /routes/types endpoint
+// is unreachable. Mirrors the BE's hardcoded list so the dropdown never goes
+// blank in dev / offline mode.
+const FALLBACK_ROUTE_TYPES = [
+  { value: 'patrol',   label: 'Tuần tra' },
+  { value: 'restock',  label: 'Bổ sung hàng' },
+  { value: 'delivery', label: 'Giao hàng' },
+  { value: 'custom',   label: 'Tùy chỉnh' },
 ]
 
 export const ROUTE_TYPE_META = {
@@ -366,8 +369,24 @@ function NewRouteForm({ robots, map, onCreated }) {
 
   const [maps, setMaps] = useState([])
   const [zones, setZones] = useState([])
+  const [routeTypes, setRouteTypes] = useState(FALLBACK_ROUTE_TYPES)
   const [loadingMaps, setLoadingMaps] = useState(false)
   const [loadingZones, setLoadingZones] = useState(false)
+
+  // Load route types once on mount from the BE so the dropdown reflects the
+  // canonical enum. Falls back to a hardcoded list if the endpoint fails.
+  useEffect(() => {
+    let cancelled = false
+    fetchRouteTypes()
+      .then((list) => {
+        if (cancelled) return
+        if (Array.isArray(list) && list.length) {
+          setRouteTypes(list.map((t) => ({ value: t.value, label: t.label })))
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   // Load maps once on mount; default the selection to the loaded map.
   useEffect(() => {
@@ -388,16 +407,17 @@ function NewRouteForm({ robots, map, onCreated }) {
     return () => { cancelled = true }
   }, [map?.mapId])
 
-  // When mapId changes, reload zones.
+  // When mapId changes, reload zones from /v1/zones (filtered by floor).
   useEffect(() => {
-    if (!form.mapId) {
+    const floorId = map?.floorId
+    if (!form.mapId || floorId == null) {
       setZones([])
       setForm((prev) => (prev.zoneId ? { ...prev, zoneId: '' } : prev))
       return
     }
     let cancelled = false
     setLoadingZones(true)
-    getZones({ mapId: Number(form.mapId) })
+    fetchZones({ floorId })
       .then((list) => {
         if (cancelled) return
         setZones(list)
@@ -412,7 +432,7 @@ function NewRouteForm({ robots, map, onCreated }) {
       .catch(() => {})
       .finally(() => !cancelled && setLoadingZones(false))
     return () => { cancelled = true }
-  }, [form.mapId])
+  }, [form.mapId, map?.floorId])
 
   const set = (patch) => setForm((prev) => ({ ...prev, ...patch }))
 
@@ -554,7 +574,7 @@ function NewRouteForm({ robots, map, onCreated }) {
           <Select
             value={form.routeType}
             onChange={(v) => set({ routeType: v })}
-            options={ROUTE_TYPES.map((t) => ({ value: t.value, label: t.label }))}
+            options={routeTypes.map((t) => ({ value: t.value, label: t.label }))}
           />
         </Field>
       </div>

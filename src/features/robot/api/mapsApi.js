@@ -14,13 +14,13 @@
  * Notes:
  *   - `getMaps` projects the map dropdown from the live `/latest` response.
  *     The BE doesn't expose a separate "list all maps" endpoint.
- *   - `getZones` derives available zones from routes' `zoneId`/`zoneName`
- *     (BE has no dedicated zones endpoint yet). Returns [] when no routes
- *     exist for the requested map — the UI must handle an empty list.
+ *   - For Zone / Aisle / RouteType lookup use the dedicated API modules:
+ *       ../robot/api/zonesApi.js      → /api/v1/zones
+ *       ../robot/api/aislesApi.js     → /api/v1/aisles, /api/v1/aisles/density
+ *       ../robot/api/routeTypesApi.js → /api/v1/routes/types
  */
 
 import client from '../../../api/client'
-import { getRoutes } from './robotRoutesApi'
 
 const ENDPOINT = '/v1/maps'
 
@@ -52,19 +52,4 @@ export const getMaps = async () => {
     heightMeters: latest.heightMeters,
     nodeCount: latest.nodes?.length ?? 0,
   }]
-}
-
-/**
- * getZones — derive Zone options from existing routes' zoneId/zoneName.
- * The BE doesn't expose a dedicated /zones endpoint yet.
- */
-export const getZones = async ({ mapId } = {}) => {
-  if (!mapId) return []
-  const routes = await getRoutes({ mapId })
-  const zones = new Map()
-  for (const r of routes ?? []) {
-    if (r.zoneId == null) continue
-    zones.set(r.zoneId, r.zoneName ?? `Zone #${r.zoneId}`)
-  }
-  return Array.from(zones, ([zoneId, zoneName]) => ({ zoneId, zoneName }))
 }

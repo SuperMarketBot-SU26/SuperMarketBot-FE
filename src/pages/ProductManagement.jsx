@@ -17,7 +17,7 @@ import {
   formatVND,
   statusLabel,
 } from '../features/product'
-import { getProducts as fetchPublicProducts } from '../features/product/api/productApi'
+import { getProducts as fetchPublicProducts, getProductTypes } from '../features/product/api/productApi'
 
 const STATUS_OPTIONS = [
   { value: 'Available', label: 'Còn hàng' },
@@ -55,6 +55,11 @@ export function ProductManagement() {
   const [substituteOptions, setSubstituteOptions] = useState([])
   const [substituteLoading, setSubstituteLoading] = useState(false)
 
+  // Product-type reference data: populated from /api/products/product-types so
+  // the ProductTypeId field is a dropdown, not a free-form number.
+  const [productTypes, setProductTypes] = useState([])
+  const [productTypesLoading, setProductTypesLoading] = useState(false)
+
   // Delete confirm state
   const [deletingProduct, setDeletingProduct] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -72,9 +77,24 @@ export function ProductManagement() {
     }
   }, [])
 
+  // Load the product-type reference list once on mount. Keep as a separate
+  // helper so openCreate / openEdit can re-trigger it on demand.
+  const loadProductTypes = useCallback(async () => {
+    setProductTypesLoading(true)
+    try {
+      const list = await getProductTypes()
+      setProductTypes(Array.isArray(list) ? list : [])
+    } catch {
+      setProductTypes([])
+    } finally {
+      setProductTypesLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     fetchProducts()
-  }, [fetchProducts])
+    loadProductTypes()
+  }, [fetchProducts, loadProductTypes])
 
   const filtered = products.filter((p) => {
     const matchSearch =
@@ -96,7 +116,7 @@ export function ProductManagement() {
     setForm(EMPTY_FORM)
     setFormError(null)
     setModalOpen(true)
-    await loadSubstituteOptions(null)
+    await Promise.all([loadSubstituteOptions(null), loadProductTypes()])
   }
 
   const openEdit = async (product) => {
@@ -113,7 +133,7 @@ export function ProductManagement() {
     })
     setFormError(null)
     setModalOpen(true)
-    await loadSubstituteOptions(product.productId)
+    await Promise.all([loadSubstituteOptions(product.productId), loadProductTypes()])
   }
 
   /**
@@ -449,14 +469,22 @@ export function ProductManagement() {
           </FormField>
 
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="ProductTypeId" required>
-              <Input
-                type="number"
-                placeholder="1"
-                value={form.productTypeId}
-                onChange={(e) => handleChange('productTypeId', e.target.value)}
-                min={1}
-                required
+            <FormField label="Loại sản phẩm (ProductType)" required>
+              <Select
+                placeholder={
+                  productTypesLoading
+                    ? 'Đang tải danh sách...'
+                    : productTypes.length === 0
+                      ? 'Chưa có loại sản phẩm nào'
+                      : '-- chọn loại sản phẩm --'
+                }
+                value={form.productTypeId === '' ? '' : String(form.productTypeId)}
+                onChange={(v) => handleChange('productTypeId', v)}
+                disabled={productTypesLoading}
+                options={productTypes.map((t) => ({
+                  value: String(t.productTypeId),
+                  label: `#${t.productTypeId} · ${t.typeName}${t.subcategoryId != null ? ` · sub #${t.subcategoryId}` : ''}`,
+                }))}
               />
             </FormField>
             <FormField label="Giá Bán" required>
