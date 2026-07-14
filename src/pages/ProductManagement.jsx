@@ -17,7 +17,7 @@ import {
   formatVND,
   statusLabel,
 } from '../features/product'
-import { getProducts as fetchPublicProducts, getProductTypes } from '../features/product/api/productApi'
+import { getProducts as fetchPublicProducts, getProductTypes, getProductDetail, getHealthTags } from '../features/product/api/productApi'
 
 const STATUS_OPTIONS = [
   { value: 'Available', label: 'Còn hàng' },
@@ -35,6 +35,7 @@ const EMPTY_FORM = {
   description: '',
   status: 'Available',
   substituteProductId: '',
+  healthTagIds: [],
 }
 
 export function ProductManagement() {
@@ -59,6 +60,11 @@ export function ProductManagement() {
   // the ProductTypeId field is a dropdown, not a free-form number.
   const [productTypes, setProductTypes] = useState([])
   const [productTypesLoading, setProductTypesLoading] = useState(false)
+
+  // Health-tag reference data: populated from /api/products/health-tags. Tags
+  // can be selected per-product and persisted as `healthTagIds` on the BE.
+  const [healthTags, setHealthTags] = useState([])
+  const [healthTagsLoading, setHealthTagsLoading] = useState(false)
 
   // Delete confirm state
   const [deletingProduct, setDeletingProduct] = useState(null)
@@ -91,10 +97,25 @@ export function ProductManagement() {
     }
   }, [])
 
+  // Health-tag reference list: same lifecycle as product types. Loaded once on
+  // mount and refreshed when the modal opens.
+  const loadHealthTags = useCallback(async () => {
+    setHealthTagsLoading(true)
+    try {
+      const list = await getHealthTags()
+      setHealthTags(Array.isArray(list) ? list : [])
+    } catch {
+      setHealthTags([])
+    } finally {
+      setHealthTagsLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     fetchProducts()
     loadProductTypes()
-  }, [fetchProducts, loadProductTypes])
+    loadHealthTags()
+  }, [fetchProducts, loadProductTypes, loadHealthTags])
 
   const filtered = products.filter((p) => {
     const matchSearch =
@@ -116,7 +137,7 @@ export function ProductManagement() {
     setForm(EMPTY_FORM)
     setFormError(null)
     setModalOpen(true)
-    await Promise.all([loadSubstituteOptions(null), loadProductTypes()])
+    await Promise.all([loadSubstituteOptions(null), loadProductTypes(), loadHealthTags()])
   }
 
   const openEdit = async (product) => {
@@ -130,10 +151,24 @@ export function ProductManagement() {
       description: product.description ?? '',
       status: product.status ?? 'Available',
       substituteProductId: product.substituteProductId ?? '',
+      // Default to []; we'll patch in the real list once /detail loads below.
+      healthTagIds: [],
     })
     setFormError(null)
     setModalOpen(true)
-    await Promise.all([loadSubstituteOptions(product.productId), loadProductTypes()])
+    await Promise.all([loadSubstituteOptions(product.productId), loadProductTypes(), loadHealthTags()])
+
+    // The list endpoint returns ProductDto which omits HealthTags. Fetch the
+    // detail so we can pre-select the tags that are currently attached.
+    try {
+      const detail = await getProductDetail(product.productId)
+      const ids = Array.isArray(detail?.healthTags)
+        ? detail.healthTags.map((t) => t.healthTagId)
+        : []
+      setForm((prev) => ({ ...prev, healthTagIds: ids }))
+    } catch {
+      // Detail is optional — fall back to no tags rather than blocking edit.
+    }
   }
 
   /**
@@ -199,6 +234,7 @@ export function ProductManagement() {
       status: form.status || 'Available',
       substituteProductId:
         form.substituteProductId === '' ? null : Number(form.substituteProductId),
+      healthTagIds: Array.isArray(form.healthTagIds) ? form.healthTagIds : [],
     }
 
     setSubmitting(true)
@@ -534,6 +570,61 @@ export function ProductManagement() {
               value={form.imageUrl}
               onChange={(e) => handleChange('imageUrl', e.target.value)}
             />
+          </FormField>
+
+          <FormField label="Health Tags">
+            {healthTagsLoading ? (
+              <p className="rounded border border-dashed border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-xs text-smb-on-surface-variant">
+                Đang tải danh sách health tag…
+              </p>
+            ) : healthTags.length === 0 ? (
+              <p className="rounded border border-dashed border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-xs text-smb-on-surface-variant">
+                Chưa có health tag nào trong hệ thống.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {healthTags.map((t) => {
+                  const selected = form.healthTagIds.includes(t.healthTagId)
+                  const typeBadge =
+                    t.tagType === 'Allergen' ? 'Dị ứng'
+                      : t.tagType === 'Diet'    ? 'Chế độ ăn'
+                      : t.tagType === 'Nutrition' ? 'Dinh dưỡng'
+                      : t.tagType || 'Khác'
+                  return (
+                    <button
+                      key={t.healthTagId}
+                      type="button"
+                      onClick={() => {
+                        const next = selected
+                          ? form.healthTagIds.filter((id) => id !== t.healthTagId)
+                          : [...form.healthTagIds, t.healthTagId]
+                        handleChange('healthTagIds', next)
+                      }}
+                      className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                        selected
+                          ? 'border-smb-primary-container bg-smb-primary-container text-smb-on-primary'
+                          : 'border-smb-outline-variant bg-smb-surface-container-lowest text-smb-on-surface hover:border-smb-primary-container hover:bg-smb-active-bg'
+                      }`}
+                      aria-pressed={selected}
+                    >
+                      <span className="material-symbols-outlined text-[14px]">
+                        {selected ? 'check_circle' : 'add'}
+                      </span>
+                      {t.tagName}
+                      <span className={`text-[10px] ${selected ? 'opacity-80' : 'text-smb-on-surface-variant'}`}>
+                        · {typeBadge}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            {form.healthTagIds.length > 0 && (
+              <p className="mt-1 text-[11px] text-smb-on-surface-variant">
+                Đã chọn {form.healthTagIds.length} tag · dùng để lọc sản phẩm an toàn
+                cho hội viên và cảnh báo dị ứng.
+              </p>
+            )}
           </FormField>
 
           <FormField label="Trạng Thái">

@@ -28,6 +28,18 @@ export const getAlternatives = (productId, memberId) =>
     params: memberId ? { memberId } : {},
   }).then((res) => res.data)
 
+/**
+ * Single-product detail including the HealthTags array (the basic ProductDto
+ * doesn't include them). Used by ProductManagement to pre-select the health
+ * tags when editing a product.
+ *
+ * ProductDetailDto: { ProductId, ProductName, UnitPrice, PromotionPrice?,
+ *                     Status, ImageUrl?, Description?, ProductTypeId,
+ *                     IsOnSale, IsFavorite, HealthTags: HealthTagDto[] }
+ */
+export const getProductDetail = (productId) =>
+  client.get(`${ENDPOINT}/${productId}/detail`).then((res) => res.data)
+
 /* ------------------------------------------------------------------ */
 /*  Reference data (categories, subcategories, product types, …)     */
 /*  Used by ProductManagement to populate form dropdowns so the       */

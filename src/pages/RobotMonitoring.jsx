@@ -33,7 +33,7 @@ import {
 export function RobotMonitoring() {
   const navigate = useNavigate()
   const { robots, poses, loading: robotsLoading, tick } = useRobotFleet({ pollMs: 5000 })
-  const { map, routes, loading: mapLoading, refresh: refreshRoutes } = useMapAndRoutes({ mapId: 1 })
+  const { map, routes, loading: mapLoading, refresh: refreshRoutes } = useMapAndRoutes({ floorId: 1 })
 
   const [selectedRobotCode, setSelectedRobotCode] = useState(null)
   const [previewedRoute, setPreviewedRoute] = useState(null)
