@@ -17,6 +17,7 @@ import AccountManagement from './pages/AccountManagement'
 import ParameterSettings from './pages/ParameterSettings'
 import Register from './pages/Register'
 import RobotMonitoring from './pages/RobotMonitoring'
+import RobotMapEditor from './pages/RobotMapEditor'
 import { AuthProvider } from './features/auth/AuthContext'
 import ProtectedRoute from './features/auth/ProtectedRoute'
 
@@ -174,6 +175,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <RobotMonitoring />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/robot-monitoring/map-editor"
+            element={
+              <ProtectedRoute>
+                <RobotMapEditor />
               </ProtectedRoute>
             }
           />

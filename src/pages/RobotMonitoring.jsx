@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import Navbar from '../components/Navbar'
 import {
@@ -30,6 +31,7 @@ import {
  * detail preview, and route creation are wired up.
  */
 export function RobotMonitoring() {
+  const navigate = useNavigate()
   const { robots, poses, loading: robotsLoading, tick } = useRobotFleet({ pollMs: 5000 })
   const { map, routes, loading: mapLoading, refresh: refreshRoutes } = useMapAndRoutes({ mapId: 1 })
 
@@ -52,7 +54,16 @@ export function RobotMonitoring() {
         />
 
         <main className="flex flex-col gap-6 px-6 py-6">
-          <FleetStatsHeader robots={robots} />
+          <div className="flex items-center justify-between">
+            <FleetStatsHeader robots={robots} />
+            <button
+              onClick={() => navigate('/robot-monitoring/map-editor')}
+              className="flex items-center gap-2 rounded-lg border border-smb-outline-variant bg-smb-surface-container-low px-4 py-2 text-xs font-semibold text-smb-on-surface-variant hover:border-smb-primary-container hover:text-smb-primary-container transition-colors"
+            >
+              <span className="material-symbols-outlined text-[18px]">edit_square</span>
+              Chỉnh sửa Bản đồ
+            </button>
+          </div>
 
           {mapLoading || robotsLoading ? (
             <div className="flex h-[600px] items-center justify-center rounded-lg border border-dashed border-smb-outline-variant bg-smb-surface-container-lowest text-smb-on-surface-variant">
