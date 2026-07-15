@@ -28,11 +28,6 @@ const ROBOT_ARROW_HALF_W = 5
 const ROBOT_ARROW_HALF_H = 7
 const ROBOT_RING_R = 18       // selection ring radius
 
-const routeTypeLegend = Object.fromEntries(
-  ['patrol', 'delivery', 'ad', 'navigation', 'restock', 'custom']
-    .map((t) => [t, ROUTE_TYPE_META[t]])
-)
-
 /**
  * FleetMap — simple indoor map with nodes, edges, robots, and routes.
  * Features smooth lerp animation when focusing on robots.
@@ -41,7 +36,9 @@ export function FleetMap({
   map,
   robots = [],
   robotPoses = {},
+  routes = [],       // Array<RobotRouteDetailDto> — all routes with waypoints
   selectedRoute = null,
+  routeTypes = [],   // Array<{ value, label }> — from GET /v1/routes/types
   selectedRobotCode = null,
   onRobotClick,
   onNodeClick,
@@ -258,6 +255,12 @@ export function FleetMap({
     return m
   }, [map])
 
+  // Legend driven by BE route-type catalogue — stays in sync with the backend.
+  // Falls back to ROUTE_TYPE_META for any type the BE returns but the FE doesn't know about yet.
+  const routeTypeLegend = Object.fromEntries(
+    routeTypes.map((t) => [t.value, { label: t.label, color: ROUTE_TYPE_META[t.value]?.color ?? ROUTE_TYPE_META.default.color }])
+  )
+
   if (!map) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-smb-surface-container-low text-smb-on-surface-variant">
@@ -305,7 +308,23 @@ export function FleetMap({
             <FloorplanLayer map={map} scale={scale} onEffectiveSize={setEffSize} />
             <SemanticObjectsLayer objects={map.semanticObjects} metersToPx={effScale} />
             <EdgesLayer nodes={map.nodes} edges={map.edges} metersToPx={effScale} />
-            <RouteLayer route={selectedRoute} nodesById={nodesById} metersToPx={effScale} />
+            {/* All routes — each rendered in its route-type colour via RouteLayer */}
+            {routes.map((route) => (
+              <RouteLayer
+                key={route.robotRouteId}
+                route={route}
+                nodesById={nodesById}
+                metersToPx={effScale}
+              />
+            ))}
+            {/* Single selected/previewed route overlaid on top */}
+            {selectedRoute && (
+              <RouteLayer
+                route={selectedRoute}
+                nodesById={nodesById}
+                metersToPx={effScale}
+              />
+            )}
             <NodesLayer nodes={map.nodes} metersToPx={effScale} onNodeClick={onNodeClick} />
 
             {/* Robots */}

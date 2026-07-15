@@ -33,7 +33,7 @@ import {
 export function RobotMonitoring() {
   const navigate = useNavigate()
   const { robots, poses, loading: robotsLoading, tick } = useRobotFleet({ pollMs: 5000 })
-  const { map, routes, loading: mapLoading, refresh: refreshRoutes } = useMapAndRoutes({ floorId: 1 })
+  const { map, routes, routeTypes, loading: mapLoading, refresh: refreshRoutes } = useMapAndRoutes({ floorId: 1 })
 
   const [selectedRobotCode, setSelectedRobotCode] = useState(null)
   const [previewedRoute, setPreviewedRoute] = useState(null)
@@ -71,6 +71,8 @@ export function RobotMonitoring() {
                   map={map}
                   robots={robots}
                   robotPoses={poses}
+                  routes={routes}
+                  routeTypes={routeTypes}
                   selectedRoute={previewedRoute}
                   selectedRobotCode={selectedRobotCode}
                   onRobotClick={handleSelectRobot}
