@@ -51,3 +51,13 @@ export const updateRobotStatus = async (robotCode, payload) => {
   )
   return res.data
 }
+
+/**
+ * Fetch a single robot by code.
+ * The BE has no `GET /Robots/{code}` endpoint, so we fetch the full list
+ * and find the match.  Returns null if the robot is not found.
+ */
+export const getRobot = async (robotCode) => {
+  const robots = await getRobots()
+  return robots.find((r) => r.robotCode === robotCode) ?? null
+}
