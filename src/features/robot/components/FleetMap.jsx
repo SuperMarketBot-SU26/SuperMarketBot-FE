@@ -36,8 +36,8 @@ export function FleetMap({
   map,
   robots = [],
   robotPoses = {},
-  routes = [],       // Array<RobotRouteDetailDto> — all routes with waypoints
   selectedRoute = null,
+  onClearRoutePreview = null,
   routeTypes = [],   // Array<{ value, label }> — from GET /v1/routes/types
   selectedRobotCode = null,
   onRobotClick,
@@ -305,19 +305,18 @@ export function FleetMap({
       >
         <svg width="100%" height="100%" style={{ userSelect: 'none' }}>
           <g transform={`translate(${currentTransform.x}, ${currentTransform.y}) scale(${currentTransform.zoom})`}>
+            {/* Transparent background — click-away deselects the route preview */}
+            <rect
+              x={0} y={0}
+              width={effSize.w} height={effSize.h}
+              fill="transparent"
+              onClick={() => { if (selectedRoute) onClearRoutePreview?.() }}
+            />
             <FloorplanLayer map={map} scale={scale} onEffectiveSize={setEffSize} />
             <SemanticObjectsLayer objects={map.semanticObjects} metersToPx={effScale} />
             <EdgesLayer nodes={map.nodes} edges={map.edges} metersToPx={effScale} />
-            {/* All routes — each rendered in its route-type colour via RouteLayer */}
-            {routes.map((route) => (
-              <RouteLayer
-                key={route.robotRouteId}
-                route={route}
-                nodesById={nodesById}
-                metersToPx={effScale}
-              />
-            ))}
-            {/* Single selected/previewed route overlaid on top */}
+            {/* Route highlight — only shown when user clicks "Xem trước trên bản đồ".
+                Clicking another route replaces it; deselecting clears it. */}
             {selectedRoute && (
               <RouteLayer
                 route={selectedRoute}

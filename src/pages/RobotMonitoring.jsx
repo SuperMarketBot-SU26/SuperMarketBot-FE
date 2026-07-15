@@ -71,9 +71,9 @@ export function RobotMonitoring() {
                   map={map}
                   robots={robots}
                   robotPoses={poses}
-                  routes={routes}
-                  routeTypes={routeTypes}
                   selectedRoute={previewedRoute}
+                  onClearRoutePreview={() => setPreviewedRoute(null)}
+                  routeTypes={routeTypes}
                   selectedRobotCode={selectedRobotCode}
                   onRobotClick={handleSelectRobot}
                   tick={tick}
