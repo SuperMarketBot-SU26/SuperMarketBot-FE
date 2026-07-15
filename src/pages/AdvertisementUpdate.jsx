@@ -85,15 +85,9 @@ export function AdvertisementUpdate() {
     }
   }, [id, fetchCampaign])
 
-  // Activate reads targeting from DB rows, NOT from in-memory form state.
-  // We therefore must persist any pending edits via PUT before POSTing
-  // /activate — otherwise BE returns 400 CampaignNoTargeting.
+  // Activate only — "Tiếp Tục" must NOT auto-save. The BE's POST /activate
+  // validates targeting and returns the error directly; no need to PUT first.
   const handleActivate = async () => {
-    const payload = editRef.current?.getPayload?.()
-    if (!payload) return false
-    const savedOk = await handleSave(payload)
-    if (!savedOk) return false
-
     setActionLoading(true)
     setActionError(null)
     try {
