@@ -36,10 +36,12 @@ export function RobotMonitoring() {
   const { map, routes, routeTypes, loading: mapLoading, refresh: refreshRoutes } = useMapAndRoutes({ floorId: 1 })
 
   const [selectedRobotCode, setSelectedRobotCode] = useState(null)
+  const [selectedNodeId, setSelectedNodeId] = useState(null)
   const [previewedRoute, setPreviewedRoute] = useState(null)
 
   const handleSelectRobot = useCallback((robot) => {
     setSelectedRobotCode(robot.robotCode)
+    setSelectedNodeId(null)
     setPreviewedRoute(null)
   }, [])
 
@@ -76,6 +78,9 @@ export function RobotMonitoring() {
                   routeTypes={routeTypes}
                   selectedRobotCode={selectedRobotCode}
                   onRobotClick={handleSelectRobot}
+                  selectedNodeId={selectedNodeId}
+                  onNodeClick={(node) => setSelectedNodeId((prev) => (prev === node.nodeId ? null : node.nodeId))}
+                  onClearSelection={() => { setSelectedRobotCode(null); setSelectedNodeId(null) }}
                   tick={tick}
                 />
               </div>

@@ -42,6 +42,8 @@ export function FleetMap({
   selectedRobotCode = null,
   onRobotClick,
   onNodeClick,
+  selectedNodeId = null,
+  onClearSelection = null,
   scale = 64,
   tick = 0,
 }) {
@@ -227,6 +229,16 @@ export function FleetMap({
     isDragging.current = false
   }
 
+  // Click-away deselect: only fires if the mouse didn't drag (i.e. a real click, not a pan).
+  // Attached directly to the container div to avoid SVG transform/event bubbling issues.
+  const handleClick = (e) => {
+    const dx = e.clientX - lastPos.current.x
+    const dy = e.clientY - lastPos.current.y
+    if (Math.abs(dx) < 5 && Math.abs(dy) < 5) {
+      onClearSelection?.()
+    }
+  }
+
   // Zoom buttons
   const zoomIn = () => {
     setTargetTransform((t) => ({ ...t, zoom: clampZoom(t.zoom * 1.2, 0.3, 4) }))
@@ -301,16 +313,18 @@ export function FleetMap({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onClick={handleClick}
         style={{ cursor: isDragging.current ? 'grabbing' : 'grab' }}
       >
         <svg width="100%" height="100%" style={{ userSelect: 'none' }}>
           <g transform={`translate(${currentTransform.x}, ${currentTransform.y}) scale(${currentTransform.zoom})`}>
-            {/* Transparent background — click-away deselects the route preview */}
+            {/* Transparent background rect — sized to cover the full map in world coords.
+                Note: click-away deselection is handled by the container div's onClick (handleClick)
+                to avoid SVG transform/event bubbling issues; this rect is purely for visual coverage. */}
             <rect
               x={0} y={0}
-              width={effSize.w} height={effSize.h}
+              width={effSize.widthPx} height={effSize.heightPx}
               fill="transparent"
-              onClick={() => { if (selectedRoute) onClearRoutePreview?.() }}
             />
             <FloorplanLayer map={map} scale={scale} onEffectiveSize={setEffSize} />
             <SemanticObjectsLayer objects={map.semanticObjects} metersToPx={effScale} />
@@ -324,7 +338,7 @@ export function FleetMap({
                 metersToPx={effScale}
               />
             )}
-            <NodesLayer nodes={map.nodes} metersToPx={effScale} onNodeClick={onNodeClick} />
+            <NodesLayer nodes={map.nodes} metersToPx={effScale} onNodeClick={onNodeClick} selectedNodeId={selectedNodeId} />
 
             {/* Robots */}
             {robots.map((r) => {
@@ -340,7 +354,7 @@ export function FleetMap({
                 <g
                   key={r.robotId}
                   transform={`translate(${x}, ${y}) rotate(${(pose.headingDeg ?? 0).toFixed(2)})`}
-                  onClick={() => handleRobotClick(r)}
+                  onClick={(e) => { handleRobotClick(r); e.stopPropagation() }}
                   className="cursor-pointer"
                 >
                   {/* Selection ring — bright green when focused, neutral otherwise */}

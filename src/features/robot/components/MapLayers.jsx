@@ -35,33 +35,37 @@ export function EdgesLayer({ nodes, edges, metersToPx }) {
 /**
  * NodesLayer — paints each NavigationNode as a clickable dot.
  * Blocked nodes glow red.
+ * Node name is only shown for the currently selected node.
  */
-export function NodesLayer({ nodes, metersToPx, onNodeClick }) {
+export function NodesLayer({ nodes, metersToPx, onNodeClick, selectedNodeId = null }) {
   return (
     <g>
       {nodes.map((n) => {
         const r = n.nodeType === 'dock' ? 7 : n.nodeType === 'poi' ? 6 : 4.5
+        const isSelected = selectedNodeId === n.nodeId
         return (
           <g
             key={n.nodeId}
             transform={`translate(${metersToPx(n.xCoord)}, ${metersToPx(n.yCoord)})`}
-            onClick={() => onNodeClick?.(n)}
+            onClick={(e) => { onNodeClick?.(n); e.stopPropagation() }}
             className="cursor-pointer"
           >
             <circle
               r={r}
               fill={n.isBlocked ? '#ba1a1a' : '#ffffff'}
-              stroke={n.isBlocked ? '#93000a' : '#264191'}
-              strokeWidth={2}
+              stroke={isSelected ? '#16a34a' : n.isBlocked ? '#93000a' : '#264191'}
+              strokeWidth={isSelected ? 3 : 2}
             />
-            <text
-              y={r + 12}
-              textAnchor="middle"
-              className="select-none fill-smb-on-surface-variant"
-              style={{ fontSize: 10, fontWeight: 500 }}
-            >
-              {n.nodeName}
-            </text>
+            {isSelected && (
+              <text
+                y={r + 12}
+                textAnchor="middle"
+                className="select-none fill-smb-on-surface-variant"
+                style={{ fontSize: 10, fontWeight: 500 }}
+              >
+                {n.nodeName}
+              </text>
+            )}
           </g>
         )
       })}
