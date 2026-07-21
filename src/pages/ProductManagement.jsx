@@ -51,6 +51,7 @@ export function ProductManagement() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState(null) // null = create mode
   const [form, setForm] = useState(EMPTY_FORM)
+  const [imageFile, setImageFile] = useState(null)
   const [formError, setFormError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [substituteOptions, setSubstituteOptions] = useState([])
@@ -135,6 +136,7 @@ export function ProductManagement() {
   const openCreate = async () => {
     setEditingProduct(null)
     setForm(EMPTY_FORM)
+    setImageFile(null)
     setFormError(null)
     setModalOpen(true)
     await Promise.all([loadSubstituteOptions(null), loadProductTypes(), loadHealthTags()])
@@ -154,6 +156,7 @@ export function ProductManagement() {
       // Default to []; we'll patch in the real list once /detail loads below.
       healthTagIds: [],
     })
+    setImageFile(null)
     setFormError(null)
     setModalOpen(true)
     await Promise.all([loadSubstituteOptions(product.productId), loadProductTypes(), loadHealthTags()])
@@ -199,11 +202,26 @@ export function ProductManagement() {
     setModalOpen(false)
     setEditingProduct(null)
     setForm(EMPTY_FORM)
+    setImageFile(null)
     setFormError(null)
   }
 
   const handleChange = (field, value) => {
     setForm((f) => ({ ...f, [field]: value }))
+  }
+
+  const handleImageFileChange = (e) => {
+    const file = e.target.files?.[0] || null
+    if (file) {
+      const allowed = ['image/jpeg', 'image/jpg', 'image/png']
+      if (!allowed.includes(file.type)) {
+        setFormError('Chỉ chấp nhận file ảnh JPG/PNG.')
+        e.target.value = ''
+        return
+      }
+    }
+    setFormError(null)
+    setImageFile(file)
   }
 
   const handleSubmit = async () => {
@@ -240,9 +258,9 @@ export function ProductManagement() {
     setSubmitting(true)
     try {
       if (editingProduct) {
-        await updateAdminProduct(editingProduct.productId, payload)
+        await updateAdminProduct(editingProduct.productId, payload, imageFile)
       } else {
-        await createAdminProduct(payload)
+        await createAdminProduct(payload, imageFile)
       }
       await fetchProducts()
       closeModal()
@@ -564,13 +582,57 @@ export function ProductManagement() {
             </FormField>
           </div>
 
-          <FormField label="URL Hình Ảnh">
-            <Input
-              placeholder="https://..."
-              value={form.imageUrl}
-              onChange={(e) => handleChange('imageUrl', e.target.value)}
-            />
-          </FormField>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Tải Ảnh Lên (JPG/PNG)">
+              <div className="flex items-center gap-2">
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface hover:border-smb-primary-container">
+                  <span className="material-symbols-outlined text-base">upload</span>
+                  <span>Chọn file</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png"
+                    onChange={handleImageFileChange}
+                    className="hidden"
+                  />
+                </label>
+                {imageFile ? (
+                  <div className="flex min-w-0 items-center gap-1.5 text-xs text-smb-on-surface-variant">
+                    <span className="material-symbols-outlined text-base text-smb-primary-container">
+                      image
+                    </span>
+                    <span className="truncate">{imageFile.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setImageFile(null)}
+                      className="text-smb-on-surface-variant hover:text-smb-error"
+                      title="Bỏ chọn"
+                    >
+                      <span className="material-symbols-outlined text-base">close</span>
+                    </button>
+                  </div>
+                ) : (
+                  <span className="text-xs text-smb-on-surface-variant">
+                    {editingProduct?.imageUrl
+                      ? 'Giữ ảnh hiện tại hoặc chọn file mới.'
+                      : 'Chưa có ảnh.'}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-[11px] text-smb-on-surface-variant">
+                File sẽ được upload lên Cloudinary khi lưu. Nếu không chọn file mới,
+                giá trị URL bên phải sẽ được dùng.
+              </p>
+            </FormField>
+
+            <FormField label="URL Hình Ảnh (fallback)">
+              <Input
+                placeholder="https://..."
+                value={form.imageUrl}
+                onChange={(e) => handleChange('imageUrl', e.target.value)}
+                disabled={imageFile !== null}
+              />
+            </FormField>
+          </div>
 
           <FormField label="Health Tags">
             {healthTagsLoading ? (

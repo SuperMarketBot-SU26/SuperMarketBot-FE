@@ -4,15 +4,15 @@
  * Backend endpoints (Authorize[AdminOrStaff]):
  *   GET    /api/v1/admin/products              → list products
  *   GET    /api/v1/admin/products/{id}        → single product
- *   POST   /api/v1/admin/products              → create
- *   PUT    /api/v1/admin/products/{id}        → update
- *   PATCH  /api/v1/admin/products/{id}/status  → update status only
+ *   POST   /api/v1/admin/products              → create (multipart/form-data)
+ *   PUT    /api/v1/admin/products/{id}        → update (multipart/form-data)
+ *   PATCH  /api/v1/admin/products/{id}/status  → update status only (JSON)
  *   DELETE /api/v1/admin/products/{id}        → soft-delete (sets Status='Inactive')
  *
  * ProductDto: { productId, productName, unitPrice, status, imageUrl?, productTypeId }
- * CreateProductRequestDto: { productTypeId, productName, unitPrice, promotionPrice?,
- *                            imageUrl?, description?, status?, substituteProductId? }
- * UpdateProductRequestDto: same as Create but all fields optional.
+ * Create/Update DTOs (sent as form fields, NOT JSON, because Create/Update accept
+ * an optional `imageFile` upload). All fields except productTypeId + productName
+ * are optional on the wire; the BE will validate.
  */
 
 import client from '../../../api/client'
@@ -34,11 +34,40 @@ export const getAdminProducts = (params = {}) =>
 export const getAdminProduct = (productId) =>
   client.get(`${ADMIN_ENDPOINT}/${productId}`).then((res) => res.data)
 
-export const createAdminProduct = (payload) =>
-  client.post(ADMIN_ENDPOINT, payload).then((res) => res.data)
+/**
+ * Build a multipart/form-data body from a payload object + optional imageFile.
+ * Scalar fields become string entries; arrays (e.g. healthTagIds) become multiple
+ * `healthTagIds` parts with the same name so ASP.NET model binding picks them up.
+ */
+const buildMultipartBody = (payload, imageFile) => {
+  const form = new FormData()
+  Object.entries(payload ?? {}).forEach(([key, value]) => {
+    if (value === undefined || value === null) return
+    if (Array.isArray(value)) {
+      value.forEach((v) => form.append(key, String(v)))
+    } else {
+      form.append(key, String(value))
+    }
+  })
+  if (imageFile) {
+    form.append('imageFile', imageFile)
+  }
+  return form
+}
 
-export const updateAdminProduct = (productId, payload) =>
-  client.put(`${ADMIN_ENDPOINT}/${productId}`, payload).then((res) => res.data)
+export const createAdminProduct = (payload, imageFile = null) =>
+  client
+    .post(ADMIN_ENDPOINT, buildMultipartBody(payload, imageFile), {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then((res) => res.data)
+
+export const updateAdminProduct = (productId, payload, imageFile = null) =>
+  client
+    .put(`${ADMIN_ENDPOINT}/${productId}`, buildMultipartBody(payload, imageFile), {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then((res) => res.data)
 
 export const updateAdminProductStatus = (productId, status) =>
   client.patch(`${ADMIN_ENDPOINT}/${productId}/status`, { status }).then((res) => res.data)
