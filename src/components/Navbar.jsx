@@ -1,62 +1,79 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTheme } from '../context/ThemeContext'
 
 function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
 }
 
-export function Navbar({ title = 'Khởi Tạo Chiến Dịch', subtitle = 'Tạo chiến dịch khuyến mãi mới cho thương hiệu đối tác' }) {
+export function Navbar({
+  title = 'Khởi Tạo Chiến Dịch',
+  subtitle = 'Tạo chiến dịch khuyến mãi mới cho thương hiệu đối tác',
+  onOpenCommandPalette,
+}) {
   const navigate = useNavigate()
+  const { theme, toggleTheme } = useTheme()
 
   return (
-    <header className="sticky top-0 z-20 border-b border-smb-outline-variant bg-smb-surface-container-lowest/85 backdrop-blur-sm">
-      <div className="flex items-center justify-between gap-4 px-6 py-4">
+    <header className="sticky top-0 z-20 border-b border-smb-outline-variant/60 bg-smb-surface/80 backdrop-blur-md transition-colors duration-200">
+      <div className="flex items-center justify-between gap-4 px-6 py-3.5">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="flex size-9 items-center justify-center rounded-md border border-smb-outline-variant bg-smb-surface-container-lowest text-smb-on-surface-variant transition-colors hover:bg-smb-surface-container hover:text-smb-on-surface"
+            className="flex size-9 items-center justify-center rounded-lg border border-smb-outline-variant/70 bg-smb-surface-container-lowest text-smb-on-surface-variant transition-all hover:border-smb-primary hover:bg-smb-surface-container hover:text-smb-on-surface active:scale-95"
             title="Quay lại"
           >
-            <Icon name="arrow_back" className="text-[20px]" />
+            <Icon name="arrow_back" className="text-[18px]" />
           </button>
           <div className="leading-tight">
-            <h1 className="text-[22px] font-semibold tracking-tight text-smb-on-surface">
+            <h1 className="text-[20px] font-bold tracking-tight text-smb-on-surface">
               {title}
             </h1>
             {subtitle && (
-              <p className="mt-0.5 text-sm text-smb-on-surface-variant">
+              <p className="mt-0.5 text-xs font-medium text-smb-on-surface-variant/80">
                 {subtitle}
               </p>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="relative hidden md:block">
-            <Icon name="search" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[16px] text-smb-outline" />
-            <input
-              type="text"
-              placeholder="Tìm kiếm…"
-              className="w-56 rounded-md border border-smb-outline-variant bg-smb-surface-container-lowest py-1.5 pl-8 pr-8 text-xs text-smb-on-surface placeholder:text-smb-outline focus:border-smb-primary-container focus:outline-none focus:ring-1 focus:ring-smb-primary-container transition-colors"
-            />
-          </div>
-
+        <div className="flex items-center gap-2.5">
+          {/* Quick Command Palette Button */}
           <button
             type="button"
-            className="relative flex size-9 items-center justify-center rounded-md border border-smb-outline-variant bg-smb-surface-container-lowest text-smb-on-surface-variant transition-colors hover:bg-smb-surface-container hover:text-smb-on-surface"
-            title="Thông báo"
+            onClick={onOpenCommandPalette}
+            className="relative hidden items-center gap-2 rounded-lg border border-smb-outline-variant/70 bg-smb-surface-container-lowest py-1.5 pl-3 pr-2.5 text-xs text-smb-on-surface-variant transition-all hover:border-smb-primary/50 hover:bg-smb-surface-container md:flex active:scale-95"
           >
-            <Icon name="notifications" className="text-[20px]" />
-            <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-smb-primary-container" />
+            <Icon name="search" className="text-[16px] text-smb-outline" />
+            <span className="text-xs text-smb-on-surface-variant/70">Tìm nhanh...</span>
+            <kbd className="ml-2 flex items-center rounded border border-smb-outline-variant/80 bg-smb-surface-container-high px-1.5 py-0.5 text-[10px] font-semibold text-smb-on-surface-variant">
+              ⌘K
+            </kbd>
           </button>
 
+          {/* Theme Switcher Toggle */}
           <button
             type="button"
-            className="hidden size-9 items-center justify-center rounded-md border border-smb-outline-variant bg-smb-surface-container-lowest text-smb-on-surface-variant transition-colors hover:bg-smb-surface-container hover:text-smb-on-surface md:flex"
-            title="Trợ giúp"
+            onClick={toggleTheme}
+            className="flex size-9 items-center justify-center rounded-lg border border-smb-outline-variant/70 bg-smb-surface-container-lowest text-smb-on-surface-variant shadow-sm transition-all hover:border-smb-primary hover:bg-smb-surface-container hover:text-smb-on-surface active:scale-95"
+            title={theme === 'dark' ? 'Chuyển sang Giao diện Sáng' : 'Chuyển sang Giao diện Tối'}
           >
-            <Icon name="help" className="text-[20px]" />
+            {theme === 'dark' ? (
+              <Icon name="light_mode" className="text-[19px] text-amber-400 animate-spin-once" />
+            ) : (
+              <Icon name="dark_mode" className="text-[19px] text-slate-700" />
+            )}
+          </button>
+
+          {/* Notifications */}
+          <button
+            type="button"
+            className="relative flex size-9 items-center justify-center rounded-lg border border-smb-outline-variant/70 bg-smb-surface-container-lowest text-smb-on-surface-variant shadow-sm transition-all hover:border-smb-primary hover:bg-smb-surface-container hover:text-smb-on-surface active:scale-95"
+            title="Thông báo"
+          >
+            <Icon name="notifications" className="text-[19px]" />
+            <span className="absolute right-2 top-2 size-2 rounded-full bg-emerald-500 ring-2 ring-smb-surface" />
           </button>
         </div>
       </div>

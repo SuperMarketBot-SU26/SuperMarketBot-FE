@@ -8,18 +8,32 @@ function Icon({ name, className = '' }) {
 
 function labelForStatus(s) {
   switch (s) {
-    case 'Moving': return 'đang di chuyển'
-    case 'Idle': return 'rảnh'
-    case 'Interacting': return 'đang tương tác'
-    case 'Offline_Charging': return 'sạc / ngoại tuyến'
-    case 'Power_Off': return 'đã tắt nguồn'
+    case 'Moving': return 'Đang di chuyển'
+    case 'Idle': return 'Đang rảnh'
+    case 'Interacting': return 'Tương tác'
+    case 'Offline_Charging': return 'Đang sạc'
+    case 'Power_Off': return 'Tắt nguồn'
     default: return s
   }
 }
 
-/* -------------------------------------------------------------------- */
-/*  RobotDetailModal                                                    */
-/* -------------------------------------------------------------------- */
+function BatteryBar({ pct }) {
+  const bat = Math.max(0, Math.min(100, pct || 0))
+  const colorClass =
+    bat > 50 ? 'bg-emerald-500' : bat > 20 ? 'bg-amber-500' : 'bg-rose-500'
+
+  return (
+    <div className="flex items-center gap-1.5" title={`Dung lượng pin: ${bat}%`}>
+      <div className="relative h-2 w-7 overflow-hidden rounded-full bg-smb-surface-container-high border border-smb-outline-variant/60">
+        <div
+          className={`h-full transition-all duration-300 ${colorClass}`}
+          style={{ width: `${bat}%` }}
+        />
+      </div>
+      <span className="text-[11px] font-bold tabular-nums text-smb-on-surface">{bat}%</span>
+    </div>
+  )
+}
 
 function RobotDetailModal({ robotCode, onClose }) {
   const [robot, setRobot] = useState(null)
@@ -61,57 +75,47 @@ function RobotDetailModal({ robotCode, onClose }) {
   const p = robot ? statusPalette(robot.status) : null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-smb-outline-variant bg-smb-surface-container-lowest shadow-2xl">
-        <div className="flex items-center justify-between border-b border-smb-outline-variant p-4">
-          <h2 className="text-base font-semibold text-smb-on-surface">Thông tin Robot</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 smb-fade-in">
+      <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-smb-outline-variant/60 bg-smb-surface-container-lowest shadow-2xl smb-pop-in">
+        <div className="flex items-center justify-between border-b border-smb-outline-variant/60 p-4">
+          <h2 className="text-sm font-bold text-smb-on-surface">Thông Tin Chi Tiết Robot</h2>
           <button
             type="button"
             onClick={onClose}
-            className="flex size-8 items-center justify-center rounded-full text-smb-on-surface-variant hover:bg-smb-surface-container-low"
+            className="flex size-7 items-center justify-center rounded-lg text-smb-on-surface-variant hover:bg-smb-surface-container-low"
           >
             <Icon name="close" className="text-[18px]" />
           </button>
         </div>
         <div className="p-4">
           {loading ? (
-            <div className="flex items-center justify-center py-6">
-              <span className="material-symbols-outlined animate-spin text-3xl text-smb-on-surface-variant">progress_activity</span>
+            <div className="flex items-center justify-center py-8">
+              <span className="material-symbols-outlined animate-spin text-3xl text-smb-primary">progress_activity</span>
             </div>
           ) : error ? (
-            <p className="py-4 text-center text-sm text-smb-error">{error}</p>
+            <p className="py-4 text-center text-xs font-semibold text-rose-500">{error}</p>
           ) : robot ? (
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               <div className="flex items-center gap-3">
-                <div className={`flex size-12 shrink-0 items-center justify-center rounded-full ${p.dot} text-smb-on-primary`}>
+                <div className={`flex size-12 shrink-0 items-center justify-center rounded-xl ${p.dot} text-white shadow-md`}>
                   <Icon name="smart_toy" className="text-2xl" />
                 </div>
                 <div>
-                  <p className="font-semibold text-smb-on-surface">{robot.robotName}</p>
-                  <p className="text-xs text-smb-on-surface-variant">{robot.robotCode}</p>
+                  <p className="font-bold text-smb-on-surface">{robot.robotName}</p>
+                  <p className="text-xs text-smb-on-surface-variant/80">{robot.robotCode}</p>
                 </div>
               </div>
-              <div className="border-t border-smb-outline-variant" />
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                <dt className="text-xs text-smb-on-surface-variant">Trạng thái</dt>
-                <dd className={`font-medium ${p.text}`}>{labelForStatus(robot.status)}</dd>
-                <dt className="text-xs text-smb-on-surface-variant">Chế độ</dt>
-                <dd className="font-medium text-smb-on-surface">{robot.mode}</dd>
-                <dt className="text-xs text-smb-on-surface-variant">Pin</dt>
-                <dd className="font-medium text-smb-on-surface tabular-nums">{robot.batteryPct}%</dd>
-                <dt className="text-xs text-smb-on-surface-variant">IP</dt>
-                <dd className="font-medium text-smb-on-surface tabular-nums">{robot.ipAddress ?? '—'}</dd>
-                <dt className="text-xs text-smb-on-surface-variant">Tọa độ</dt>
-                <dd className="font-medium text-smb-on-surface tabular-nums">
-                  {pose ? `(${pose.x.toFixed(2)}, ${pose.y.toFixed(2)})` : '—'}
-                </dd>
-                <dt className="text-xs text-smb-on-surface-variant">Hướng</dt>
-                <dd className="font-medium text-smb-on-surface tabular-nums">
-                  {pose ? `${pose.headingDeg.toFixed(1)}°` : '—'}
-                </dd>
-                <dt className="text-xs text-smb-on-surface-variant">Hoạt động lần cuối</dt>
-                <dd className="text-xs font-medium text-smb-on-surface">
-                  {robot.lastSeenAt ? new Date(robot.lastSeenAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+              <div className="border-t border-smb-outline-variant/40" />
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                <dt className="text-smb-on-surface-variant">Trạng thái</dt>
+                <dd className={`font-semibold ${p.text}`}>{labelForStatus(robot.status)}</dd>
+                <dt className="text-smb-on-surface-variant">Chế độ</dt>
+                <dd className="font-semibold text-smb-on-surface">{robot.mode}</dd>
+                <dt className="text-smb-on-surface-variant">Pin</dt>
+                <dd><BatteryBar pct={robot.batteryPct} /></dd>
+                <dt className="text-smb-on-surface-variant">Vị trí (X, Y)</dt>
+                <dd className="font-semibold tabular-nums text-smb-on-surface">
+                  {pose ? `(${pose.x.toFixed(2)}m, ${(pose.y ?? 0).toFixed(2)}m)` : '—'}
                 </dd>
               </dl>
             </div>
@@ -122,14 +126,6 @@ function RobotDetailModal({ robotCode, onClose }) {
   )
 }
 
-/* -------------------------------------------------------------------- */
-/*  RobotListPanel                                                      */
-/* -------------------------------------------------------------------- */
-
-/**
- * RobotListPanel — sidebar showing every robot with status/battery.
- * Click a row to center the map on it and load its assigned route in the assignment panel.
- */
 export function RobotListPanel({
   robots = [],
   poses = {},
@@ -154,25 +150,31 @@ export function RobotListPanel({
 
   if (!robots.length) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest p-6 text-center text-smb-on-surface-variant">
-        <Icon name="smart_toy" className="text-4xl" />
-        <p className="text-sm">Chưa có robot nào trong hệ thống.</p>
+      <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-smb-on-surface-variant">
+        <div className="flex size-12 items-center justify-center rounded-2xl bg-smb-surface-container-low">
+          <Icon name="smart_toy" className="text-3xl text-smb-outline" />
+        </div>
+        <p className="text-xs font-semibold">Chưa có robot nào trong hệ thống</p>
       </div>
     )
   }
 
   return (
     <>
-      <div className="flex h-full flex-col rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest">
-        <header className="border-b border-smb-outline-variant p-4">
-          <h3 className="text-sm font-semibold text-smb-on-surface">Danh sách Robot</h3>
-          <p className="text-xs text-smb-on-surface-variant">{robots.length} robot đang hoạt động</p>
+      <div className="flex h-full flex-col overflow-hidden bg-smb-surface-container-lowest">
+        <header className="border-b border-smb-outline-variant/60 p-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-smb-on-surface">Danh Sách Robot</h3>
+            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+              {robots.length} Units
+            </span>
+          </div>
           <div className="mt-3 flex flex-wrap gap-1.5">
             {Object.entries(summary).map(([status, count]) => {
               if (!count) return null
               const p = statusPalette(status)
               return (
-                <span key={status} className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${p.bg} ${p.text}`}>
+                <span key={status} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${p.bg} ${p.text} border-current/20`}>
                   <span className={`size-1.5 rounded-full ${p.dot}`} />
                   {count} {labelForStatus(status)}
                 </span>
@@ -181,42 +183,54 @@ export function RobotListPanel({
           </div>
         </header>
 
-        <ul className="flex-1 divide-y divide-smb-outline-variant overflow-y-auto">
+        <ul className="flex-1 divide-y divide-smb-outline-variant/40 overflow-y-auto">
           {robots.map((r) => {
             const pose = poses[r.robotCode]
             const p = statusPalette(r.status)
             const isSel = selectedRobotCode === r.robotCode
             const assignedRouteId = assignments[r.robotCode]
             const assignedRoute = assignedRouteId ? routeById.get(assignedRouteId) : null
+            const isMoving = r.status === 'Moving'
+
             return (
               <li key={r.robotId}>
                 <button
                   type="button"
                   onClick={() => onSelect?.(r)}
-                  className={`flex w-full flex-col gap-2 p-4 text-left transition-colors ${isSel ? 'bg-smb-active-bg' : 'hover:bg-smb-surface-container-low'}`}
+                  className={`flex w-full flex-col gap-2 p-3.5 text-left transition-all ${
+                    isSel
+                      ? 'bg-emerald-500/10 border-l-4 border-l-emerald-500 dark:bg-emerald-500/15'
+                      : 'hover:bg-smb-surface-container-low/60'
+                  }`}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`flex size-9 items-center justify-center rounded-full ${p.dot} text-smb-on-primary`}>
-                        <Icon name="smart_toy" className="text-[18px]" />
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="relative">
+                        <div className={`flex size-8 shrink-0 items-center justify-center rounded-xl ${p.dot} text-white shadow-xs`}>
+                          <Icon name="smart_toy" className="text-[18px]" />
+                        </div>
+                        {isMoving && (
+                          <span className="absolute -bottom-0.5 -right-0.5 flex size-2.5">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
+                          </span>
+                        )}
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-smb-on-surface">{r.robotName}</p>
-                        <p className="text-xs text-smb-on-surface-variant">{labelForStatus(r.status)} · {r.mode}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="text-right">
-                        <p className="text-sm font-semibold tabular-nums text-smb-on-surface">{r.batteryPct}%</p>
-                        <p className="text-[10px] text-smb-on-surface-variant tabular-nums">
-                          {pose ? `(${pose.x.toFixed(1)}, ${(pose.y ?? 0).toFixed(1)})` : '—'}
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-bold text-smb-on-surface">{r.robotName}</p>
+                        <p className="text-[10px] text-smb-on-surface-variant/80">
+                          {r.robotCode} · <span className={`font-semibold ${p.text}`}>{labelForStatus(r.status)}</span>
                         </p>
                       </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <BatteryBar pct={r.batteryPct} />
                       <button
                         type="button"
                         title="Xem chi tiết"
                         onClick={(e) => { e.stopPropagation(); setDetailRobotCode(r.robotCode) }}
-                        className="flex size-7 items-center justify-center rounded text-smb-on-surface-variant hover:bg-smb-surface-container-hover hover:text-smb-primary"
+                        className="flex size-6 items-center justify-center rounded-lg text-smb-on-surface-variant/70 hover:bg-smb-surface-container hover:text-smb-primary"
                       >
                         <Icon name="info" className="text-[16px]" />
                       </button>
@@ -224,13 +238,13 @@ export function RobotListPanel({
                   </div>
 
                   {assignedRoute ? (
-                    <div className="flex items-center gap-1.5 rounded bg-smb-surface-container-low px-2 py-1 text-xs">
-                      <Icon name="route" className="text-[14px] text-smb-primary-container" />
-                      <span className="truncate text-smb-on-surface-variant">{assignedRoute.routeName}</span>
+                    <div className="flex items-center gap-1.5 rounded-lg bg-smb-surface-container-low/80 px-2.5 py-1 text-[11px]">
+                      <Icon name="route" className="text-[14px] text-emerald-600 dark:text-emerald-400" />
+                      <span className="truncate font-medium text-smb-on-surface">{assignedRoute.routeName}</span>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1.5 rounded border border-dashed border-smb-outline-variant px-2 py-1 text-xs text-smb-on-surface-variant">
-                      <Icon name="link_off" className="text-[14px]" />
+                    <div className="flex items-center gap-1.5 rounded-lg border border-dashed border-smb-outline-variant/60 px-2.5 py-1 text-[10px] text-smb-on-surface-variant/70">
+                      <Icon name="link_off" className="text-[13px]" />
                       Chưa gán lộ trình
                     </div>
                   )}

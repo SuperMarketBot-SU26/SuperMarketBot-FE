@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState, useCallback, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   EdgesLayer,
   NodesLayer,
@@ -10,35 +11,32 @@ import { statusPalette, clampZoom } from '../utils/robotHelpers'
 import { ROUTE_TYPE_META } from './RobotAssignmentPanel'
 import logoUrl from '../../../assets/logo.png'
 
-// Status → hex mapping for SVG fills (the palette helper returns Tailwind
-// classes which we can't use directly as `fill` values).
 const STATUS_HEX = {
-  Power_Off:         '#79747e',
-  Idle:              '#4a4458',
+  Power_Off:         '#64748b',
+  Idle:              '#6366f1',
   Moving:            '#22c55e',
-  Interacting:       '#7d5260',
-  Offline_Charging:  '#cac4d0',
-  Unknown:           '#cac4d0',
+  Interacting:       '#a855f7',
+  Offline_Charging:  '#f59e0b',
+  Unknown:           '#94a3b8',
 }
 
-// Robot marker sizing.
-const ROBOT_LOGO_HALF = 12   // half-width of the logo image in svg units
-const ROBOT_ARROW_OFFSET = 22 // distance from centre to arrow tip
-const ROBOT_ARROW_HALF_W = 5
-const ROBOT_ARROW_HALF_H = 7
-const ROBOT_RING_R = 18       // selection ring radius
+const ROBOT_LOGO_HALF = 14
+const ROBOT_ARROW_OFFSET = 24
+const ROBOT_ARROW_HALF_W = 6
+const ROBOT_ARROW_HALF_H = 8
+const ROBOT_RING_R = 20
 
-/**
- * FleetMap — simple indoor map with nodes, edges, robots, and routes.
- * Features smooth lerp animation when focusing on robots.
- */
+function Icon({ name, className = '' }) {
+  return <span className={`material-symbols-outlined ${className}`}>{name}</span>
+}
+
 export function FleetMap({
   map,
   robots = [],
   robotPoses = {},
   selectedRoute = null,
   onClearRoutePreview = null,
-  routeTypes = [],   // Array<{ value, label }> — from GET /v1/routes/types
+  routeTypes = [],
   selectedRobotCode = null,
   onRobotClick,
   onNodeClick,
@@ -47,6 +45,7 @@ export function FleetMap({
   scale = 64,
   tick = 0,
 }) {
+  const navigate = useNavigate()
   const containerRef = useRef(null)
   const [focusedRobot, setFocusedRobot] = useState(selectedRobotCode)
   const [targetTransform, setTargetTransform] = useState({ x: 0, y: 0, zoom: 1 })
@@ -54,15 +53,10 @@ export function FleetMap({
   const animFrameRef = useRef(null)
   const isDragging = useRef(false)
   const lastPos = useRef({ x: 0, y: 0 })
+  const [estopActive, setEstopActive] = useState(false)
 
-  // Effective map dimensions. Defaults to the BE values; FloorplanLayer will
-  // update these once it loads the floorplan image so its rendered box matches
-  // its natural pixel size. All other layers (nodes, edges, semantic objects,
-  // routes, robots) read from these so node positions always line up with the
-  // visible image.
   const [effSize, setEffSize] = useState({ widthMeters: 20, heightMeters: 15, widthPx: 20 * 64, heightPx: 15 * 64 })
 
-  // Reset to BE values whenever the map changes (new map loaded).
   useEffect(() => {
     if (!map) return
     setEffSize({
@@ -73,20 +67,11 @@ export function FleetMap({
     })
   }, [map?.mapId, scale, map?.widthMeters, map?.heightMeters])
 
-  // svgW/svgH are the actual rendered size of the floorplan (in pixels),
-  // matching exactly what FloorplanLayer draws — not just `widthMeters * scale`.
   const svgW = effSize.widthPx
   const svgH = effSize.heightPx
-
-  // Pixels-per-meter derived from the rendered size. When the image is loaded
-  // this matches its natural aspect exactly; when it isn't, it falls back to
-  // the BE values at the default scale. Using this single conversion function
-  // everywhere guarantees nodes/edges/routes land on the same pixel positions
-  // as the floorplan image — no aspect-ratio mismatch.
   const pxPerMeter = effSize.widthMeters > 0 ? effSize.widthPx / effSize.widthMeters : scale
   const effScale = (m) => m * pxPerMeter
 
-  // Wheel zoom - use native event with passive: false to prevent page scroll
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -113,16 +98,14 @@ export function FleetMap({
     return () => container.removeEventListener('wheel', handleWheel)
   }, [currentTransform])
 
-  // Lerp animation loop
   useEffect(() => {
     const animate = () => {
       setCurrentTransform((prev) => {
-        const lerpFactor = 0.12 // Smoothness factor (0-1, lower = smoother)
+        const lerpFactor = 0.14
         const dx = targetTransform.x - prev.x
         const dy = targetTransform.y - prev.y
         const dz = targetTransform.zoom - prev.zoom
 
-        // Stop animating when close enough
         if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5 && Math.abs(dz) < 0.001) {
           return targetTransform
         }
@@ -138,23 +121,15 @@ export function FleetMap({
 
     animFrameRef.current = requestAnimationFrame(animate)
     return () => {
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current)
-      }
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
     }
   }, [targetTransform])
 
-  // Fit map to viewport on load
   useEffect(() => {
     if (!map || !containerRef.current) return
-
     const fitToView = () => {
       const rect = containerRef.current.getBoundingClientRect()
-      const zoom = Math.min(
-        (rect.width - 80) / svgW,
-        (rect.height - 80) / svgH,
-        4
-      )
+      const zoom = Math.min((rect.width - 80) / svgW, (rect.height - 80) / svgH, 4)
       const newTransform = {
         x: (rect.width - svgW * zoom) / 2,
         y: (rect.height - svgH * zoom) / 2,
@@ -170,23 +145,18 @@ export function FleetMap({
     return () => ro.disconnect()
   }, [map?.mapId, svgW, svgH])
 
-  // Focus on robot function
   const focusOnRobot = useCallback((robotCode) => {
     if (!containerRef.current) return
-
     const robot = robots.find((r) => r.robotCode === robotCode)
     if (!robot) return
-
     const pose = robotPoses[robotCode]
     if (!pose) return
 
     const rect = containerRef.current.getBoundingClientRect()
     const robotX = effScale(pose.x)
     const robotY = effScale(pose.y)
-    const zoom = currentTransform.zoom
+    const zoom = Math.max(currentTransform.zoom, 1.2)
 
-    // Origin (0,0) is the floorplan's top-left — same convention as the editor and
-    // the DB. Centre the robot in the viewport by offsetting from its world position.
     setTargetTransform({
       x: rect.width / 2 - robotX * zoom,
       y: rect.height / 2 - robotY * zoom,
@@ -194,21 +164,18 @@ export function FleetMap({
     })
   }, [robots, robotPoses, scale, effSize, currentTransform.zoom])
 
-  // Focus on robot when selectedRobotCode changes (from robot list/panel click)
   useEffect(() => {
     if (!selectedRobotCode) return
     setFocusedRobot(selectedRobotCode)
     focusOnRobot(selectedRobotCode)
   }, [selectedRobotCode])
 
-  // Handle robot click on map
   const handleRobotClick = useCallback((robot) => {
     setFocusedRobot(robot.robotCode)
     onRobotClick?.(robot)
     focusOnRobot(robot.robotCode)
   }, [onRobotClick, focusOnRobot])
 
-  // Mouse handlers for panning
   const handleMouseDown = (e) => {
     isDragging.current = true
     lastPos.current = { x: e.clientX, y: e.clientY }
@@ -219,8 +186,6 @@ export function FleetMap({
     const dx = e.clientX - lastPos.current.x
     const dy = e.clientY - lastPos.current.y
     lastPos.current = { x: e.clientX, y: e.clientY }
-
-    // Stop any in-progress animation and start dragging
     setTargetTransform((t) => ({ ...t, x: t.x + dx, y: t.y + dy }))
     setCurrentTransform((t) => ({ ...t, x: t.x + dx, y: t.y + dy }))
   }
@@ -229,8 +194,6 @@ export function FleetMap({
     isDragging.current = false
   }
 
-  // Click-away deselect: only fires if the mouse didn't drag (i.e. a real click, not a pan).
-  // Attached directly to the container div to avoid SVG transform/event bubbling issues.
   const handleClick = (e) => {
     const dx = e.clientX - lastPos.current.x
     const dy = e.clientY - lastPos.current.y
@@ -239,26 +202,21 @@ export function FleetMap({
     }
   }
 
-  // Zoom buttons
   const zoomIn = () => {
     setTargetTransform((t) => ({ ...t, zoom: clampZoom(t.zoom * 1.2, 0.3, 4) }))
-    setCurrentTransform((t) => ({ ...t, zoom: clampZoom(t.zoom * 1.2, 0.3, 4) }))
   }
   const zoomOut = () => {
     setTargetTransform((t) => ({ ...t, zoom: clampZoom(t.zoom / 1.2, 0.3, 4) }))
-    setCurrentTransform((t) => ({ ...t, zoom: clampZoom(t.zoom / 1.2, 0.3, 4) }))
   }
   const fitView = () => {
     if (!containerRef.current) return
     const rect = containerRef.current.getBoundingClientRect()
     const zoom = Math.min((rect.width - 80) / svgW, (rect.height - 80) / svgH, 4)
-    const newTransform = {
+    setTargetTransform({
       x: (rect.width - svgW * zoom) / 2,
       y: (rect.height - svgH * zoom) / 2,
       zoom,
-    }
-    setTargetTransform(newTransform)
-    setCurrentTransform(newTransform)
+    })
   }
 
   const nodesById = useMemo(() => {
@@ -267,45 +225,92 @@ export function FleetMap({
     return m
   }, [map])
 
-  // Legend driven by BE route-type catalogue — stays in sync with the backend.
-  // Falls back to ROUTE_TYPE_META for any type the BE returns but the FE doesn't know about yet.
   const routeTypeLegend = Object.fromEntries(
     routeTypes.map((t) => [t.value, { label: t.label, color: ROUTE_TYPE_META[t.value]?.color ?? ROUTE_TYPE_META.default.color }])
   )
 
+  /* Stunning Isometric Empty State when no map data is loaded */
   if (!map) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-smb-surface-container-low text-smb-on-surface-variant">
-        <div className="flex flex-col items-center gap-2">
-          <span className="material-symbols-outlined text-4xl">map</span>
-          <p className="text-sm">Chưa có dữ liệu bản đồ.</p>
+      <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-smb-outline-variant/60 bg-smb-surface-container-lowest p-8 shadow-sm">
+        {/* Holographic background grid graphic */}
+        <div className="absolute inset-0 bg-[radial-gradient(#22c55e_1px,transparent_1px)] [background-size:24px_24px] opacity-15" />
+        
+        <div className="z-10 flex max-w-md flex-col items-center text-center">
+          <div className="relative flex size-20 items-center justify-center rounded-3xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 shadow-xl shadow-emerald-500/10 dark:text-emerald-400">
+            <Icon name="map" className="text-4xl" />
+            <span className="absolute -right-1 -top-1 flex size-4">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex size-4 rounded-full bg-emerald-500" />
+            </span>
+          </div>
+
+          <h3 className="mt-5 text-lg font-bold tracking-tight text-smb-on-surface">
+            Chưa Có Dữ Liệu Bản Đồ Siêu Thị
+          </h3>
+          <p className="mt-2 text-xs leading-relaxed text-smb-on-surface-variant/80">
+            Hệ thống chưa tải được sơ đồ mặt bằng indoor. Bạn có thể sử dụng công cụ Map Editor để tạo mới hoặc import file bản đồ từ ROS SLAM.
+          </p>
+
+          <div className="mt-6 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate('/robot-monitoring/map-editor')}
+              className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white shadow-md shadow-emerald-600/20 transition-all hover:bg-emerald-500 active:scale-95"
+            >
+              <Icon name="edit_square" className="text-[18px]" />
+              Chỉnh Sửa & Khởi Tạo Bản Đồ
+            </button>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-lg border border-smb-outline-variant bg-smb-surface-container-low">
-      {/* Controls */}
-      <div className="absolute right-4 top-4 z-20 flex flex-col gap-1 rounded-lg bg-smb-surface-container-lowest p-1 shadow-md">
-        <button onClick={zoomIn} className="flex size-8 items-center justify-center rounded text-smb-on-surface-variant hover:bg-smb-surface-container" title="Phóng to">
-          <span className="material-symbols-outlined">add</span>
-        </button>
-        <button onClick={zoomOut} className="flex size-8 items-center justify-center rounded text-smb-on-surface-variant hover:bg-smb-surface-container" title="Thu nhỏ">
-          <span className="material-symbols-outlined">remove</span>
-        </button>
-        <button onClick={fitView} className="flex size-8 items-center justify-center rounded text-smb-on-surface-variant hover:bg-smb-surface-container" title="Vừa khung">
-          <span className="material-symbols-outlined">fit_screen</span>
-        </button>
+    <div className="relative h-full w-full overflow-hidden rounded-2xl border border-smb-outline-variant/60 bg-smb-surface-container-low shadow-sm">
+      {/* Live Stream Indicator Badge */}
+      <div className="absolute left-4 top-4 z-20 flex items-center gap-2 rounded-full border border-emerald-500/30 bg-smb-surface-container-lowest/90 px-3.5 py-1.5 backdrop-blur-md shadow-md">
+        <span className="relative flex size-2.5">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
+        </span>
+        <span className="text-xs font-semibold text-smb-on-surface">Live Fleet Telemetry</span>
+        <span className="text-[10px] text-smb-on-surface-variant/70">| {robots.length} Robots</span>
       </div>
 
-      {/* Live indicator */}
-      <div className="absolute left-4 top-4 z-20 flex items-center gap-2 rounded-full bg-smb-surface-container-lowest/95 px-3 py-1.5 text-xs font-medium text-smb-on-surface shadow-sm">
-        <span className="size-2 rounded-full bg-smb-success animate-pulse" />
-        Đang theo dõi trực tiếp
+      {/* Floating Telemetry & Control HUD Toolbar */}
+      <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
+        {/* Emergency Stop Toggle */}
+        <button
+          type="button"
+          onClick={() => setEstopActive((prev) => !prev)}
+          className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition-all shadow-md active:scale-95 ${
+            estopActive
+              ? 'animate-pulse border-rose-600 bg-rose-600 text-white shadow-rose-600/30'
+              : 'border-rose-500/30 bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 dark:text-rose-400'
+          }`}
+          title="Dừng khẩn cấp toàn bộ đội hình robot"
+        >
+          <Icon name="warning" className="text-[18px]" />
+          <span>{estopActive} E-STOP</span>
+        </button>
+
+        {/* Map View Controls */}
+        <div className="flex items-center rounded-xl border border-smb-outline-variant/60 bg-smb-surface-container-lowest/90 p-1 backdrop-blur-md shadow-md">
+          <button onClick={zoomIn} className="flex size-8 items-center justify-center rounded-lg text-smb-on-surface-variant hover:bg-smb-surface-container hover:text-smb-on-surface" title="Phóng to">
+            <Icon name="add" className="text-[18px]" />
+          </button>
+          <button onClick={zoomOut} className="flex size-8 items-center justify-center rounded-lg text-smb-on-surface-variant hover:bg-smb-surface-container hover:text-smb-on-surface" title="Thu nhỏ">
+            <Icon name="remove" className="text-[18px]" />
+          </button>
+          <button onClick={fitView} className="flex size-8 items-center justify-center rounded-lg text-smb-on-surface-variant hover:bg-smb-surface-container hover:text-smb-on-surface" title="Vừa khung">
+            <Icon name="fit_screen" className="text-[18px]" />
+          </button>
+        </div>
       </div>
 
-      {/* Map viewport */}
+      {/* Map Viewport Container */}
       <div
         ref={containerRef}
         className="h-full w-full"
@@ -318,9 +323,6 @@ export function FleetMap({
       >
         <svg width="100%" height="100%" style={{ userSelect: 'none' }}>
           <g transform={`translate(${currentTransform.x}, ${currentTransform.y}) scale(${currentTransform.zoom})`}>
-            {/* Transparent background rect — sized to cover the full map in world coords.
-                Note: click-away deselection is handled by the container div's onClick (handleClick)
-                to avoid SVG transform/event bubbling issues; this rect is purely for visual coverage. */}
             <rect
               x={0} y={0}
               width={effSize.widthPx} height={effSize.heightPx}
@@ -329,8 +331,6 @@ export function FleetMap({
             <FloorplanLayer map={map} scale={scale} onEffectiveSize={setEffSize} />
             <SemanticObjectsLayer objects={map.semanticObjects} metersToPx={effScale} />
             <EdgesLayer nodes={map.nodes} edges={map.edges} metersToPx={effScale} />
-            {/* Route highlight — only shown when user clicks "Xem trước trên bản đồ".
-                Clicking another route replaces it; deselecting clears it. */}
             {selectedRoute && (
               <RouteLayer
                 route={selectedRoute}
@@ -340,13 +340,12 @@ export function FleetMap({
             )}
             <NodesLayer nodes={map.nodes} metersToPx={effScale} onNodeClick={onNodeClick} selectedNodeId={selectedNodeId} />
 
-            {/* Robots */}
+            {/* Robots Markers */}
             {robots.map((r) => {
               const pose = robotPoses[r.robotCode]
               if (!pose) return null
               const x = effScale(pose.x)
               const y = effScale(pose.y)
-              const palette = statusPalette(r.status)
               const isFocused = focusedRobot === r.robotCode
               const statusHex = STATUS_HEX[r.status] ?? STATUS_HEX.Unknown
 
@@ -357,19 +356,17 @@ export function FleetMap({
                   onClick={(e) => { handleRobotClick(r); e.stopPropagation() }}
                   className="cursor-pointer"
                 >
-                  {/* Selection ring — bright green when focused, neutral otherwise */}
                   <circle
                     r={ROBOT_RING_R}
-                    fill={isFocused ? '#22c55e' : '#264191'}
-                    fillOpacity={isFocused ? 0.22 : 0.15}
+                    fill={isFocused ? '#22c55e' : '#3b82f6'}
+                    fillOpacity={isFocused ? 0.25 : 0.12}
                     stroke={isFocused ? '#22c55e' : 'transparent'}
-                    strokeWidth={isFocused ? 2 : 0}
+                    strokeWidth={isFocused ? 2.5 : 0}
+                    className={isFocused ? 'smb-pulse-ring' : ''}
                   />
 
-                  {/* Status halo so the robot's status is still visible behind the logo */}
-                  <circle r={ROBOT_LOGO_HALF + 1} fill={statusHex} fillOpacity={0.18} />
+                  <circle r={ROBOT_LOGO_HALF + 2} fill={statusHex} fillOpacity={0.25} />
 
-                  {/* Robot body — logo image */}
                   <image
                     href={logoUrl}
                     x={-ROBOT_LOGO_HALF}
@@ -379,12 +376,11 @@ export function FleetMap({
                     preserveAspectRatio="xMidYMid meet"
                   />
 
-                  {/* Direction indicator — pushed out beyond the logo */}
                   <polygon
                     points={`0,${-ROBOT_ARROW_OFFSET} ${-ROBOT_ARROW_HALF_W},${-ROBOT_ARROW_OFFSET + ROBOT_ARROW_HALF_H} ${ROBOT_ARROW_HALF_W},${-ROBOT_ARROW_OFFSET + ROBOT_ARROW_HALF_H}`}
                     fill={statusHex}
                     stroke="#ffffff"
-                    strokeWidth={1}
+                    strokeWidth={1.5}
                     strokeLinejoin="round"
                   />
                 </g>
@@ -394,37 +390,25 @@ export function FleetMap({
         </svg>
       </div>
 
-      {/* Legend */}
+      {/* Map Legend Panel */}
       <div className="absolute bottom-4 left-4 z-20 flex gap-2">
-        <div className="rounded-lg bg-smb-surface-container-lowest/95 p-3 text-xs shadow-md">
-          <p className="mb-2 font-semibold text-smb-on-surface">Trạng thái Robot</p>
+        <div className="rounded-xl border border-smb-outline-variant/60 bg-smb-surface-container-lowest/90 p-3 text-xs backdrop-blur-md shadow-lg">
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-smb-on-surface">Trạng thái Robot</p>
           {Object.entries({
             'Đang di chuyển': 'Moving',
             'Đang rảnh': 'Idle',
             'Đang tương tác': 'Interacting',
             'Sạc / ngoại tuyến': 'Offline_Charging',
-            'Đã tắt nguồn': 'Power_Off',
+            'Tắt nguồn': 'Power_Off',
           }).map(([label, status]) => {
             const p = statusPalette(status)
             return (
               <div key={status} className="flex items-center gap-2 py-0.5">
                 <span className={`size-2.5 rounded-full ${p.dot}`} />
-                <span className="text-smb-on-surface-variant">{label}</span>
+                <span className="text-[11px] font-medium text-smb-on-surface-variant">{label}</span>
               </div>
             )
           })}
-        </div>
-
-        <div className="rounded-lg bg-smb-surface-container-lowest/95 p-3 text-xs shadow-md">
-          <p className="mb-2 font-semibold text-smb-on-surface">Loại Lộ Trình</p>
-          {Object.entries(routeTypeLegend).map(([type, meta]) => (
-            <div key={type} className="flex items-center gap-2 py-0.5">
-              <svg width="18" height="6">
-                <line x1="0" y1="3" x2="18" y2="3" stroke={meta.color} strokeWidth="2.5" strokeDasharray="4 3" strokeLinecap="round" />
-              </svg>
-              <span className="text-smb-on-surface-variant">{meta.label}</span>
-            </div>
-          ))}
         </div>
       </div>
     </div>

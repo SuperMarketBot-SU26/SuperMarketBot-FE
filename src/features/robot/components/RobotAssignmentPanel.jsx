@@ -96,29 +96,31 @@ export function RobotAssignmentPanel({
 
 function Tabs({ value, onChange }) {
   const items = [
-    { id: 'assign', label: 'Gán lộ trình', icon: 'route' },
-    { id: 'robots', label: 'Robot',     icon: 'smart_toy' },
+    { id: 'assign', label: 'Gán Lộ Trình', icon: 'route' },
+    { id: 'robots', label: 'Danh Sách Robot', icon: 'smart_toy' },
   ]
   return (
-    <div className="flex border-b border-smb-outline-variant bg-smb-surface-container-low">
-      {items.map((it) => {
-        const active = value === it.id
-        return (
-          <button
-            key={it.id}
-            type="button"
-            onClick={() => onChange(it.id)}
-            className={`flex flex-1 items-center justify-center gap-2 px-3 py-2.5 text-xs font-medium transition-colors ${
-              active
-                ? 'border-b-2 border-smb-primary-container text-smb-primary-container'
-                : 'border-b-2 border-transparent text-smb-on-surface-variant hover:text-smb-on-surface'
-            }`}
-          >
-            <Icon name={it.icon} className="text-[16px]" />
-            {it.label}
-          </button>
-        )
-      })}
+    <div className="p-2 border-b border-smb-outline-variant/60 bg-smb-surface-container-low/50">
+      <div className="grid grid-cols-2 gap-1 rounded-xl bg-smb-surface-container-high/60 p-1">
+        {items.map((it) => {
+          const active = value === it.id
+          return (
+            <button
+              key={it.id}
+              type="button"
+              onClick={() => onChange(it.id)}
+              className={`flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition-all duration-150 active:scale-95 ${
+                active
+                  ? 'bg-smb-surface-container-lowest text-smb-primary shadow-sm dark:bg-emerald-500/20 dark:text-emerald-300'
+                  : 'text-smb-on-surface-variant/80 hover:text-smb-on-surface'
+              }`}
+            >
+              <Icon name={it.icon} className="text-[18px]" />
+              {it.label}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -182,8 +184,8 @@ function RobotDetailModal({ robotCode, onClose }) {
   const p = robot ? statusPalette(robot.status) : null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-smb-outline-variant bg-smb-surface-container-lowest shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 smb-fade-in">
+      <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-smb-outline-variant/60 bg-smb-surface-container-lowest shadow-2xl smb-pop-in">
         <div className="flex items-center justify-between border-b border-smb-outline-variant p-4">
           <h2 className="text-base font-semibold text-smb-on-surface">Thông tin Robot</h2>
           <button

@@ -97,13 +97,60 @@
   --spacing-stack-lg: 32px;
 }
 
-/* Base Styles */
+/* Base Styles & Theme Modes */
+:root {
+  color-scheme: light dark;
+}
+
+html.dark {
+  /* Color - Dark Mode Surface */
+  --color-smb-surface: #0b1320;
+  --color-smb-surface-dim: #070d17;
+  --color-smb-surface-bright: #141f32;
+  --color-smb-surface-container-lowest: #0f172a;
+  --color-smb-surface-container-low: #1e293b;
+  --color-smb-surface-container: #1e293b;
+  --color-smb-surface-container-high: #334155;
+  --color-smb-surface-container-highest: #475569;
+  --color-smb-surface-tint: #4ade80;
+
+  /* Color - On Surface Dark */
+  --color-smb-on-surface: #f8fafc;
+  --color-smb-on-surface-variant: #94a3b8;
+  --color-smb-inverse-surface: #f8fafc;
+  --color-smb-inverse-on-surface: #0f172a;
+
+  /* Color - Primary (green neon accent in dark mode) */
+  --color-smb-primary: #22c55e;
+  --color-smb-primary-container: #15803d;
+  --color-smb-on-primary: #ffffff;
+  --color-smb-on-primary-container: #bbf7d0;
+
+  /* Color - Outline Dark */
+  --color-smb-outline: #475569;
+  --color-smb-outline-variant: #334155;
+
+  /* Color - Background Dark */
+  --color-smb-background: #0b1320;
+  --color-smb-on-background: #f8fafc;
+
+  /* Color - Surface Variant Dark */
+  --color-smb-surface-variant: #1e293b;
+  --color-smb-active-bg: #064e3b;
+
+  /* Shadows - Dark Mode Glows */
+  --shadow-smb-1: 0 1px 3px 0 rgb(0 0 0 / 0.4);
+  --shadow-smb-2: 0 4px 12px -2px rgb(0 0 0 / 0.5);
+  --shadow-smb-3: 0 12px 32px -8px rgb(0 0 0 / 0.7);
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--color-smb-surface);
   color: var(--color-smb-on-surface);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color var(--dur-smb-slow) var(--ease-smb-out), color var(--dur-smb-slow) var(--ease-smb-out);
 }
 
 /* Material Symbols Outlined */
@@ -286,7 +333,39 @@ body {
 }
 .smb-spin { animation: smb-spin 0.7s linear infinite; }
 
-/* Respect user motion preferences */
+/* Glassmorphism Panel */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+html.dark .glass-panel {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Route Dash Animation */
+@keyframes route-dash-flow {
+  from { stroke-dashoffset: 24; }
+  to   { stroke-dashoffset: 0; }
+}
+.animate-route-dash {
+  animation: route-dash-flow 1.2s linear infinite;
+}
+
+/* Pulse Glow Animation */
+@keyframes smb-pulse-ring {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 0.3; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+.smb-pulse-ring {
+  animation: smb-pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
 @media (prefers-reduced-motion: reduce) {
   .smb-press,
   .smb-lift,

@@ -19,171 +19,164 @@ import RobotMonitoring from './pages/RobotMonitoring'
 import RobotMapEditor from './pages/RobotMapEditor'
 import { AuthProvider } from './features/auth/AuthContext'
 import ProtectedRoute from './features/auth/ProtectedRoute'
+import { ThemeProvider } from './context/ThemeContext'
 
-/**
- * App routing
- *
- * Public routes (no auth required):
- *   /login, /register
- *
- * Everything else is wrapped in <ProtectedRoute>. A user who isn't logged in
- * gets bounced to /login with the original destination preserved in
- * location.state.from, so the login page can redirect them back after auth.
- */
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forbidden" element={<Forbidden />} />
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forbidden" element={<Forbidden />} />
 
-          {/* Protected — wraps every page that needs an authenticated user */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <AdvertisementDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/advertisement"
-            element={
-              <ProtectedRoute>
-                <AdvertisementDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/advertisement/create"
-            element={
-              <ProtectedRoute>
-                <AdvertisementCreation />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/advertisement/update/:id"
-            element={
-              <ProtectedRoute>
-                <AdvertisementUpdate />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/advertisement/logs/:id"
-            element={
-              <ProtectedRoute>
-                <AdvertisementLogs />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/advertisement/brand-wallet"
-            element={
-              <ProtectedRoute>
-                <BrandWallet />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/ad-packages"
-            element={
-              <ProtectedRoute>
-                <AdPackageCreation />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/brand-dashboard"
-            element={
-              <ProtectedRoute>
-                <BrandDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/brand"
-            element={
-              <ProtectedRoute>
-                <BrandDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/brand/create"
-            element={
-              <ProtectedRoute>
-                <BrandCreation />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/brand/update/:id"
-            element={
-              <ProtectedRoute>
-                <BrandUpdate />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/products"
-            element={
-              <ProtectedRoute>
-                <ProductManagement />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/products/:id"
-            element={
-              <ProtectedRoute>
-                <ProductDetail />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/accounts"
-            element={
-              <ProtectedRoute>
-                <AccountManagement />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/robots"
-            element={
-              <ProtectedRoute>
-                <RobotMonitoring />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/robot-monitoring"
-            element={
-              <ProtectedRoute>
-                <RobotMonitoring />
-              </ProtectedRoute>
-            }
-          />
+            {/* Protected routes */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <AdvertisementDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/advertisement"
+              element={
+                <ProtectedRoute>
+                  <AdvertisementDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/advertisement/create"
+              element={
+                <ProtectedRoute>
+                  <AdvertisementCreation />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/advertisement/update/:id"
+              element={
+                <ProtectedRoute>
+                  <AdvertisementUpdate />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/advertisement/logs/:id"
+              element={
+                <ProtectedRoute>
+                  <AdvertisementLogs />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/advertisement/brand-wallet"
+              element={
+                <ProtectedRoute>
+                  <BrandWallet />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ad-packages"
+              element={
+                <ProtectedRoute>
+                  <AdPackageCreation />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/brand-dashboard"
+              element={
+                <ProtectedRoute>
+                  <BrandDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/brand"
+              element={
+                <ProtectedRoute>
+                  <BrandDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/brand/create"
+              element={
+                <ProtectedRoute>
+                  <BrandCreation />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/brand/update/:id"
+              element={
+                <ProtectedRoute>
+                  <BrandUpdate />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/products"
+              element={
+                <ProtectedRoute>
+                  <ProductManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/products/:id"
+              element={
+                <ProtectedRoute>
+                  <ProductDetail />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/accounts"
+              element={
+                <ProtectedRoute>
+                  <AccountManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/robots"
+              element={
+                <ProtectedRoute>
+                  <RobotMonitoring />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/robot-monitoring"
+              element={
+                <ProtectedRoute>
+                  <RobotMonitoring />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/robot-monitoring/map-editor"
-            element={
-              <ProtectedRoute>
-                <RobotMapEditor />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/robot-monitoring/map-editor"
+              element={
+                <ProtectedRoute>
+                  <RobotMapEditor />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+            {/* Catch-all */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
 

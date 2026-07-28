@@ -87,29 +87,39 @@ export function RouteLayer({ route, nodesById, metersToPx }) {
     .map((p) => `${metersToPx(p.xCoord)},${metersToPx(p.yCoord)}`)
     .join(' ')
 
-  // Stroke color follows the route's RouteType. Falls back to the panel default
-  // (blue) for unknown / missing types. Keeping the same color hex everywhere
-  // means a route looks identical in the panel list and on the map.
   const stroke = getRouteTypeMeta(route.routeType).color
 
   return (
     <g pointerEvents="none">
+      {/* Background glow stroke */}
+      <polyline
+        points={polylinePts}
+        fill="none"
+        stroke={stroke}
+        strokeWidth={6}
+        strokeOpacity={0.25}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Animated active dash flow */}
       <polyline
         points={polylinePts}
         fill="none"
         stroke={stroke}
         strokeWidth={3}
-        strokeDasharray="6 4"
+        strokeDasharray="8 6"
         strokeLinecap="round"
         strokeLinejoin="round"
+        className="animate-route-dash"
       />
       {pts.map((p, idx) => (
         <g key={`${route.robotRouteId}-${idx}`} transform={`translate(${metersToPx(p.xCoord)}, ${metersToPx(p.yCoord)})`}>
+          <circle r={8} fill={stroke} fillOpacity={0.3} className="smb-pulse-ring" />
           <circle r={6} fill={stroke} />
           <text
-            y={3} textAnchor="middle"
+            y={3.5} textAnchor="middle"
             className="fill-white"
-            style={{ fontSize: 10, fontWeight: 700 }}
+            style={{ fontSize: 9, fontWeight: 800 }}
           >
             {idx + 1}
           </text>
