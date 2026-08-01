@@ -7,6 +7,7 @@ import {
   SemanticObjectsLayer,
 } from './MapLayers'
 import { FloorplanLayer } from './Floorplan'
+import { ThreeDSupermarketMap } from './ThreeDSupermarketMap'
 import { statusPalette, clampZoom } from '../utils/robotHelpers'
 import { ROUTE_TYPE_META } from './RobotAssignmentPanel'
 import logoUrl from '../../../assets/logo.png'
@@ -34,26 +35,24 @@ export function FleetMap({
   map,
   robots = [],
   robotPoses = {},
-  selectedRoute = null,
-  onClearRoutePreview = null,
   routeTypes = [],
-  selectedRobotCode = null,
-  onRobotClick,
-  onNodeClick,
+  selectedRoute = null,
   selectedNodeId = null,
-  onClearSelection = null,
+  onNodeClick,
+  focusedRobot = null,
   scale = 64,
-  tick = 0,
+  onClearSelection,
+  onSelectRobot,
 }) {
   const navigate = useNavigate()
   const containerRef = useRef(null)
-  const [focusedRobot, setFocusedRobot] = useState(selectedRobotCode)
+  const [viewMode, setViewMode] = useState('3d_interactive') // '3d_interactive' | '3d' | 'slam'
+  const [estopActive, setEstopActive] = useState(false)
   const [targetTransform, setTargetTransform] = useState({ x: 0, y: 0, zoom: 1 })
   const [currentTransform, setCurrentTransform] = useState({ x: 0, y: 0, zoom: 1 })
   const animFrameRef = useRef(null)
   const isDragging = useRef(false)
   const lastPos = useRef({ x: 0, y: 0 })
-  const [estopActive, setEstopActive] = useState(false)
 
   const [effSize, setEffSize] = useState({ widthMeters: 20, heightMeters: 15, widthPx: 20 * 64, heightPx: 15 * 64 })
 
@@ -69,8 +68,25 @@ export function FleetMap({
 
   const svgW = effSize.widthPx
   const svgH = effSize.heightPx
-  const pxPerMeter = effSize.widthMeters > 0 ? effSize.widthPx / effSize.widthMeters : scale
-  const effScale = (m) => m * pxPerMeter
+
+  // Map ROS SLAM (Meters) -> Pixel canvas using Resolution & Origin
+  const effScaleX = useCallback((xMeters) => {
+    if (map?.resolution > 0 && map?.originX !== undefined) {
+      return (xMeters - map.originX) / map.resolution
+    }
+    return xMeters * scale
+  }, [map?.resolution, map?.originX, scale])
+
+  const effScaleY = useCallback((yMeters) => {
+    if (map?.resolution > 0 && map?.originY !== undefined) {
+      return effSize.heightPx - ((yMeters - map.originY) / map.resolution)
+    }
+    return yMeters * scale
+  }, [map?.resolution, map?.originY, effSize.heightPx, scale])
+
+  const effScale = useCallback((val) => {
+    return val * (effSize.widthMeters > 0 ? effSize.widthPx / effSize.widthMeters : scale)
+  }, [effSize, scale])
 
   useEffect(() => {
     const container = containerRef.current
@@ -165,16 +181,14 @@ export function FleetMap({
   }, [robots, robotPoses, scale, effSize, currentTransform.zoom])
 
   useEffect(() => {
-    if (!selectedRobotCode) return
-    setFocusedRobot(selectedRobotCode)
-    focusOnRobot(selectedRobotCode)
-  }, [selectedRobotCode])
+    if (!focusedRobot) return
+    focusOnRobot(focusedRobot)
+  }, [focusedRobot])
 
   const handleRobotClick = useCallback((robot) => {
-    setFocusedRobot(robot.robotCode)
-    onRobotClick?.(robot)
+    onSelectRobot?.(robot)
     focusOnRobot(robot.robotCode)
-  }, [onRobotClick, focusOnRobot])
+  }, [onSelectRobot, focusOnRobot])
 
   const handleMouseDown = (e) => {
     isDragging.current = true
@@ -267,16 +281,87 @@ export function FleetMap({
     )
   }
 
+  if (viewMode === '3d_interactive') {
+    return (
+      <div className="relative h-full w-full overflow-hidden rounded-2xl border border-smb-outline-variant/60 bg-[#0b0f17] shadow-sm">
+        {/* Live Stream Indicator Badge */}
+        <div className="absolute left-4 top-4 z-20 flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-full border border-purple-500/30 bg-slate-900/90 px-3.5 py-1.5 backdrop-blur-md shadow-md">
+            <span className="relative flex size-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-purple-400 opacity-75" />
+              <span className="relative inline-flex size-2.5 rounded-full bg-purple-500" />
+            </span>
+            <span className="text-xs font-semibold text-white">3D WebGL Live Telemetry (Three.js)</span>
+            <span className="text-[10px] text-purple-300">| {robots.length} Robot</span>
+          </div>
+        </div>
+
+        {/* Floating Control HUD Toolbar */}
+        <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
+          <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900/90 p-1 backdrop-blur-md shadow-md">
+            <button
+              type="button"
+              onClick={() => setViewMode('3d_interactive')}
+              className="flex items-center gap-1 rounded-lg bg-purple-600 px-2.5 py-1 text-xs font-bold text-white shadow-xs"
+            >
+              <Icon name="3d_rotation" className="text-[16px]" />
+              <span>🧊 3D Interactive (360°)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('3d')}
+              className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-300 hover:bg-slate-800 hover:text-white"
+            >
+              <Icon name="view_in_ar" className="text-[16px]" />
+              <span>🎨 Sơ Đồ 3D</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('slam')}
+              className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-300 hover:bg-slate-800 hover:text-white"
+            >
+              <Icon name="grid_view" className="text-[16px]" />
+              <span>📐 LiDAR SLAM</span>
+            </button>
+          </div>
+        </div>
+
+        <ThreeDSupermarketMap
+          map={map}
+          robots={robots}
+          robotPoses={robotPoses}
+          selectedNodeId={selectedNodeId}
+          onNodeClick={onNodeClick}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="relative h-full w-full overflow-hidden rounded-2xl border border-smb-outline-variant/60 bg-smb-surface-container-low shadow-sm">
-      {/* Live Stream Indicator Badge */}
-      <div className="absolute left-4 top-4 z-20 flex items-center gap-2 rounded-full border border-emerald-500/30 bg-smb-surface-container-lowest/90 px-3.5 py-1.5 backdrop-blur-md shadow-md">
-        <span className="relative flex size-2.5">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-          <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
-        </span>
-        <span className="text-xs font-semibold text-smb-on-surface">Live Fleet Telemetry</span>
-        <span className="text-[10px] text-smb-on-surface-variant/70">| {robots.length} Robots</span>
+      {/* Live Stream Indicator Badge & Map Selector */}
+      <div className="absolute left-4 top-4 z-20 flex items-center gap-2">
+        <div className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-smb-surface-container-lowest/90 px-3.5 py-1.5 backdrop-blur-md shadow-md">
+          <span className="relative flex size-2.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
+          </span>
+          <span className="text-xs font-semibold text-smb-on-surface">Live Telemetry</span>
+          <span className="text-[10px] text-smb-on-surface-variant/70">| {robots.length} Robot</span>
+        </div>
+
+        {/* Map Selector Dropdown */}
+        <div className="flex items-center rounded-xl border border-smb-outline-variant/60 bg-smb-surface-container-lowest/90 px-3 py-1 backdrop-blur-md shadow-md">
+          <Icon name="map" className="text-[16px] text-smb-primary mr-1.5" />
+          <select
+            value={map?.mapId || 1}
+            className="bg-transparent text-xs font-bold text-smb-on-surface outline-none cursor-pointer"
+            onChange={() => {}}
+          >
+            <option value={1}>🗺️ Map Tầng 1 - SuperMarketRealSlamMap</option>
+            <option value={2}>🗺️ Map Tầng 2 - Kho Hàng & Khu Phụ</option>
+          </select>
+        </div>
       </div>
 
       {/* Floating Telemetry & Control HUD Toolbar */}
@@ -295,6 +380,49 @@ export function FleetMap({
           <Icon name="warning" className="text-[18px]" />
           <span>{estopActive} E-STOP</span>
         </button>
+
+        {/* Map View Mode Toggle (3D Interactive vs 3D Flat vs SLAM LiDAR) */}
+        <div className="flex items-center rounded-xl border border-smb-outline-variant/60 bg-smb-surface-container-lowest/90 p-1 backdrop-blur-md shadow-md">
+          <button
+            type="button"
+            onClick={() => setViewMode('3d_interactive')}
+            className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+              viewMode === '3d_interactive'
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'text-smb-on-surface-variant hover:bg-smb-surface-container hover:text-smb-on-surface'
+            }`}
+            title="Bản đồ 3D Interactive Three.js xoay 360 độ"
+          >
+            <Icon name="3d_rotation" className="text-[16px]" />
+            <span>🧊 3D Interactive (360°)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('3d')}
+            className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+              viewMode === '3d'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-smb-on-surface-variant hover:bg-smb-surface-container hover:text-smb-on-surface'
+            }`}
+            title="Chế độ Sơ đồ Mặt Bằng Siêu Thị 4K"
+          >
+            <Icon name="view_in_ar" className="text-[16px]" />
+            <span>🎨 Sơ Đồ 3D</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('slam')}
+            className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+              viewMode === 'slam'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-smb-on-surface-variant hover:bg-smb-surface-container hover:text-smb-on-surface'
+            }`}
+            title="Chế độ Bản đồ SLAM LiDAR Kỹ thuật"
+          >
+            <Icon name="grid_view" className="text-[16px]" />
+            <span>📐 LiDAR SLAM</span>
+          </button>
+        </div>
 
         {/* Map View Controls */}
         <div className="flex items-center rounded-xl border border-smb-outline-variant/60 bg-smb-surface-container-lowest/90 p-1 backdrop-blur-md shadow-md">
@@ -328,7 +456,7 @@ export function FleetMap({
               width={effSize.widthPx} height={effSize.heightPx}
               fill="transparent"
             />
-            <FloorplanLayer map={map} scale={scale} onEffectiveSize={setEffSize} />
+            <FloorplanLayer map={map} scale={scale} viewMode={viewMode} onEffectiveSize={setEffSize} />
             <SemanticObjectsLayer objects={map.semanticObjects} metersToPx={effScale} />
             <EdgesLayer nodes={map.nodes} edges={map.edges} metersToPx={effScale} />
             {selectedRoute && (
@@ -338,7 +466,14 @@ export function FleetMap({
                 metersToPx={effScale}
               />
             )}
-            <NodesLayer nodes={map.nodes} metersToPx={effScale} onNodeClick={onNodeClick} selectedNodeId={selectedNodeId} />
+            <NodesLayer
+              nodes={map.nodes || []}
+              metersToPx={effScale}
+              effScaleX={effScaleX}
+              effScaleY={effScaleY}
+              onNodeClick={onNodeClick}
+              selectedNodeId={selectedNodeId}
+            />
 
             {/* Robots Markers */}
             {robots.map((r) => {

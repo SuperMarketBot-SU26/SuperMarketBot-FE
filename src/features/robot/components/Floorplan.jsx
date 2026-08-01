@@ -74,7 +74,7 @@ export function FloorplanPlaceholder({ widthMeters, heightMeters, metersToPx }) 
  * `heightMeters` adjusted to match the image) back to the parent so all other
  * layers (nodes, edges, semantic objects, routes) line up with the image.
  */
-export function FloorplanLayer({ map, scale = 64, onEffectiveSize }) {
+export function FloorplanLayer({ map, scale = 64, viewMode = '3d', onEffectiveSize }) {
   const url = map?.floorplanImageUrl
   const widthMeters = map?.widthMeters || 20
   const heightMeters = map?.heightMeters || 15
@@ -100,14 +100,9 @@ export function FloorplanLayer({ map, scale = 64, onEffectiveSize }) {
     }
   }, [url])
 
-  // Report the effective rendered size (in pixels and meters) up so the parent
-  // can size its viewport, fit-to-view transform, and other layers consistently.
   useEffect(() => {
     if (!onEffectiveSize) return
     if (natural) {
-      // Image-driven: effective meters are exactly what produces the natural
-      // pixel size at the current scale. This keeps node coords aligned with
-      // the image edges.
       onEffectiveSize({
         widthMeters: natural.w / scale,
         heightMeters: natural.h / scale,
@@ -115,7 +110,6 @@ export function FloorplanLayer({ map, scale = 64, onEffectiveSize }) {
         heightPx: natural.h,
       })
     } else {
-      // No image yet (or failed to load): fall back to BE meters verbatim.
       onEffectiveSize({
         widthMeters,
         heightMeters,
@@ -125,6 +119,66 @@ export function FloorplanLayer({ map, scale = 64, onEffectiveSize }) {
     }
   }, [natural, scale, widthMeters, heightMeters, onEffectiveSize])
 
+  const wPx = natural ? natural.w : widthMeters * scale
+  const hPx = natural ? natural.h : heightMeters * scale
+
+  if (viewMode === '3d') {
+    return (
+      <g>
+        {/* Sleek 3D Isometric Architectural Supermarket Floorplan Image */}
+        <image
+          href="/supermarket_3d_map.jpg"
+          x={0}
+          y={0}
+          width={wPx}
+          height={hPx}
+          preserveAspectRatio="none"
+        />
+
+        {/* Subtle SLAM Grid Overlay for Node Precision Alignment */}
+        {url && (
+          <image
+            href={url}
+            x={0}
+            y={0}
+            width={wPx}
+            height={hPx}
+            opacity={0.08}
+            preserveAspectRatio="none"
+          />
+        )}
+
+        {/* Mini Subtle Zone Markers (High-end UI Pins) */}
+        <g pointerEvents="none" className="select-none font-bold text-[10px]">
+          {/* Zone 1 Pin */}
+          <g transform={`translate(${wPx * 0.15}, ${hPx * 0.15})`}>
+            <rect x={-8} y={-12} width={110} height={20} fill="#0f172a" fillOpacity={0.8} rx={6} stroke="#f59e0b" strokeWidth={1} />
+            <text x={47} y={2} textAnchor="middle" fill="#fbbf24" className="text-[9px] font-bold">🌾 Zone 1: Đồ Khô</text>
+          </g>
+
+          {/* Zone 2 Pin */}
+          <g transform={`translate(${wPx * 0.65}, ${hPx * 0.15})`}>
+            <rect x={-8} y={-12} width={120} height={20} fill="#0f172a" fillOpacity={0.8} rx={6} stroke="#0284c7" strokeWidth={1} />
+            <text x={52} y={2} textAnchor="middle" fill="#38bdf8" className="text-[9px] font-bold">🧃 Zone 2: Nước Uống</text>
+          </g>
+
+          {/* Zone 3 Pin */}
+          <g transform={`translate(${wPx * 0.15}, ${hPx * 0.75})`}>
+            <rect x={-8} y={-12} width={120} height={20} fill="#0f172a" fillOpacity={0.8} rx={6} stroke="#16a34a" strokeWidth={1} />
+            <text x={52} y={2} textAnchor="middle" fill="#4ade80" className="text-[9px] font-bold">🧼 Zone 3: Gia Dụng</text>
+          </g>
+
+          {/* Zone 4 Pin */}
+          <g transform={`translate(${wPx * 0.65}, ${hPx * 0.75})`}>
+            <rect x={-8} y={-12} width={130} height={20} fill="#0f172a" fillOpacity={0.8} rx={6} stroke="#e11d48" strokeWidth={1} />
+            <text x={57} y={2} textAnchor="middle" fill="#fb7185" className="text-[9px] font-bold">🔥 Zone 4: Khuyến Mãi</text>
+          </g>
+        </g>
+      </g>
+    )
+  }
+
+  // Pure SLAM Mode
   if (url && natural) {
     return (
       <image

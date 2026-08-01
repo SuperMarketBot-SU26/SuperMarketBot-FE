@@ -37,33 +37,35 @@ export function EdgesLayer({ nodes, edges, metersToPx }) {
  * Blocked nodes glow red.
  * Node name is only shown for the currently selected node.
  */
-export function NodesLayer({ nodes, metersToPx, onNodeClick, selectedNodeId = null }) {
+export function NodesLayer({ nodes, metersToPx, effScaleX, effScaleY, onNodeClick, selectedNodeId = null }) {
   return (
     <g>
       {nodes.map((n) => {
-        const r = n.nodeType === 'dock' ? 7 : n.nodeType === 'poi' ? 6 : 4.5
+        const r = n.nodeType === 'dock' ? 7 : n.nodeType === 'poi' ? 6 : 5
         const isSelected = selectedNodeId === n.nodeId
+        const cx = effScaleX ? effScaleX(n.xCoord) : metersToPx(n.xCoord)
+        const cy = effScaleY ? effScaleY(n.yCoord) : metersToPx(n.yCoord)
         return (
           <g
             key={n.nodeId}
-            transform={`translate(${metersToPx(n.xCoord)}, ${metersToPx(n.yCoord)})`}
+            transform={`translate(${cx}, ${cy})`}
             onClick={(e) => { onNodeClick?.(n); e.stopPropagation() }}
             className="cursor-pointer"
           >
             <circle
               r={r}
-              fill={n.isBlocked ? '#ba1a1a' : '#ffffff'}
-              stroke={isSelected ? '#16a34a' : n.isBlocked ? '#93000a' : '#264191'}
-              strokeWidth={isSelected ? 3 : 2}
+              fill={n.isBlocked ? '#ba1a1a' : isSelected ? '#22c55e' : '#3b82f6'}
+              fillOpacity={0.9}
+              stroke="#ffffff"
+              strokeWidth={2}
             />
             {isSelected && (
               <text
-                y={r + 12}
+                y={-12}
                 textAnchor="middle"
-                className="select-none fill-smb-on-surface-variant"
-                style={{ fontSize: 10, fontWeight: 500 }}
+                className="text-[11px] font-bold fill-emerald-600 dark:fill-emerald-400 stroke-white stroke-2 paint-order-stroke"
               >
-                {n.nodeName}
+                {n.nodeName || n.label || `Node ${n.nodeId}`}
               </text>
             )}
           </g>
