@@ -1,5 +1,7 @@
 import React from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 import AdvertisementDashboard from './pages/AdvertisementDashboard'
 import AdvertisementCreation from './pages/AdvertisementCreation'
 import AdvertisementUpdate from './pages/AdvertisementUpdate'
@@ -20,11 +22,19 @@ import RobotMapEditor from './pages/RobotMapEditor'
 import { AuthProvider } from './features/auth/AuthContext'
 import ProtectedRoute from './features/auth/ProtectedRoute'
 import { ThemeProvider } from './context/ThemeContext'
+import { useSignalRAlerts } from './hooks/useSignalRAlerts'
+
+function GlobalAlerts() {
+  useSignalRAlerts();
+  return null;
+}
 
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
+        <GlobalAlerts />
+        <ToastContainer />
         <BrowserRouter>
           <Routes>
             {/* Public */}
