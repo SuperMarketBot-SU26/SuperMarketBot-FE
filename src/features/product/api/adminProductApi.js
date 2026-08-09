@@ -41,14 +41,18 @@ export const getAdminProduct = (productId) =>
  */
 const buildMultipartBody = (payload, imageFile) => {
   const form = new FormData()
-  Object.entries(payload ?? {}).forEach(([key, value]) => {
-    if (value === undefined || value === null) return
-    if (Array.isArray(value)) {
-      value.forEach((v) => form.append(key, String(v)))
-    } else {
-      form.append(key, String(value))
-    }
-  })
+  if (payload) {
+    Object.keys(payload).forEach((key) => {
+      const val = payload[key]
+      if (val !== undefined && val !== null) {
+        if (Array.isArray(val)) {
+          val.forEach((item) => form.append(key, item))
+        } else {
+          form.append(key, val)
+        }
+      }
+    })
+  }
   if (imageFile) {
     form.append('imageFile', imageFile)
   }
@@ -74,3 +78,13 @@ export const updateAdminProductStatus = (productId, status) =>
 
 export const deleteAdminProduct = (productId) =>
   client.delete(`${ADMIN_ENDPOINT}/${productId}`).then((res) => res.data)
+
+export const importAdminProducts = (file) => {
+  const form = new FormData()
+  form.append('file', file)
+  return client
+    .post(`${ADMIN_ENDPOINT}/import`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then((res) => res.data)
+}

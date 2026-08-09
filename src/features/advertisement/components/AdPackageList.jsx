@@ -25,8 +25,11 @@ const EMPTY_FORM = {
   packageName: '',
   pricePackage: '',
   priceRoute: '',
+  priceZone: '',
+  priceShelf: '',
   basePriceClick: '',
   adScore: '',
+  status: 'Active',
 }
 
 export function AdPackageList() {
@@ -76,8 +79,11 @@ export function AdPackageList() {
       packageName: pkg.packageName,
       pricePackage: String(pkg.pricePackage),
       priceRoute: String(pkg.priceRoute),
+      priceZone: String(pkg.priceZone),
+      priceShelf: String(pkg.priceShelf),
       basePriceClick: String(pkg.basePriceClick),
       adScore: String(pkg.adScore),
+      status: pkg.status,
     })
     setModal({ type: 'edit', data: pkg })
   }
@@ -92,9 +98,11 @@ export function AdPackageList() {
       packageName: form.packageName.trim(),
       pricePackage: Number(form.pricePackage),
       priceRoute: Number(form.priceRoute),
+      priceZone: Number(form.priceZone),
+      priceShelf: Number(form.priceShelf),
       basePriceClick: Number(form.basePriceClick),
       adScore: Number(form.adScore),
-      ...(modal.type === 'edit' && { status: mapStatusForApi(modal.data.status) }),
+      ...(modal.type === 'edit' && { status: form.status }),
     }
 
     setSubmitting(true)
@@ -132,6 +140,8 @@ export function AdPackageList() {
       packageName: pkg.packageName,
       pricePackage: pkg.pricePackage,
       priceRoute: pkg.priceRoute,
+      priceZone: pkg.priceZone,
+      priceShelf: pkg.priceShelf,
       basePriceClick: pkg.basePriceClick,
       adScore: pkg.adScore,
       status: newStatus,
@@ -179,6 +189,18 @@ export function AdPackageList() {
           {formatVND(val)} đ
         </span>
       ),
+    },
+    {
+      key: 'priceZone',
+      label: 'Giá/Zone',
+      align: 'right',
+      render: (val) => <span className="tabular-nums text-smb-on-surface">{formatVND(val)} đ</span>,
+    },
+    {
+      key: 'priceShelf',
+      label: 'Giá/Shelf',
+      align: 'right',
+      render: (val) => <span className="tabular-nums text-smb-on-surface">{formatVND(val)} đ</span>,
     },
     {
       key: 'basePriceClick',
@@ -297,6 +319,19 @@ export function AdPackageList() {
           onClose={closeModal}
           onSubmit={handleSubmit}
         >
+          {modal.type === 'edit' && (
+            <FormField label="Trạng thái">
+              <select
+                value={form.status}
+                onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+                className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary"
+              >
+                <option value="Active">Hoạt động</option>
+                <option value="Inactive">Không hoạt động</option>
+              </select>
+            </FormField>
+          )}
+
           <FormField label="Tên gói">
             <input
               type="text"
@@ -330,6 +365,15 @@ export function AdPackageList() {
                 className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface placeholder:text-smb-outline focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary"
                 required
               />
+            </FormField>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Giá mỗi zone (VNĐ)">
+              <input type="number" value={form.priceZone} onChange={(e) => setForm((f) => ({ ...f, priceZone: e.target.value }))} min={0} required className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary" />
+            </FormField>
+            <FormField label="Giá mỗi shelf (VNĐ)">
+              <input type="number" value={form.priceShelf} onChange={(e) => setForm((f) => ({ ...f, priceShelf: e.target.value }))} min={0} required className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary" />
             </FormField>
           </div>
 

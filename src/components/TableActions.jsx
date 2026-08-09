@@ -58,29 +58,36 @@ export function TableActions({ actions = [] }) {
           style={{ top: coords.top, left: coords.left }}
           className="fixed z-50 min-w-[160px] rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest shadow-lg"
         >
-          {actions.map((action, idx) => (
-            <button
-              key={idx}
-              onClick={() => {
-                action.onClick?.()
-                setOpen(false)
-              }}
-              className={`
-                flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-left transition-colors
-                ${action.disabled
-                  ? 'cursor-not-allowed text-smb-on-surface-variant/40'
-                  : action.danger
-                  ? 'text-smb-error hover:bg-smb-error-container'
-                  : 'text-smb-on-surface hover:bg-smb-surface-container'
-                }
-              `}
-              disabled={action.disabled}
-            >
-              {action.icon && (
-                <Icon name={action.icon} className="text-[16px]" />
+{actions.map((action, idx) => (
+            <React.Fragment key={idx}>
+              <button
+                onClick={() => {
+                  action.onClick?.()
+                  setOpen(false)
+                }}
+                className={`
+                  flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-left transition-colors
+                  ${action.disabled
+                    ? 'cursor-not-allowed text-smb-on-surface-variant/40'
+                    : action.danger
+                    ? 'text-smb-error hover:bg-smb-error-container'
+                    : 'text-smb-on-surface hover:bg-smb-surface-container'
+                  }
+                `}
+                disabled={action.disabled}
+                title={action.disabled ? action.reason : undefined}
+              >
+                {action.icon && (
+                    <Icon name={action.icon} className="text-[16px]" />
+                )}
+                {action.label}
+              </button>
+              {action.disabled && action.reason && (
+                <p className="px-3 pb-1 text-[10px] italic text-smb-on-surface-variant/60">
+                  {action.reason}
+                </p>
               )}
-              {action.label}
-            </button>
+            </React.Fragment>
           ))}
         </div>,
         document.body

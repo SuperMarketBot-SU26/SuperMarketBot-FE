@@ -57,15 +57,15 @@ export function Sidebar({ activeItem = 'Giám Sát Robot', onOpenCommandPalette 
       {/* Brand Header */}
       <div className="border-b border-smb-outline-variant/60 bg-smb-surface-container-low/60 px-5 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-green-700 text-white shadow-md shadow-emerald-700/20">
-            <Icon name="storefront" className="text-[22px]" />
+          <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-green-700 text-white shadow-md shadow-emerald-700/20 smb-float">
+            <Icon name="smart_toy" className="text-[22px]" />
           </div>
           <div className="leading-tight">
-            <p className="text-sm font-bold tracking-tight text-smb-on-surface">
+            <p className="text-sm font-bold tracking-tight text-gradient-primary">
               SmartMarketBot
             </p>
-            <p className="text-[11px] font-medium text-smb-on-surface-variant/80">
-              Admin Control Hub
+            <p className="text-[10px] font-semibold text-smb-on-surface-variant/80 uppercase tracking-wider">
+              Powered by AI Robot
             </p>
           </div>
         </div>
@@ -115,6 +115,9 @@ export function Sidebar({ activeItem = 'Giám Sát Robot', onOpenCommandPalette 
                     }`}
                   />
                   <span>{item.label}</span>
+                  {item.label === 'Giám Sát Robot' && (
+                    <span className="ml-auto flex size-2 rounded-full bg-emerald-500 smb-live-pulse" />
+                  )}
                 </a>
               </li>
             )
@@ -136,12 +139,14 @@ export function Sidebar({ activeItem = 'Giám Sát Robot', onOpenCommandPalette 
               {initials}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-smb-on-surface">
+              <p className="truncate text-xs font-bold text-smb-on-surface">
                 {displayName}
               </p>
-              <p className="truncate text-[10px] font-medium text-smb-on-surface-variant/80">
-                {primaryRole}
-              </p>
+              <div className="mt-0.5 flex">
+                <span className="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
+                  {primaryRole}
+                </span>
+              </div>
             </div>
             <Icon
               name={menuOpen ? 'expand_less' : 'unfold_more'}

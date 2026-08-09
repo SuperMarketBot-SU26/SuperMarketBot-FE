@@ -9,11 +9,26 @@ const PACKAGE_LABELS = {
   premium: 'Cao Cấp',
 }
 
-export function CampaignInfo({ data }) {
+export function CampaignInfo({ data, sponsoredProducts = [] }) {
   if (!data) return null
 
   const formatDate = (val) =>
     val ? new Date(val).toLocaleDateString('vi-VN') : '—'
+
+  const formatVND = (val) => {
+    if (val == null || val === 0) return '—'
+    return `${Number(val).toLocaleString('vi-VN')} đ`
+  }
+
+  // Fallback chain: preference order DTO count > fetched list length
+  const sponsoredCount =
+    data.sponsoredProductCount ??
+    (Array.isArray(sponsoredProducts) ? sponsoredProducts.length : 0)
+
+  const totalSpent = data.totalSpent ?? 0
+  const routeCount = Array.isArray(data.routeIds) ? data.routeIds.length : 0
+  const zoneCount = Array.isArray(data.zoneIds) ? data.zoneIds.length : 0
+  const shelfCount = data.semanticObjectId ? 1 : 0
 
   return (
     <div className="space-y-4">
@@ -31,15 +46,19 @@ export function CampaignInfo({ data }) {
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-2 gap-x-8 gap-y-4">
+        <div className="mt-6 grid grid-cols-2 gap-x-8 gap-y-5">
           <div>
             <p className="text-xs font-medium uppercase tracking-wider text-smb-on-surface-variant">Chiến Dịch</p>
-            <p className="mt-1 text-sm font-semibold text-smb-on-surface">{data.campaignName || '—'}</p>
+            <p className="mt-1 text-sm font-semibold text-smb-on-surface" title={data.campaignName}>
+              {data.campaignName || '—'}
+            </p>
           </div>
 
           <div>
             <p className="text-xs font-medium uppercase tracking-wider text-smb-on-surface-variant">Thương Hiệu</p>
-            <p className="mt-1 text-sm font-semibold text-smb-on-surface">{data.brandName || '—'}</p>
+            <p className="mt-1 text-sm font-semibold text-smb-on-surface">
+              {data.brandName || '—'}
+            </p>
           </div>
 
           <div>
@@ -52,33 +71,52 @@ export function CampaignInfo({ data }) {
           </div>
 
           <div>
+            <p className="text-xs font-medium uppercase tracking-wider text-smb-on-surface-variant">Trạng thái</p>
+            <p className="mt-1">
+              <span className="inline-block rounded-full bg-emerald-500/10 px-3 py-0.5 text-xs font-semibold text-emerald-600">
+                {data.status || '—'}
+              </span>
+            </p>
+          </div>
+
+          <div>
             <p className="text-xs font-medium uppercase tracking-wider text-smb-on-surface-variant">Ngày Bắt Đầu</p>
-            <p className="mt-1 text-sm font-semibold text-smb-on-surface">{formatDate(data.startDate)}</p>
+            <p className="mt-1 text-sm font-semibold text-smb-on-surface tabular-nums">
+              {formatDate(data.startDate)}
+            </p>
           </div>
 
           <div>
             <p className="text-xs font-medium uppercase tracking-wider text-smb-on-surface-variant">Ngày Kết Thúc</p>
-            <p className="mt-1 text-sm font-semibold text-smb-on-surface">{formatDate(data.endDate)}</p>
+            <p className="mt-1 text-sm font-semibold text-smb-on-surface tabular-nums">
+              {formatDate(data.endDate)}
+            </p>
           </div>
 
           {/* Targeting summary */}
-          <div>
+          <div className="col-span-2">
             <p className="text-xs font-medium uppercase tracking-wider text-smb-on-surface-variant">Đối Tượng Nhắm Đích</p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {data.semanticObjectId ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-smb-secondary-container/20 px-2 py-0.5 text-xs text-smb-secondary-container">
-                  <span className="material-symbols-outlined text-[12px]">inventory_2</span>
-                  1 Kệ
+              {shelfCount > 0 ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-smb-secondary-container/20 px-2.5 py-1 text-xs font-medium text-smb-secondary-container">
+                  <span className="material-symbols-outlined text-[14px]">inventory_2</span>
+                  {shelfCount} Kệ
                 </span>
               ) : null}
-              {Array.isArray(data.routeIds) && data.routeIds.length > 0 ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-smb-primary-container/20 px-2 py-0.5 text-xs text-smb-primary-container">
-                  <span className="material-symbols-outlined text-[12px]">route</span>
-                  {data.routeIds.length} Tuyến
+              {zoneCount > 0 ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-smb-tertiary-container/20 px-2.5 py-1 text-xs font-medium text-smb-tertiary-container">
+                  <span className="material-symbols-outlined text-[14px]">grid_view</span>
+                  {zoneCount} Zone
                 </span>
               ) : null}
-              {!data.semanticObjectId && (!Array.isArray(data.routeIds) || data.routeIds.length === 0) ? (
-                <span className="text-xs text-smb-on-surface-variant">Chưa có nhắm đích</span>
+              {routeCount > 0 ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-smb-primary-container/20 px-2.5 py-1 text-xs font-medium text-smb-primary-container">
+                  <span className="material-symbols-outlined text-[14px]">route</span>
+                  {routeCount} Tuyến
+                </span>
+              ) : null}
+              {shelfCount === 0 && zoneCount === 0 && routeCount === 0 ? (
+                <span className="text-xs italic text-smb-on-surface-variant">Chưa có nhắm đích</span>
               ) : null}
             </div>
           </div>
@@ -86,18 +124,27 @@ export function CampaignInfo({ data }) {
       </div>
 
       {/* Stats Row */}
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-3">
         <StatCard
-          title="Đã Chi"
-          value={`${(data.totalSpent || 0).toLocaleString('vi-VN')} đ`}
+          title="Tổng Chi"
+          value={totalSpent > 0 ? formatVND(totalSpent) : '0 đ'}
+          subtitle={totalSpent > 0 ? 'Phát sinh từ khi kích hoạt' : 'Chưa phát sinh chi phí'}
           icon="payments"
-          color="success"
+          color={totalSpent > 0 ? 'success' : 'primary'}
         />
         <StatCard
-          title="Số Sản Phẩm Tài Trợ"
-          value={String(data.sponsoredProductCount ?? 0)}
+          title="Sản Phẩm Tài Trợ"
+          value={String(sponsoredCount)}
+          subtitle={sponsoredCount > 0 ? 'Đang hiển thị trong chiến dịch' : 'Chưa có sản phẩm'}
           icon="inventory_2"
           color="info"
+        />
+        <StatCard
+          title="Vùng Nhắm Đích"
+          value={String(shelfCount + zoneCount + routeCount)}
+          subtitle={`${shelfCount} kệ · ${zoneCount} zone · ${routeCount} tuyến`}
+          icon="my_location"
+          color="primary"
         />
       </div>
     </div>

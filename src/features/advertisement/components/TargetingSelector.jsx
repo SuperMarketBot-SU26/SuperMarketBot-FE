@@ -1,17 +1,39 @@
 /**
  * TargetingSelector — lets admin pick ≥1 targeting type per campaign.
  *
- * BE contract (no zoneIds in CampaignResponseDto — must derive):
- *   - GET /api/v1/campaigns/{id}             → CampaignResponseDto { routeIds[], semanticObjectId }
- *   - GET /api/v1/campaigns/{id}/routes     → CampaignRoutesResponseDto { routes[] }
- *   - GET /api/v1/routes?mapId=             → RobotRouteListDto[]  (zoneId, zoneName per route)
- *   - PUT /api/v1/campaigns/{id}            → UpdateCampaignRequestDto accepts semanticObjectId + zoneIds + routeIds
+ * BE contract (server is source of truth — zones & shelves fetched live):
+ *   - GET /api/v1/ad-campaigns/{id}             → CampaignResponseDto { routeIds[], semanticObjectId }
+ *   - GET /api/v1/ad-campaigns/{id}/routes     → CampaignRoutesResponseDto { routes[] }
+ *   - GET /api/v1/ad-campaigns/{id}/zones      → { zones[], zoneCount, totalZoneCharge }
+ *     zones[] = { zoneId, zoneName, floorId, floorName, zonePriceCharged, purchasedAt }
+ *   - GET /api/v1/ad-campaigns/{id}/shelves    → { shelves[], shelfCount, totalShelfCharge }
+ *     shelves[] = { semanticObjectId, label, shelfPriceCharged, purchasedAt }
+ *   - PUT /api/v1/ad-campaigns/{id}            → UpdateCampaignRequestDto (semanticObjectId + zoneIds + routeIds)
+ *   - POST /api/v1/ad-campaigns/{id}/zones     → { zoneIds } (charge new zones only)
+ *   - POST /api/v1/ad-campaigns/{id}/shelves   → { semanticObjectIds: [id] } (exactly 1)
  *   - Activate validates: routeCount > 0 OR zoneCount > 0 OR hasShelf
+ *
+ * Save model: each tab has its OWN "Lưu chọn" button that calls the
+ * dedicated POST endpoint, returns the updated payload, then bubbles
+ * the new assignment up via onTargetingChange() so parent can re-render.
+ * (PUT /campaigns stays available as a fallback for batch edits.)
+ *
+ * Shelves are SINGULAR per BE schema — selecting a new shelf replaces the old one.
+ *
+ * Only Inactive / Paused campaigns accept POST /zones and POST /shelves.
+ * When status === 'Active', all tabs become read-only.
  */
 
 import React, { useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
 import Select from '../../../components/ui/Select'
+import Button from '../../../components/ui/Button'
 import client from '../../../api/client'
+import {
+  getCampaignZones,
+  assignCampaignZones,
+  getCampaignShelf,
+  assignCampaignShelf,
+} from '../api/adCampaignApi'
 
 const ENDPOINT_CAMPAIGN = '/v1/ad-campaigns'
 const ENDPOINT_ROUTES   = '/v1/routes'
@@ -22,6 +44,9 @@ const TABS = [
   { key: 'route',  label: 'Tuyến Đường', icon: 'route',      single: false },
 ]
 
+const formatVND = (val) =>
+  Number(val ?? 0).toLocaleString('vi-VN')
+
 function normalizeRoutes(routes) {
   return (routes ?? []).map((r) => ({
     id:       r.robotRouteId,
@@ -31,75 +56,95 @@ function normalizeRoutes(routes) {
   }))
 }
 
-function deriveZones(routes) {
-  const seen = new Map()
-  for (const r of routes ?? []) {
-    if (r.zoneId == null) continue
-    if (!seen.has(r.zoneId)) {
-      seen.set(r.zoneId, r.zoneName ?? `Zone #${r.zoneId}`)
-    }
-  }
-  return Array.from(seen, ([id, name]) => ({ id, name }))
-}
-
 export const TargetingSelector = forwardRef(function TargetingSelector(
-  { campaignId, initialRouteIds, initialSemanticObjectId, disabled = false },
+  {
+    campaignId,
+    initialRouteIds,
+    initialSemanticObjectId,
+    disabled = false,
+    onTargetingChange,
+  },
   ref
 ) {
   const [activeTab, setActiveTab] = useState('shelf')
   const [shelves,   setShelves]   = useState([])
-  const [allRoutes, setAllRoutes] = useState([])   // all routes from /routes
+  const [allRoutes, setAllRoutes] = useState([])
   const [zones,    setZones]     = useState([])
   const [loading,  setLoading]    = useState(false)
 
-  // Current selections — initialized from props, mutated by user
-  const [selectedShelfId, setSelectedShelfId] = useState(initialSemanticObjectId ?? null)
-  const [selectedZoneIds, setSelectedZoneIds] = useState([])
-  const [selectedRouteIds, setSelectedRouteIds] = useState(initialRouteIds ?? [])
+  // Live server state (single source of truth after load)
+  const [assignedZones, setAssignedZones] = useState([])    // raw from BE
+  const [assignedShelf, setAssignedShelf] = useState(null)  // object or null
+
+  // Working selections — user is editing these, not yet saved
+  const [pickedZoneIds, setPickedZoneIds] = useState([])
+  const [pickedShelfId, setPickedShelfId] = useState(null)
+  const [pickedRouteIds, setPickedRouteIds] = useState(initialRouteIds ?? [])
+
+  // Per-tab pending state for the dedicated "Lưu chọn" buttons
+  const [savingTab, setSavingTab]     = useState(null)
+  const [tabError, setTabError]       = useState(null)
+  const [tabNotice, setTabNotice]     = useState(null)
 
   useEffect(() => {
-    setSelectedRouteIds(initialRouteIds ?? [])
+    setPickedRouteIds(initialRouteIds ?? [])
   }, [initialRouteIds])
 
-  // Load shelves + all routes, then derive zones + intersect with assigned routes.
-// /routes requires mapId — fetch the latest map first to discover it.
+  // Load shelves + all routes, then fetch server-truth for zones/shelf/routes
   const loadData = useCallback(async () => {
+    if (!campaignId) return
     setLoading(true)
     try {
+      // Discover latest mapId for /routes filter
       const mapRes = await client.get('/v1/maps/latest', { params: { floorId: 1 } })
       const mapId = mapRes.data?.mapId
 
-      const [shelfRes, routeRes, campaignRoutesRes] = await Promise.all([
+      const [shelfPickerRes, routeRes, zonesRes, shelfRes, campaignRoutesRes] = await Promise.all([
         client.get('/v1/semantic-objects', { params: { pageNumber: 1, pageSize: 500 } }),
         mapId
           ? client.get(ENDPOINT_ROUTES, { params: { mapId } })
           : Promise.resolve({ data: [] }),
-        campaignId
-          ? client.get(`${ENDPOINT_CAMPAIGN}/${campaignId}/routes`)
-          : Promise.resolve({ data: null }),
+        getCampaignZones(campaignId),
+        getCampaignShelf(campaignId),
+        client.get(`${ENDPOINT_CAMPAIGN}/${campaignId}/routes`),
       ])
 
-      // Shelves (filter to objectType === 'shelf')
-      const shelfItems = (shelfRes.data?.items ?? shelfRes.data ?? [])
+      // Shelf PICKER (all shelves on the map — independent of assigned)
+      const shelfItems = (shelfPickerRes.data?.items ?? shelfPickerRes.data ?? [])
         .filter((s) => s.objectType?.toLowerCase() === 'shelf')
         .map((s) => ({ value: s.objectId, label: s.objectName ?? `Kệ #${s.objectId}` }))
       setShelves(shelfItems)
 
-      // All routes
+      // Routes
       const routeList = normalizeRoutes(routeRes.data ?? [])
       setAllRoutes(routeList)
-      setZones(deriveZones(routeList))
 
-      // Intersect: only mark routes as selected if they're in campaign's assigned routes
+      // Server-truth: zones & shelf
+      setAssignedZones(zonesRes?.zones ?? [])
+      setAssignedShelf(shelfRes?.shelves?.[0] ?? null)
+
+      // Build available zone list (unique by zoneId, name + floor info)
+      const seen = new Map()
+      for (const z of zonesRes?.zones ?? []) {
+        if (!seen.has(z.zoneId)) {
+          seen.set(z.zoneId, {
+            id: z.zoneId,
+            name: z.zoneName ?? `Zone #${z.zoneId}`,
+            floorId: z.floorId,
+            floorName: z.floorName,
+          })
+        }
+      }
+      setZones(Array.from(seen.values()))
+
+      // Initial working selection mirrors what's assigned
+      setPickedZoneIds((zonesRes?.zones ?? []).map((z) => z.zoneId))
+      setPickedShelfId(shelfRes?.shelves?.[0]?.semanticObjectId ?? null)
+
+      // Routes: intersect with assigned
       if (campaignRoutesRes.data?.routes) {
         const assigned = new Set(campaignRoutesRes.data.routes.map((r) => r.robotRouteId))
-        setSelectedRouteIds(Array.from(assigned))
-
-        // NOTE: BE exposes no endpoint to fetch assigned zones for a campaign
-        // (zoneIds is not in CampaignResponseDto, no /campaigns/{id}/zones exists).
-        // Zones therefore start empty on mount; user must re-pick them or rely on
-        // routes covering them. If the user picked only routes, charge is
-        // PricePackage + PriceRoute × count — no implicit zone charge.
+        setPickedRouteIds(Array.from(assigned))
       }
     } catch {
       // Non-critical — degrade gracefully
@@ -110,56 +155,127 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
 
   useEffect(() => { loadData() }, [loadData])
 
+  // Bubble changes to parent for save orchestration
+  const notifyChange = useCallback((patch) => {
+    onTargetingChange?.({
+      semanticObjectId: pickedShelfId ?? initialSemanticObjectId ?? null,
+      routeIds:         pickedRouteIds,
+      zoneIds:          pickedZoneIds,
+      ...patch,
+    })
+  }, [pickedShelfId, pickedRouteIds, pickedZoneIds, initialSemanticObjectId, onTargetingChange])
+
   useImperativeHandle(ref, () => ({
     getTargeting() {
       return {
-        semanticObjectId: selectedShelfId,
-        routeIds:         selectedRouteIds,
-        zoneIds:          selectedZoneIds,
+        semanticObjectId: pickedShelfId,
+        routeIds:         pickedRouteIds,
+        zoneIds:          pickedZoneIds,
       }
     },
-  }), [selectedShelfId, selectedRouteIds, selectedZoneIds])
-
-  // Internal emit — values are exposed via getTargeting() from the ref
-  // and consumed by the parent at save time. No callback prop needed.
-  const emit = useCallback((_patch) => {
-    // intentionally empty — ref-based pattern
-  }, [selectedShelfId, selectedRouteIds, selectedZoneIds])
+  }), [pickedShelfId, pickedRouteIds, pickedZoneIds])
 
   // ── Handlers ─────────────────────────────────────────────────────────
-
   const handleShelfChange = (val) => {
     const id = val ? Number(val) : null
-    setSelectedShelfId(id)
-    emit({ semanticObjectId: id })
+    setPickedShelfId(id)
+    setTabError(null); setTabNotice(null)
+    notifyChange({ semanticObjectId: id })
   }
 
   const toggleZone = (zoneId) => {
-    const next = selectedZoneIds.includes(zoneId)
-      ? selectedZoneIds.filter((z) => z !== zoneId)
-      : [...selectedZoneIds, zoneId]
-    setSelectedZoneIds(next)
-    emit({ zoneIds: next })
+    const next = pickedZoneIds.includes(zoneId)
+      ? pickedZoneIds.filter((z) => z !== zoneId)
+      : [...pickedZoneIds, zoneId]
+    setPickedZoneIds(next)
+    setTabError(null); setTabNotice(null)
+    notifyChange({ zoneIds: next })
   }
 
   const toggleRoute = (routeId) => {
-    const next = selectedRouteIds.includes(routeId)
-      ? selectedRouteIds.filter((r) => r !== routeId)
-      : [...selectedRouteIds, routeId]
-    setSelectedRouteIds(next)
-    emit({ routeIds: next })
+    const next = pickedRouteIds.includes(routeId)
+      ? pickedRouteIds.filter((r) => r !== routeId)
+      : [...pickedRouteIds, routeId]
+    setPickedRouteIds(next)
+    setTabError(null); setTabNotice(null)
+    notifyChange({ routeIds: next })
   }
 
-  const selectAllZones  = () => { const a = zones.map((z) => z.id);      setSelectedZoneIds(a);  emit({ zoneIds:  a }); }
-  const clearZones     = () => { setSelectedZoneIds([]);                   emit({ zoneIds:  [] }); }
-  const selectAllRoutes = () => { const a = allRoutes.map((r) => r.id);   setSelectedRouteIds(a); emit({ routeIds: a }); }
-  const clearRoutes    = () => { setSelectedRouteIds([]);                  emit({ routeIds: [] }); }
+  const selectAllZones  = () => { const a = zones.map((z) => z.id);      setPickedZoneIds(a); setTabError(null); setTabNotice(null); notifyChange({ zoneIds: a }) }
+  const clearZones     = () => { setPickedZoneIds([]);                   setTabError(null); setTabNotice(null); notifyChange({ zoneIds: [] }) }
+  const selectAllRoutes = () => { const a = allRoutes.map((r) => r.id);   setPickedRouteIds(a); setTabError(null); setTabNotice(null); notifyChange({ routeIds: a }) }
+  const clearRoutes    = () => { setPickedRouteIds([]);                  setTabError(null); setTabNotice(null); notifyChange({ routeIds: [] }) }
+
+  // ── Save handlers (per tab) ──────────────────────────────────────────
+  const handleSaveZones = async () => {
+    if (!campaignId) return
+    setSavingTab('zone'); setTabError(null); setTabNotice(null)
+    try {
+      const res = await assignCampaignZones(campaignId, pickedZoneIds)
+      const returned = res?.zones ?? []
+      setAssignedZones(returned)
+      setPickedZoneIds(returned.map((z) => z.zoneId))
+      // rebuild picker list with newly seen zones
+      setZones((prev) => {
+        const map = new Map(prev.map((p) => [p.id, p]))
+        for (const z of returned) {
+          if (!map.has(z.zoneId)) {
+            map.set(z.zoneId, {
+              id: z.zoneId,
+              name: z.zoneName ?? `Zone #${z.zoneId}`,
+              floorId: z.floorId,
+              floorName: z.floorName,
+            })
+          }
+        }
+        return Array.from(map.values())
+      })
+      const charged = res?.totalZoneCharge ?? 0
+      setTabNotice(
+        `Đã gán ${res?.zoneCount ?? returned.length} khu vực. Phí phát sinh: ${formatVND(charged)} đ.`
+      )
+    } catch (err) {
+      setTabError(err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Không thể gán khu vực.')
+    } finally {
+      setSavingTab(null)
+    }
+  }
+
+  const handleSaveShelf = async () => {
+    if (!campaignId) return
+    if (!pickedShelfId) {
+      setTabError('Vui lòng chọn một kệ hàng.')
+      return
+    }
+    setSavingTab('shelf'); setTabError(null); setTabNotice(null)
+    try {
+      const res = await assignCampaignShelf(campaignId, pickedShelfId)
+      const returned = res?.shelves?.[0] ?? null
+      setAssignedShelf(returned)
+      setPickedShelfId(returned?.semanticObjectId ?? null)
+      const charged = res?.totalShelfCharge ?? 0
+      setTabNotice(
+        returned
+          ? `Đã gán kệ "${returned.label ?? returned.semanticObjectId}". Phí: ${formatVND(charged)} đ.`
+          : 'Đã gỡ kệ khỏi chiến dịch.'
+      )
+    } catch (err) {
+      setTabError(err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Không thể gán kệ hàng.')
+    } finally {
+      setSavingTab(null)
+    }
+  }
 
   // ── Counts ────────────────────────────────────────────────────────────
-  const shelfCount = selectedShelfId  ? 1 : 0
-  const zoneCount  = selectedZoneIds.length
-  const routeCount = selectedRouteIds.length
+  const shelfCount = pickedShelfId  ? 1 : 0
+  const zoneCount  = pickedZoneIds.length
+  const routeCount = pickedRouteIds.length
   const totalCount = shelfCount + zoneCount + routeCount
+
+  // ── Derived "is this tab dirty?" ──────────────────────────────────────
+  const isZonesDirty = JSON.stringify([...pickedZoneIds].sort())
+    !== JSON.stringify([...assignedZones.map((z) => z.zoneId)].sort())
+  const isShelfDirty = (pickedShelfId ?? null) !== (assignedShelf?.semanticObjectId ?? null)
 
   return (
     <div className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest p-6">
@@ -182,6 +298,15 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
           <span className="material-symbols-outlined mt-0.5 text-[16px] text-amber-600">warning</span>
           <p className="text-xs text-amber-700">
             Chiến dịch chưa có đối tượng nhắm đích. Cần chọn ít nhất 1 Kệ / Khu Vực / Tuyến Đường trước khi kích hoạt.
+          </p>
+        </div>
+      )}
+
+      {disabled && (
+        <div className="mb-4 flex items-start gap-2 rounded border border-smb-primary-container/30 bg-smb-primary-container/5 p-3">
+          <span className="material-symbols-outlined mt-0.5 text-[16px] text-smb-primary-container">info</span>
+          <p className="text-xs text-smb-primary-container">
+            Chiến dịch đang <strong>Hoạt Động</strong>. Targeting đã khoá — chỉ xem.
           </p>
         </div>
       )}
@@ -222,6 +347,20 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
         })}
       </div>
 
+      {/* Per-tab feedback (error / notice) */}
+      {tabError && (
+        <div className="mb-3 flex items-start gap-2 rounded border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+          <span className="material-symbols-outlined mt-0.5 text-[14px]">error</span>
+          {tabError}
+        </div>
+      )}
+      {tabNotice && (
+        <div className="mb-3 flex items-start gap-2 rounded border border-green-200 bg-green-50 p-3 text-xs text-green-700">
+          <span className="material-symbols-outlined mt-0.5 text-[14px]">check_circle</span>
+          {tabNotice}
+        </div>
+      )}
+
       {/* Content */}
       <div className="min-h-[120px]">
         {loading && (
@@ -234,26 +373,54 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
         {!loading && activeTab === 'shelf' && (
           shelves.length === 0
             ? <p className="py-4 text-center text-sm text-smb-on-surface-variant">Không có kệ hàng nào trên bản đồ</p>
-            : <Select
-                label="Chọn Kệ Hàng"
-                placeholder="— Chọn một kệ hàng —"
-                options={shelves}
-                value={selectedShelfId ?? ''}
-                onChange={handleShelfChange}
-                disabled={disabled}
-                hint="Chỉ được chọn 1 kệ. Chi phí tính theo PriceShelf của gói."
-              />
+            : <>
+                <Select
+                  label="Chọn Kệ Hàng"
+                  placeholder="— Chọn một kệ hàng —"
+                  options={shelves}
+                  value={pickedShelfId ?? ''}
+                  onChange={handleShelfChange}
+                  disabled={disabled}
+                  hint="Chỉ được chọn 1 kệ. Phí = PriceShelf của gói."
+                />
+                {assignedShelf && (
+                  <p className="mt-2 text-xs text-smb-on-surface-variant">
+                    Hiện đang gán: <strong>{assignedShelf.label ?? `Kệ #${assignedShelf.semanticObjectId}`}</strong>
+                    {assignedShelf.shelfPriceCharged != null && (
+                      <> · phí {formatVND(assignedShelf.shelfPriceCharged)} đ</>
+                    )}
+                  </p>
+                )}
+                {!disabled && (
+                  <div className="mt-3 flex justify-end">
+                    <Button
+                      variant="primary"
+                      icon="save"
+                      onClick={handleSaveShelf}
+                      disabled={!isShelfDirty || savingTab === 'shelf'}
+                      loading={savingTab === 'shelf'}
+                    >
+                      Lưu chọn kệ
+                    </Button>
+                  </div>
+                )}
+              </>
         )}
 
         {!loading && activeTab === 'zone' && (
           zones.length === 0
             ? <p className="py-4 text-center text-sm text-smb-on-surface-variant">
-                Không có khu vực nào. Cần tạo tuyến đường có gán zone trước.
+                Chưa gán khu vực nào cho chiến dịch này.
               </p>
             : <>
                 <div className="mb-3 flex items-center justify-between">
                   <p className="text-xs font-medium text-smb-on-surface-variant">
                     Đã chọn {zoneCount} / {zones.length} khu vực
+                    {assignedZones.length > 0 && (
+                      <span className="ml-2 text-smb-on-surface-variant">
+                        · phí hiện tại {formatVND(assignedZones.reduce((s, z) => s + (z.zonePriceCharged ?? 0), 0))} đ
+                      </span>
+                    )}
                   </p>
                   <div className="flex gap-2">
                     <button type="button" onClick={selectAllZones} disabled={disabled || zoneCount === zones.length}
@@ -264,7 +431,7 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {zones.map((zone) => {
-                    const isSelected = selectedZoneIds.includes(zone.id)
+                    const isPicked = pickedZoneIds.includes(zone.id)
                     return (
                       <button key={zone.id} type="button"
                         onClick={() => !disabled && toggleZone(zone.id)}
@@ -272,25 +439,43 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
                         className={`
                           flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-left
                           transition-colors duration-100
-                          ${isSelected
+                          ${isPicked
                             ? 'border-smb-primary-container bg-smb-primary-container/10 text-smb-on-primary-container'
                             : 'border-smb-outline-variant bg-smb-surface-container-lowest text-smb-on-surface hover:border-smb-outline'}
                           ${disabled ? 'cursor-not-allowed opacity-50' : ''}
                         `}>
                         <span className={`
                           flex size-4 min-w-4 items-center justify-center rounded-sm border text-[10px] font-bold
-                          ${isSelected
+                          ${isPicked
                             ? 'border-smb-on-primary-container bg-smb-on-primary-container text-smb-primary-container'
                             : 'border-smb-outline bg-smb-surface-container'}
-                        `}>{isSelected && '✓'}</span>
-                        <span className="truncate">{zone.name}</span>
+                        `}>{isPicked && '✓'}</span>
+                        <span className="truncate">
+                          {zone.name}
+                          {zone.floorName && (
+                            <span className="ml-1 text-xs text-smb-on-surface-variant">· T{zone.floorName}</span>
+                          )}
+                        </span>
                       </button>
                     )
                   })}
                 </div>
                 <p className="mt-2 text-xs text-smb-on-surface-variant">
-                  Chi phí = PriceZone × số khu vực đã chọn.
+                  Phí = PriceZone × số khu vực MỚI được gán (khu vực đã có không charge lại).
                 </p>
+                {!disabled && (
+                  <div className="mt-3 flex justify-end">
+                    <Button
+                      variant="primary"
+                      icon="save"
+                      onClick={handleSaveZones}
+                      disabled={!isZonesDirty || savingTab === 'zone'}
+                      loading={savingTab === 'zone'}
+                    >
+                      Lưu chọn khu vực
+                    </Button>
+                  </div>
+                )}
               </>
         )}
 
@@ -313,7 +498,7 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
                 </div>
                 <div className="grid max-h-48 grid-cols-1 gap-1.5 overflow-y-auto sm:grid-cols-2">
                   {allRoutes.map((route) => {
-                    const isSelected = selectedRouteIds.includes(route.id)
+                    const isPicked = pickedRouteIds.includes(route.id)
                     return (
                       <button key={route.id} type="button"
                         onClick={() => !disabled && toggleRoute(route.id)}
@@ -321,17 +506,17 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
                         className={`
                           flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-left
                           transition-colors duration-100
-                          ${isSelected
+                          ${isPicked
                             ? 'border-smb-primary-container bg-smb-primary-container/10 text-smb-on-primary-container'
                             : 'border-smb-outline-variant bg-smb-surface-container-lowest text-smb-on-surface hover:border-smb-outline'}
                           ${disabled ? 'cursor-not-allowed opacity-50' : ''}
                         `}>
                         <span className={`
                           flex size-4 min-w-4 items-center justify-center rounded-sm border text-[10px] font-bold
-                          ${isSelected
+                          ${isPicked
                             ? 'border-smb-on-primary-container bg-smb-on-primary-container text-smb-primary-container'
                             : 'border-smb-outline bg-smb-surface-container'}
-                        `}>{isSelected && '✓'}</span>
+                        `}>{isPicked && '✓'}</span>
                         <span className="truncate">{route.name}</span>
                         {route.zoneName && (
                           <span className="ml-auto text-xs text-smb-on-surface-variant">{route.zoneName}</span>
@@ -341,7 +526,10 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
                   })}
                 </div>
                 <p className="mt-2 text-xs text-smb-on-surface-variant">
-                  Chi phí = PriceRoute × số tuyến đường đã chọn.
+                  Phí = PriceRoute × số tuyến đường đã chọn.
+                </p>
+                <p className="mt-1 text-[11px] text-smb-on-surface-variant/70">
+                  Lưu ý: tuyến đường được gán qua endpoint riêng; chọn tại đây rồi nhấn "Lưu Cập Nhật" trong form cha.
                 </p>
               </>
         )}

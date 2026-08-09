@@ -15,6 +15,22 @@ export default defineConfig(({ mode }) => {
   // Only attach the ngrok interstitial-bypass header when actually proxying to ngrok.
   const isNgrok = activeBackend === 'ngrok' && !!env.VITE_NGROK_API_URL
 
+  const proxyConfig = {
+    target: proxyTarget,
+    changeOrigin: true,
+    rewrite: (path) => path,
+    ...(isNgrok && {
+      headers: {
+        'ngrok-skip-browser-warning': 'true',
+      },
+      configure: (proxy) => {
+        proxy.on('proxyReq', (proxyReq) => {
+          proxyReq.setHeader('ngrok-skip-browser-warning', 'true')
+        })
+      },
+    }),
+  }
+
   return {
     plugins: [
       react(),
@@ -22,21 +38,16 @@ export default defineConfig(({ mode }) => {
     ],
     server: {
       port: 5173,
+      watch: {
+        // Exclude stitch-skills-main (a plugin toolkit dropped into the project root)
+        // from the file watcher so Vite never tries to watch its locked .gitignore.
+        ignored: ['**/stitch-skills-main/**'],
+      },
       proxy: {
-        '/api': {
-          target: proxyTarget,
-          changeOrigin: true,
-          rewrite: (path) => path,
-          ...(isNgrok && {
-            headers: {
-              'ngrok-skip-browser-warning': 'true',
-            },
-            configure: (proxy) => {
-              proxy.on('proxyReq', (proxyReq) => {
-                proxyReq.setHeader('ngrok-skip-browser-warning', 'true')
-              })
-            },
-          }),
+        '/api': proxyConfig,
+        '/hubs': {
+          ...proxyConfig,
+          ws: true,
         },
       },
     },

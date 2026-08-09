@@ -27,7 +27,15 @@ export function Navbar({
             <Icon name="arrow_back" className="text-[18px]" />
           </button>
           <div className="leading-tight">
-            <h1 className="text-[20px] font-bold tracking-tight text-smb-on-surface">
+            <div className="flex items-center gap-1 text-[10px] font-semibold text-smb-on-surface-variant/70 uppercase tracking-wider">
+              <span className="inline-flex items-center gap-1 rounded bg-smb-surface-container px-1.5 py-0.5">
+                <Icon name="grid_view" className="text-[10px] text-smb-primary" />
+                <span>SMB Portal</span>
+              </span>
+              <Icon name="chevron_right" className="text-[10px]" />
+              <span className="text-smb-primary">{title}</span>
+            </div>
+            <h1 className="text-[18px] font-bold tracking-tight text-smb-on-surface mt-1">
               {title}
             </h1>
             {subtitle && (
@@ -73,7 +81,7 @@ export function Navbar({
             title="Thông báo"
           >
             <Icon name="notifications" className="text-[19px]" />
-            <span className="absolute right-2 top-2 size-2 rounded-full bg-emerald-500 ring-2 ring-smb-surface" />
+            <span className="absolute right-2 top-2 size-2 rounded-full bg-emerald-500 ring-2 ring-smb-surface smb-live-pulse" />
           </button>
         </div>
       </div>

@@ -8,6 +8,8 @@ import { ConfirmModal } from '../components/ConfirmModal'
 import { TableActions } from '../components/TableActions'
 import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
+import { AdminStats } from '../features/account/components/AdminStats'
+import { AccountDetailPanel } from '../features/account/components/AccountDetailPanel'
 import {
   getUsers,
   createUser,
@@ -66,6 +68,11 @@ export function AccountManagement() {
   const [deletingUser, setDeletingUser] = useState(null)
   const [deleting, setDeleting] = useState(false)
 
+  // Detail panel (slide-over)
+  const [detailId, setDetailId] = useState(null)
+  // Sub-tab: 'all' = tất cả, 'admin-only' = chỉ admin
+  const [adminTab, setAdminTab] = useState('all')
+
   const fetchUsers = useCallback(async () => {
     setLoading(true)
     setFetchError(null)
@@ -93,7 +100,8 @@ export function AccountManagement() {
       (u.fullName || '').toLowerCase().includes(q)
     const matchRole = roleFilter === 'all' || u.role === roleFilter
     const matchStatus = statusFilter === 'all' || u.status === statusFilter
-    return matchSearch && matchRole && matchStatus
+    const matchAdminTab = adminTab === 'all' || u.role === 'Admin'
+    return matchSearch && matchRole && matchStatus && matchAdminTab
   })
 
   const openCreate = () => {
@@ -297,6 +305,11 @@ export function AccountManagement() {
         <div onClick={(e) => e.stopPropagation()}>
           <TableActions
             actions={[
+              {
+                label: 'Xem Chi Tiết',
+                icon: 'visibility',
+                onClick: () => setDetailId(row.accountId),
+              },
               { label: 'Sửa', icon: 'edit', onClick: () => openEdit(row) },
               {
                 label: 'Xóa',
@@ -323,6 +336,60 @@ export function AccountManagement() {
 
         <main className="px-6 py-6">
           <div className="mx-auto max-w-6xl space-y-5">
+            {/* Stats */}
+            <AdminStats
+              users={users}
+              roleFilter={adminTab === 'admin-only' ? 'Admin' : roleFilter}
+              onRoleFilter={(v) => {
+                // Khi click "Quản Trị Viên" → tự động vào tab Admin
+                if (v === 'Admin') {
+                  setAdminTab('admin-only')
+                  setRoleFilter('all')
+                } else {
+                  setAdminTab('all')
+                  setRoleFilter(v)
+                }
+              }}
+            />
+
+            {/* Sub-tab: Quản Lý Admin / Tất Cả */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest p-1">
+                <button
+                  type="button"
+                  onClick={() => setAdminTab('all')}
+                  className={`
+                    flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-medium transition-all
+                    ${adminTab === 'all'
+                      ? 'bg-smb-primary-container text-smb-on-primary-container shadow-sm'
+                      : 'text-smb-on-surface-variant hover:bg-smb-surface-container'}
+                  `}
+                >
+                  <span className="material-symbols-outlined text-[16px]">groups</span>
+                  Tất Cả Tài Khoản
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAdminTab('admin-only'); setRoleFilter('all') }}
+                  className={`
+                    flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-medium transition-all
+                    ${adminTab === 'admin-only'
+                      ? 'bg-purple-600 text-white shadow-sm'
+                      : 'text-smb-on-surface-variant hover:bg-smb-surface-container'}
+                  `}
+                >
+                  <span className="material-symbols-outlined text-[16px]">admin_panel_settings</span>
+                  Quản Lý Admin
+                </button>
+              </div>
+
+              {adminTab === 'admin-only' && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700">
+                  Hiển thị chỉ tài khoản Admin
+                </span>
+              )}
+            </div>
+
             {/* Controls */}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="relative">
@@ -436,7 +503,11 @@ export function AccountManagement() {
                 <DataTable
                   columns={columns}
                   data={filtered}
-                  emptyMessage="Không tìm thấy tài khoản nào."
+                  emptyMessage={
+                    adminTab === 'admin-only'
+                      ? 'Chưa có tài khoản Admin nào trong hệ thống.'
+                      : 'Không tìm thấy tài khoản nào.'
+                  }
                 />
               </div>
             )}
@@ -547,6 +618,13 @@ export function AccountManagement() {
           onCancel={() => !deleting && setDeletingUser(null)}
         />
       )}
+
+      {/* Detail slide-over panel */}
+      <AccountDetailPanel
+        accountId={detailId}
+        onClose={() => setDetailId(null)}
+        onEdit={(user) => { setDetailId(null); openEdit(user) }}
+      />
     </div>
   )
 }
