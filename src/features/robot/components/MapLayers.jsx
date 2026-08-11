@@ -5,7 +5,7 @@ import { getRouteTypeMeta } from './RobotAssignmentPanel'
  * EdgesLayer — pure SVG lines connecting two nodes by id.
  * Bidirectional edges are drawn as a single straight line.
  */
-export function EdgesLayer({ nodes, edges, metersToPx }) {
+export function EdgesLayer({ nodes, edges, effScaleX, effScaleY }) {
   const nodeById = useMemo(() => {
     const m = new Map()
     nodes.forEach((n) => m.set(n.nodeId, n))
@@ -21,8 +21,8 @@ export function EdgesLayer({ nodes, edges, metersToPx }) {
         return (
           <line
             key={e.edgeId}
-            x1={metersToPx(a.xCoord)} y1={metersToPx(a.yCoord)}
-            x2={metersToPx(b.xCoord)} y2={metersToPx(b.yCoord)}
+            x1={effScaleX(a.xCoord)} y1={effScaleY(a.yCoord)}
+            x2={effScaleX(b.xCoord)} y2={effScaleY(b.yCoord)}
             stroke="#c5c5d3" strokeWidth={2}
             strokeDasharray={e.isBidirectional ? '0' : '6 4'}
           />
@@ -78,7 +78,7 @@ export function NodesLayer({ nodes, metersToPx, effScaleX, effScaleY, onNodeClic
 /**
  * RouteLayer — draws the waypoints of one route as a polyline + numbered dots.
  */
-export function RouteLayer({ route, nodesById, metersToPx }) {
+export function RouteLayer({ route, nodesById, effScaleX, effScaleY }) {
   if (!route?.waypoints?.length) return null
 
   const pts = route.waypoints
@@ -86,7 +86,7 @@ export function RouteLayer({ route, nodesById, metersToPx }) {
     .filter(Boolean)
 
   const polylinePts = pts
-    .map((p) => `${metersToPx(p.xCoord)},${metersToPx(p.yCoord)}`)
+    .map((p) => `${effScaleX(p.xCoord)},${effScaleY(p.yCoord)}`)
     .join(' ')
 
   const stroke = getRouteTypeMeta(route.routeType).color
@@ -115,7 +115,7 @@ export function RouteLayer({ route, nodesById, metersToPx }) {
         className="animate-route-dash"
       />
       {pts.map((p, idx) => (
-        <g key={`${route.robotRouteId}-${idx}`} transform={`translate(${metersToPx(p.xCoord)}, ${metersToPx(p.yCoord)})`}>
+        <g key={`${route.robotRouteId}-${idx}`} transform={`translate(${effScaleX(p.xCoord)}, ${effScaleY(p.yCoord)})`}>
           <circle r={8} fill={stroke} fillOpacity={0.3} className="smb-pulse-ring" />
           <circle r={6} fill={stroke} />
           <text
@@ -134,33 +134,41 @@ export function RouteLayer({ route, nodesById, metersToPx }) {
 /**
  * SemanticObjectsLayer — paints shelves / checkpoints as semi-transparent rects.
  */
-export function SemanticObjectsLayer({ objects, metersToPx }) {
+export function SemanticObjectsLayer({ objects, effScaleX, effScaleY }) {
   if (!objects?.length) return null
   return (
     <g pointerEvents="none">
-      {objects.map((o) => (
-        <g key={o.objectId}>
-          <rect
-            x={metersToPx(o.xMin)} y={metersToPx(o.yMin)}
-            width={metersToPx(o.xMax - o.xMin)} height={metersToPx(o.yMax - o.yMin)}
-            fill="#d3e4fe" fillOpacity={0.55}
-            stroke="#b6c8e1" strokeWidth={1}
-            rx={3}
-          />
-          {o.label && (
-            <text
-              x={metersToPx((o.xMin + o.xMax) / 2)}
-              y={metersToPx((o.yMin + o.yMax) / 2)}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              className="fill-smb-on-secondary-fixed-variant"
-              style={{ fontSize: 10, fontWeight: 600 }}
-            >
-              {o.label}
-            </text>
-          )}
-        </g>
-      ))}
+      {objects.map((o) => {
+        // Since xMin and xMax might flip if width is negative after scaling (due to flips), we calculate width/height with absolute values
+        const x1 = effScaleX(o.xMin);
+        const y1 = effScaleY(o.yMin);
+        const x2 = effScaleX(o.xMax);
+        const y2 = effScaleY(o.yMax);
+        
+        return (
+          <g key={o.objectId}>
+            <rect
+              x={Math.min(x1, x2)} y={Math.min(y1, y2)}
+              width={Math.abs(x2 - x1)} height={Math.abs(y2 - y1)}
+              fill="#d3e4fe" fillOpacity={0.55}
+              stroke="#b6c8e1" strokeWidth={1}
+              rx={3}
+            />
+            {o.label && (
+              <text
+                x={(x1 + x2) / 2}
+                y={(y1 + y2) / 2}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                className="fill-smb-on-secondary-fixed-variant"
+                style={{ fontSize: 10, fontWeight: 600 }}
+              >
+                {o.label}
+              </text>
+            )}
+          </g>
+        )
+      })}
     </g>
   )
 }

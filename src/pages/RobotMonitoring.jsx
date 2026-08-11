@@ -27,6 +27,7 @@ export function RobotMonitoring() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [showHierarchy, setShowHierarchy] = useState(false)
   const [hierarchyKey, setHierarchyKey] = useState(0)
+  const [isEditingMap, setIsEditingMap] = useState(false)
 
   const handleSelectRobot = useCallback((robot) => {
     setSelectedRobotCode(robot.robotCode)
@@ -89,6 +90,8 @@ export function RobotMonitoring() {
                   onNodeClick={(node) => setSelectedNodeId((prev) => (prev === node.nodeId ? null : node.nodeId))}
                   onClearSelection={() => { setSelectedRobotCode(null); setSelectedNodeId(null) }}
                   tick={tick}
+                  isEditing={isEditingMap}
+                  onMapSaved={() => window.location.reload()}
                 />
               </div>
               {/* Sidebar panel — fixed width, internal scroll */}
@@ -133,11 +136,15 @@ export function RobotMonitoring() {
 
           <div className="flex justify-end">
             <button
-              onClick={() => navigate('/robot-monitoring/map-editor')}
-              className="flex items-center gap-2 rounded-xl border border-smb-outline-variant/60 bg-smb-surface-container-lowest px-4 py-2.5 text-xs font-bold text-smb-on-surface shadow-xs transition-all hover:border-smb-primary hover:bg-smb-surface-container hover:text-smb-primary active:scale-95"
+              onClick={() => setIsEditingMap(!isEditingMap)}
+              className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold shadow-xs transition-all active:scale-95 ${
+                isEditingMap 
+                  ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500' 
+                  : 'border-smb-outline-variant/60 bg-smb-surface-container-lowest text-smb-on-surface hover:border-smb-primary hover:text-smb-primary'
+              }`}
             >
               <span className="material-symbols-outlined text-[18px]">edit_square</span>
-              Chỉnh Sửa Bản Đồ Robot (Map Editor)
+              {isEditingMap ? 'Tat Che Do Chinh Sua Ban Do' : 'Bat Che Do Chinh Sua Ban Do'}
             </button>
           </div>
         </main>

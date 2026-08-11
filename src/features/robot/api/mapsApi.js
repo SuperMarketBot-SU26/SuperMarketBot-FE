@@ -58,6 +58,25 @@ export const getActiveMap = async ({ floorId } = {}) => {
   return res.data
 }
 
+export const syncMap = async (payload) => {
+  const res = await client.post(`${ENDPOINT}/sync`, payload)
+  return res.data
+}
+
+export const uploadSlamBundle = async (formData) => {
+  const res = await client.post(`${ENDPOINT}/upload-slam-bundle`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return res.data
+}
+
+export const uploadFloorplanImage = async (mapId, formData) => {
+  const res = await client.post(`${ENDPOINT}/${mapId}/upload-image`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return res.data
+}
+
 /**
  * List all map versions for a floor (useful for the version-selector dropdown).
  */

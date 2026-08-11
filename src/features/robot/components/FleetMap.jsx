@@ -11,6 +11,8 @@ import { ThreeDSupermarketMap } from './ThreeDSupermarketMap'
 import { statusPalette, clampZoom } from '../utils/robotHelpers'
 import { ROUTE_TYPE_META } from './RobotAssignmentPanel'
 import logoUrl from '../../../assets/logo.png'
+import { syncMap } from '../api/mapsApi'
+
 
 const STATUS_HEX = {
   Power_Off:         '#64748b',
@@ -43,6 +45,8 @@ export function FleetMap({
   scale = 64,
   onClearSelection,
   onSelectRobot,
+  isEditing = false,
+  onMapSaved,
 }) {
   const navigate = useNavigate()
   const containerRef = useRef(null)
@@ -53,6 +57,39 @@ export function FleetMap({
   const animFrameRef = useRef(null)
   const isDragging = useRef(false)
   const lastPos = useRef({ x: 0, y: 0 })
+
+
+  const [drawMode, setDrawMode] = useState('none')
+  const [localNodes, setLocalNodes] = useState([])
+  const [localEdges, setLocalEdges] = useState([])
+  const [tempEdge, setTempEdge] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [activeEditNodeId, setActiveEditNodeId] = useState(null)
+
+  useEffect(() => {
+    if (isEditing && map) {
+      setLocalNodes(map.nodes || [])
+      setLocalEdges(map.edges || [])
+      setDrawMode('none')
+      setActiveEditNodeId(null)
+    }
+  }, [isEditing, map])
+
+  const pxToMetersX = useCallback((xPx) => {
+    const xMetersRaw = xPx / scale;
+    if (map?.resolution > 0 && map?.originX !== undefined) {
+      return (xMetersRaw * map.resolution) + map.originX;
+    }
+    return xMetersRaw;
+  }, [map?.resolution, map?.originX, scale])
+
+  const pxToMetersY = useCallback((yPx) => {
+    const yMetersRaw = yPx / scale;
+    if (map?.resolution > 0 && map?.originY !== undefined) {
+      return (yMetersRaw * map.resolution) + map.originY;
+    }
+    return yMetersRaw;
+  }, [map?.resolution, map?.originY, scale])
 
   const [effSize, setEffSize] = useState({ widthMeters: 20, heightMeters: 15, widthPx: 20 * 64, heightPx: 15 * 64 })
 
@@ -79,7 +116,7 @@ export function FleetMap({
 
   const effScaleY = useCallback((yMeters) => {
     if (map?.resolution > 0 && map?.originY !== undefined) {
-      return effSize.heightPx - ((yMeters - map.originY) / map.resolution)
+      return (yMeters - map.originY) / map.resolution
     }
     return yMeters * scale
   }, [map?.resolution, map?.originY, effSize.heightPx, scale])
@@ -196,23 +233,103 @@ export function FleetMap({
   }
 
   const handleMouseMove = (e) => {
+    if (!containerRef.current) return
+    const rect = containerRef.current.getBoundingClientRect()
+    const mouseX = e.clientX - rect.left
+    const mouseY = e.clientY - rect.top
+    const canvasX = (mouseX - currentTransform.x) / currentTransform.zoom
+    const canvasY = (mouseY - currentTransform.y) / currentTransform.zoom
+
+    if (isEditing && drawMode === 'add_edge' && tempEdge) {
+      setTempEdge({ ...tempEdge, mouseX: canvasX, mouseY: canvasY })
+    }
+
     if (!isDragging.current) return
     const dx = e.clientX - lastPos.current.x
     const dy = e.clientY - lastPos.current.y
     lastPos.current = { x: e.clientX, y: e.clientY }
+
+    if (isEditing && drawMode === 'none' && activeEditNodeId) {
+      const nodeObj = localNodes.find(n => n.nodeId === activeEditNodeId)
+      if (nodeObj) {
+        const dxCanvas = dx / currentTransform.zoom
+        const dyCanvas = dy / currentTransform.zoom
+        const curPxX = effScaleX(nodeObj.xCoord) + dxCanvas
+        const curPxY = effScaleY(nodeObj.yCoord) + dyCanvas
+        setLocalNodes(prev => prev.map(n => n.nodeId === activeEditNodeId ? {
+          ...n,
+          xCoord: pxToMetersX(curPxX),
+          yCoord: pxToMetersY(curPxY)
+        } : n))
+      }
+      return
+    }
+
     setTargetTransform((t) => ({ ...t, x: t.x + dx, y: t.y + dy }))
     setCurrentTransform((t) => ({ ...t, x: t.x + dx, y: t.y + dy }))
   }
 
   const handleMouseUp = () => {
     isDragging.current = false
+    if (isEditing && drawMode === 'none') setActiveEditNodeId(null)
   }
 
   const handleClick = (e) => {
     const dx = e.clientX - lastPos.current.x
     const dy = e.clientY - lastPos.current.y
     if (Math.abs(dx) < 5 && Math.abs(dy) < 5) {
-      onClearSelection?.()
+      if (isEditing) {
+        if (drawMode === 'add_node' && containerRef.current) {
+          const rect = containerRef.current.getBoundingClientRect()
+          const canvasX = ((e.clientX - rect.left) - currentTransform.x) / currentTransform.zoom
+          const canvasY = ((e.clientY - rect.top) - currentTransform.y) / currentTransform.zoom
+          
+          const newNode = {
+            nodeId: 'temp_' + Date.now(),
+            nodeName: 'New Node',
+            xCoord: pxToMetersX(canvasX),
+            yCoord: pxToMetersY(canvasY),
+            nodeType: 'Corridor',
+            isBlocked: false
+          }
+          setLocalNodes(prev => [...prev, newNode])
+        } else if (drawMode === 'none') {
+          setActiveEditNodeId(null)
+        }
+      } else {
+        onClearSelection?.()
+      }
+    }
+  }
+
+
+  const handleNodeClickEdit = (n) => {
+    if (!isEditing) {
+      onNodeClick?.(n)
+      return
+    }
+    if (drawMode === 'none') {
+      setActiveEditNodeId(n.nodeId)
+    } else if (drawMode === 'add_edge') {
+      if (!tempEdge) {
+        setTempEdge({ sourceId: n.nodeId, mouseX: effScaleX(n.xCoord), mouseY: effScaleY(n.yCoord) })
+      } else {
+        if (tempEdge.sourceId !== n.nodeId) {
+          const exists = localEdges.find(e => 
+            (e.fromNodeId === tempEdge.sourceId && e.toNodeId === n.nodeId) ||
+            (e.toNodeId === tempEdge.sourceId && e.fromNodeId === n.nodeId && e.isBidirectional)
+          )
+          if (!exists) {
+            setLocalEdges(prev => [...prev, {
+              edgeId: 'temp_' + Date.now(),
+              fromNodeId: tempEdge.sourceId,
+              toNodeId: n.nodeId,
+              isBidirectional: true
+            }])
+          }
+        }
+        setTempEdge(null)
+      }
     }
   }
 
@@ -238,6 +355,47 @@ export function FleetMap({
     map?.nodes?.forEach((n) => m.set(n.nodeId, n))
     return m
   }, [map])
+
+
+  const handleSaveDb = async () => {
+    if (!map) return
+    if (!window.confirm('Ban co chac muon luu ban do vao Database?')) return
+    
+    setSaving(true)
+    try {
+      const payload = {
+        floorId: 1,
+        mapName: map.mapName || 'Floor 1 Map',
+        nodes: localNodes.map(n => ({
+          nodeId: typeof n.nodeId === 'string' && n.nodeId.startsWith('temp_') ? 0 : Number(n.nodeId),
+          nodeName: n.nodeName || n.name || Node ,
+          xCoord: n.xCoord,
+          yCoord: n.yCoord,
+          nodeType: n.nodeType || 'Corridor'
+        })),
+        edges: localEdges.map(e => ({
+          edgeId: typeof e.edgeId === 'string' && e.edgeId.startsWith('temp_') ? 0 : Number(e.edgeId),
+          fromNodeId: typeof e.fromNodeId === 'string' && e.fromNodeId.startsWith('temp_') ? -1 : Number(e.fromNodeId),
+          toNodeId: typeof e.toNodeId === 'string' && e.toNodeId.startsWith('temp_') ? -1 : Number(e.toNodeId),
+          isBidirectional: e.isBidirectional
+        }))
+      }
+      
+      const res = await syncMap(payload)
+      alert(res.message || 'Luu DB thanh cong!')
+      onMapSaved?.()
+    } catch (err) {
+      alert('Luu DB that bai: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const deleteActiveNode = () => {
+    setLocalNodes(prev => prev.filter(n => n.nodeId !== activeEditNodeId))
+    setLocalEdges(prev => prev.filter(e => e.fromNodeId !== activeEditNodeId && e.toNodeId !== activeEditNodeId))
+    setActiveEditNodeId(null)
+  }
 
   const routeTypeLegend = Object.fromEntries(
     routeTypes.map((t) => [t.value, { label: t.label, color: ROUTE_TYPE_META[t.value]?.color ?? ROUTE_TYPE_META.default.color }])
@@ -330,8 +488,8 @@ export function FleetMap({
           map={map}
           robots={robots}
           robotPoses={robotPoses}
-          selectedNodeId={selectedNodeId}
-          onNodeClick={onNodeClick}
+          selectedNodeId={isEditing ? activeEditNodeId : selectedNodeId}
+          onNodeClick={isEditing ? handleNodeClickEdit : onNodeClick}
         />
       </div>
     )
@@ -457,30 +615,43 @@ export function FleetMap({
               fill="transparent"
             />
             <FloorplanLayer map={map} scale={scale} viewMode={viewMode} onEffectiveSize={setEffSize} />
-            <SemanticObjectsLayer objects={map.semanticObjects} metersToPx={effScale} />
-            <EdgesLayer nodes={map.nodes} edges={map.edges} metersToPx={effScale} />
+            <SemanticObjectsLayer objects={map.semanticObjects} effScaleX={effScaleX} effScaleY={effScaleY} />
+            <EdgesLayer nodes={isEditing ? localNodes : map.nodes} edges={isEditing ? localEdges : map.edges} effScaleX={effScaleX} effScaleY={effScaleY} />
             {selectedRoute && (
               <RouteLayer
                 route={selectedRoute}
                 nodesById={nodesById}
-                metersToPx={effScale}
+                effScaleX={effScaleX}
+                effScaleY={effScaleY}
               />
             )}
             <NodesLayer
-              nodes={map.nodes || []}
+              nodes={isEditing ? localNodes : (map.nodes || [])}
               metersToPx={effScale}
               effScaleX={effScaleX}
               effScaleY={effScaleY}
-              onNodeClick={onNodeClick}
-              selectedNodeId={selectedNodeId}
+              onNodeClick={isEditing ? handleNodeClickEdit : onNodeClick}
+              selectedNodeId={isEditing ? activeEditNodeId : selectedNodeId}
             />
+
+
+            {isEditing && tempEdge && drawMode === 'add_edge' && (
+              <line
+                x1={effScaleX(localNodes.find(n => n.nodeId === tempEdge.sourceId)?.xCoord)}
+                y1={effScaleY(localNodes.find(n => n.nodeId === tempEdge.sourceId)?.yCoord)}
+                x2={tempEdge.mouseX}
+                y2={tempEdge.mouseY}
+                stroke="#3b82f6" strokeWidth={2} strokeDasharray="4 4"
+                pointerEvents="none"
+              />
+            )}
 
             {/* Robots Markers */}
             {robots.map((r) => {
               const pose = robotPoses[r.robotCode]
               if (!pose) return null
-              const x = effScale(pose.x)
-              const y = effScale(pose.y)
+              const x = effScaleX(pose.x)
+              const y = effScaleY(pose.y)
               const isFocused = focusedRobot === r.robotCode
               const statusHex = STATUS_HEX[r.status] ?? STATUS_HEX.Unknown
 
@@ -524,6 +695,69 @@ export function FleetMap({
           </g>
         </svg>
       </div>
+
+      
+      {/* Edit Toolbar Overlay */}
+      {isEditing && (
+        <div className="absolute top-16 left-4 z-30 flex flex-col gap-2 w-56">
+          <div className="rounded-xl border border-smb-outline-variant/60 bg-slate-900/95 p-3 backdrop-blur-md shadow-lg space-y-2">
+            <h3 className="text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-2">Cong Cu Ve</h3>
+            <button
+              onClick={() => { setDrawMode('none'); setTempEdge(null); }}
+              className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${drawMode === 'none' ? 'bg-purple-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}
+            >
+              <Icon name="near_me" className="text-[16px]" /> Chuot
+            </button>
+            <button
+              onClick={() => { setDrawMode('add_node'); setTempEdge(null); setActiveEditNodeId(null); }}
+              className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${drawMode === 'add_node' ? 'bg-purple-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}
+            >
+              <Icon name="add_circle" className="text-[16px]" /> Them Node
+            </button>
+            <button
+              onClick={() => { setDrawMode('add_edge'); setTempEdge(null); setActiveEditNodeId(null); }}
+              className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${drawMode === 'add_edge' ? 'bg-purple-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}
+            >
+              <Icon name="timeline" className="text-[16px]" /> Noi Canh
+            </button>
+            <div className="pt-2 mt-2 border-t border-slate-700">
+              <button
+                onClick={handleSaveDb}
+                disabled={saving}
+                className="w-full flex justify-center items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-md active:scale-95 disabled:opacity-50"
+              >
+                <Icon name="save" className="text-[16px]" /> {saving ? 'Dang luu...' : 'Luu Vao DB'}
+              </button>
+            </div>
+          </div>
+          
+          {activeEditNodeId && drawMode === 'none' && (
+            <div className="rounded-xl border border-smb-outline-variant/60 bg-slate-900/95 p-3 backdrop-blur-md shadow-lg space-y-2">
+              <h3 className="text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-2">Thuoc Tinh Node</h3>
+              <input 
+                type="text" 
+                className="w-full bg-slate-800 border border-slate-700 rounded p-1.5 text-xs text-white focus:border-purple-500 focus:outline-none"
+                value={localNodes.find(n => n.nodeId === activeEditNodeId)?.nodeName || ''}
+                onChange={(e) => setLocalNodes(prev => prev.map(n => n.nodeId === activeEditNodeId ? { ...n, nodeName: e.target.value } : n))}
+                placeholder="Ten Node"
+              />
+              <select 
+                className="w-full bg-slate-800 border border-slate-700 rounded p-1.5 text-xs text-white focus:border-purple-500 focus:outline-none"
+                value={localNodes.find(n => n.nodeId === activeEditNodeId)?.nodeType || 'Corridor'}
+                onChange={(e) => setLocalNodes(prev => prev.map(n => n.nodeId === activeEditNodeId ? { ...n, nodeType: e.target.value } : n))}
+              >
+                <option value="Corridor">Hanh lang</option>
+                <option value="CHECKOUT">Quay Thu Ngan</option>
+                <option value="DOCK">Sac Pin</option>
+                <option value="REST">Nha Ve Sinh</option>
+              </select>
+              <button onClick={deleteActiveNode} className="w-full mt-2 flex justify-center items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white transition-all">
+                <Icon name="delete" className="text-[16px]" /> Xoa Node
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Map Legend Panel */}
       <div className="absolute bottom-4 left-4 z-20 flex gap-2">
