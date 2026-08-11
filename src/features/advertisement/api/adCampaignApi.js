@@ -33,7 +33,7 @@
 
 import client from '../../../api/client'
 
-const ENDPOINT = '/v1/ad-campaigns'
+const ENDPOINT = '/api/v1/ad-campaigns'
 
 export const getCampaigns = (params = {}) =>
   client.get(ENDPOINT, { params }).then((res) => res.data)
@@ -61,6 +61,12 @@ export const pauseCampaign = (campaignId, reason) =>
 
 export const activateCampaign = (campaignId) =>
   client.post(`${ENDPOINT}/${campaignId}/activate`).then((res) => res.data)
+
+export const completeCampaign = (campaignId) =>
+  client.post(`${ENDPOINT}/${campaignId}/complete`).then((res) => res.data)
+
+export const getCompletionStatus = (campaignId) =>
+  client.get(`${ENDPOINT}/${campaignId}/completion-status`).then((res) => res.data)
 
 // ── Routes ───────────────────────────────────────────────────────────────────
 export const getCampaignRoutes = (campaignId) =>
@@ -101,7 +107,7 @@ export const getTargetingContext = (campaignId, floorId) =>
 // ── Brand wallet ───────────────────────────────────────────────────────────
 // GET /api/v1/brands/{id}/wallet  → { brandId, balance, currency }
 export const getBrandWallet = (brandId) =>
-  client.get(`/v1/brands/${brandId}/wallet`).then((res) => res.data)
+  client.get(`/api/v1/brands/${brandId}/wallet`).then((res) => res.data)
 
 // ── Sponsored products ──────────────────────────────────────────────────────
 // GET /api/v1/ad-campaigns/{id}/sponsored-products
@@ -144,7 +150,7 @@ export const trackClick = (campaignId, payload = {}) =>
 //   - If no active campaign exists in the zone → returns 200 with campaignId: null
 //     and message "No active campaign in zone #N".
 export const recordRobotEvent = (payload) =>
-  client.post('/v1/robot-events', payload).then((res) => res.data)
+  client.post('/api/v1/robot-events', payload).then((res) => res.data)
 
 // ── AdCampaignLogResponseDto shape (for type hints / docs) ──────────────────
 // {

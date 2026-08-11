@@ -20,6 +20,7 @@ import {
   statusLabel,
 } from '../features/product'
 import { getProducts as fetchPublicProducts, getProductTypes, getProductDetail, getHealthTags } from '../features/product/api/productApi'
+import { buildImageUrl } from '../utils/cloudinary'
 
 const STATUS_OPTIONS = [
   { value: 'Available', label: 'Còn hàng' },
@@ -286,9 +287,15 @@ export function ProductManagement() {
   const handleImageFileChange = (e) => {
     const file = e.target.files?.[0] || null
     if (file) {
-      const allowed = ['image/jpeg', 'image/jpg', 'image/png']
+      const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
       if (!allowed.includes(file.type)) {
-        setFormError('Chỉ chấp nhận file ảnh JPG/PNG.')
+        setFormError('Chỉ chấp nhận file ảnh JPG, PNG, WebP, GIF.')
+        e.target.value = ''
+        return
+      }
+      const maxMB = 10
+      if (file.size > maxMB * 1024 * 1024) {
+        setFormError(`File quá lớn: ${(file.size / 1024 / 1024).toFixed(1)} MB. Tối đa ${maxMB} MB.`)
         e.target.value = ''
         return
       }
@@ -340,7 +347,11 @@ export function ProductManagement() {
       await fetchProducts()
       closeModal()
     } catch (err) {
-      const errorMsg = err?.response?.data?.error || err.message || 'Lưu sản phẩm thất bại.'
+      // Cloudinary upload errors (from our fetch-based utility) are plain Error objects,
+      // not Axios errors. The BE errors are still Axios-wrapped. Check both.
+      const cloudinaryMsg = err?.message || ''
+      const beMsg = err?.response?.data?.error || err?.response?.data?.message || ''
+      const errorMsg = cloudinaryMsg || beMsg || err.message || 'Lưu sản phẩm thất bại.'
       setFormError(errorMsg)
       toast.error(errorMsg)
     } finally {
@@ -371,12 +382,23 @@ export function ProductManagement() {
       key: 'imageUrl',
       label: '',
       width: '56px',
-      render: (val) => (
-        val ? (
+      render: (val) => {
+        // Run every image URL through `buildImageUrl` so Cloudinary URLs get
+        // optimization transforms and bare local paths (e.g.
+        // `uploads/products/abc.jpg`) get the `/` prefix needed to traverse
+        // the Vite dev proxy. `buildImageUrl` returns a placeholder when the
+        // URL is null/empty/known-legacy — render the icon placeholder in
+        // those cases so the table cell always looks consistent.
+        const src = val ? buildImageUrl(val, { width: 96, height: 96, crop: 'fill', quality: 'auto', format: 'auto' }) : ''
+        return src ? (
           <img
-            src={val}
+            src={src}
             alt="product"
             className="h-10 w-10 rounded-xl object-cover border border-smb-outline-variant/50 transition-transform duration-200 hover:scale-110"
+            onError={(e) => {
+              e.currentTarget.onerror = null
+              e.currentTarget.src = '/placeholder-needs-reupload.png'
+            }}
           />
         ) : (
           <div className="h-10 w-10 rounded-xl bg-smb-surface-container flex items-center justify-center">
@@ -385,7 +407,7 @@ export function ProductManagement() {
             </span>
           </div>
         )
-      ),
+      },
     },
     {
       key: 'productName',
@@ -702,17 +724,50 @@ export function ProductManagement() {
 
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Tải Ảnh Lên (JPG/PNG)">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface hover:border-smb-primary-container transition-colors">
                   <span className="material-symbols-outlined text-base">upload</span>
                   <span>Chọn file</span>
                   <input
                     type="file"
-                    accept="image/jpeg,image/jpg,image/png"
+                    accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
                     onChange={handleImageFileChange}
                     className="hidden"
                   />
                 </label>
+                {/* Live preview — local file blob (when picking) or Cloudinary URL.
+                    buildImageUrl + onError → fallback placeholder. */}
+                {(imageFile || form.imageUrl) && (
+                  <div className="size-12 shrink-0 overflow-hidden rounded-md border border-smb-outline-variant bg-smb-surface-container">
+                    <img
+                      src={
+                        imageFile
+                          ? URL.createObjectURL(imageFile)
+                          : buildImageUrl(form.imageUrl, {
+                              width: 96,
+                              height: 96,
+                              crop: 'fill',
+                              quality: 'auto',
+                              format: 'auto',
+                            })
+                      }
+                      alt="preview"
+                      className="h-full w-full object-cover"
+                      onLoad={(e) => {
+                        // Revoke blob URL after image is loaded to free memory
+                        const me = e.currentTarget
+                        if (me.src.startsWith('blob:') && imageFile) {
+                          // delay revoke so first paint completes
+                          setTimeout(() => URL.revokeObjectURL(me.src), 5000)
+                        }
+                      }}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null
+                        e.currentTarget.src = '/placeholder-needs-reupload.png'
+                      }}
+                    />
+                  </div>
+                )}
                 {imageFile ? (
                   <div className="flex min-w-0 items-center gap-1.5 text-xs text-smb-on-surface-variant">
                     <span className="material-symbols-outlined text-base text-emerald-600">image</span>

@@ -5,6 +5,7 @@ import { Badge } from '../../../components/DataTable'
 import { TableActions } from '../../../components/TableActions'
 import { Button } from '../../../components/ui/Button'
 import { ConfirmModal } from '../../../components/ConfirmModal'
+import AdminDepositModal from '../components/AdminDepositModal'
 import { getBrands, deleteBrand } from '../api/brandApi'
 
 const formatVND = (value) =>
@@ -26,6 +27,7 @@ export function BrandTable() {
   const [search, setSearch] = useState('')
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
+  const [depositTarget, setDepositTarget] = useState(null)
 
   const fetchBrands = useCallback(async () => {
     setLoading(true)
@@ -104,6 +106,11 @@ export function BrandTable() {
       render: (_, row) => (
         <TableActions
           actions={[
+            {
+              label: 'Nạp ví',
+              icon: 'account_balance_wallet',
+              onClick: () => setDepositTarget(row),
+            },
             {
               label: 'Chỉnh sửa',
               icon: 'edit',
@@ -185,6 +192,13 @@ export function BrandTable() {
           onCancel={() => setDeleteTarget(null)}
         />
       )}
+
+      <AdminDepositModal
+        open={Boolean(depositTarget)}
+        brand={depositTarget}
+        onClose={() => setDepositTarget(null)}
+        onSuccess={() => fetchBrands()}
+      />
     </div>
   )
 }

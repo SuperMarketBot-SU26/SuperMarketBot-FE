@@ -13,15 +13,8 @@ function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
 }
 
-// Local fallback route types — used only if the BE's /routes/types endpoint
-// is unreachable. Mirrors the BE's hardcoded list so the dropdown never goes
-// blank in dev / offline mode.
-const FALLBACK_ROUTE_TYPES = [
-  { value: 'patrol',   label: 'Tuần tra' },
-  { value: 'restock',  label: 'Bổ sung hàng' },
-  { value: 'delivery', label: 'Giao hàng' },
-  { value: 'custom',   label: 'Tùy chỉnh' },
-]
+// NOTE: If the BE's /routes/types endpoint fails, routeTypes stays [] and the
+// dropdown will be empty. That is intentional — no hardcoded mock data.
 
 export const ROUTE_TYPE_META = {
   patrol:     { label: 'Tuần tra',   color: '#264191', dot: 'bg-blue-700',    text: 'text-blue-700',   border: 'border-blue-200',   bg: 'bg-blue-50',    icon: 'shield'        },
@@ -69,26 +62,29 @@ export function RobotAssignmentPanel({
   }, [selectedRobotCode])
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest">
+    <div className="flex h-full flex-col rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest">
       <Tabs value={tab} onChange={setTab} />
-      {tab === 'assign' ? (
-        <AssignTab
-          robots={robots}
-          routes={routes}
-          map={map}
-          onPreviewRoute={onPreviewRoute}
-          onRouteCreated={onRouteCreated}
-        />
-      ) : tab === 'autonomous' ? (
-        <AutonomousTab robots={robots} map={map} />
-      ) : (
-        <RobotsTab
-          robots={robots}
-          poses={poses}
-          selectedRobotCode={selectedRobotCode}
-          onSelectRobot={onSelectRobot}
-        />
-      )}
+      {/* Tab content — flex-1 min-h-0 so scroll works */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        {tab === 'assign' ? (
+          <AssignTab
+            robots={robots}
+            routes={routes}
+            map={map}
+            onPreviewRoute={onPreviewRoute}
+            onRouteCreated={onRouteCreated}
+          />
+        ) : tab === 'autonomous' ? (
+          <AutonomousTab robots={robots} map={map} />
+        ) : (
+          <RobotsTab
+            robots={robots}
+            poses={poses}
+            selectedRobotCode={selectedRobotCode}
+            onSelectRobot={onSelectRobot}
+          />
+        )}
+      </div>
     </div>
   )
 }
@@ -97,284 +93,313 @@ export function RobotAssignmentPanel({
 /*  Autonomous 3-Flow Tab                                               */
 /* -------------------------------------------------------------------- */
 
-import client from '../../../api/client'
+import { dispatchAutonomous, cancelRobotNavigation } from '../api/navigationApi'
+import { getZones } from '../api/zonesApi'
+import { getAdminProducts } from '../../product/api/adminProductApi'
+
+// Status badge colours
+const STATUS_OK  = 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+const STATUS_ERR = 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+
+function StatusBadge({ msg }) {
+  if (!msg) return null
+  return (
+    <div className={`flex items-start gap-2 rounded-xl border px-3 py-2.5 text-xs font-medium ${msg.type === 'success' ? STATUS_OK : STATUS_ERR}`}>
+      <span className="mt-0.5 shrink-0">{msg.type === 'success' ? '✅' : '❌'}</span>
+      <span className="flex-1 leading-snug">{msg.text}</span>
+    </div>
+  )
+}
+
+function WaypointList({ waypoints }) {
+  if (!waypoints?.length) return null
+  return (
+    <div className="mt-3 rounded-xl border border-smb-outline-variant bg-smb-surface-container p-3 space-y-1.5">
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-smb-on-surface-variant">
+        {waypoints.length} waypoint được tính toán
+      </p>
+      {waypoints.slice(0, 5).map((wp, i) => (
+        <div key={wp.nodeId ?? i} className="flex items-center gap-2 text-[11px] text-smb-on-surface">
+          <span className="flex size-5 items-center justify-center rounded-full bg-smb-primary/10 text-[10px] font-bold text-smb-primary">
+            {i + 1}
+          </span>
+          <span className="flex-1 font-medium">
+            {wp.nodeName || `Node #${wp.nodeId}`}
+          </span>
+          {wp.dwellTimeSeconds && (
+            <span className="rounded bg-smb-surface-container-lowest px-1.5 py-0.5 text-[10px] text-smb-on-surface-variant">
+              ⏱ {wp.dwellTimeSeconds}s
+            </span>
+          )}
+          <span className="text-[10px] font-mono text-smb-on-surface-variant">
+            ({typeof wp.xCoord === 'number' ? wp.xCoord.toFixed(1) : '?'},
+             {typeof wp.yCoord === 'number' ? wp.yCoord.toFixed(1) : '?'})
+          </span>
+        </div>
+      ))}
+      {waypoints.length > 5 && (
+        <p className="text-center text-[10px] text-smb-on-surface-variant">
+          +{waypoints.length - 5} waypoint nữa…
+        </p>
+      )}
+    </div>
+  )
+}
 
 function AutonomousTab({ robots = [] }) {
-  const [selectedRobot, setSelectedRobot] = useState(robots[0]?.robotCode || 'RB001')
-  const [selectedAdZone, setSelectedAdZone] = useState('') // empty string = all zones
-  const [selectedPatrolZone, setSelectedPatrolZone] = useState('') // empty string = all zones
-  const [adStatusMsg, setAdStatusMsg] = useState(null)
-  const [patrolStatusMsg, setPatrolStatusMsg] = useState(null)
-  const [guideStatusMsg, setGuideStatusMsg] = useState(null)
-  const [estopStatusMsg, setEstopStatusMsg] = useState(null)
+  const [selectedRobot, setSelectedRobot] = useState('')
+  const [selectedAdZone, setSelectedAdZone] = useState('')
+  const [selectedPatrolZone, setSelectedPatrolZone] = useState('')
+  const [selectedProductId, setSelectedProductId] = useState('')
+
+  const [adMsg, setAdMsg]         = useState(null)
+  const [adWaypoints, setAdWaypoints] = useState(null)
+  const [patrolMsg, setPatrolMsg] = useState(null)
+  const [patrolWaypoints, setPatrolWaypoints] = useState(null)
+  const [guideMsg, setGuideMsg]   = useState(null)
+  const [guideWaypoints, setGuideWaypoints] = useState(null)
+  const [estopMsg, setEstopMsg]   = useState(null)
+
   const [dispatching, setDispatching] = useState(false)
-  const [scanningAi, setScanningAi] = useState(false)
-  const [aiScanResult, setAiScanResult] = useState(null)
+  const [zones, setZones]       = useState([])
+  const [products, setProducts] = useState([])
 
-  const handleDispatch = async (flowType, extraData = {}) => {
+  // Auto-select the first robot when the list first loads
+  useEffect(() => {
+    if (robots.length > 0 && !selectedRobot) {
+      setSelectedRobot(robots[0].robotCode)
+    }
+  }, [robots, selectedRobot])
+
+  // Load zones + products once on mount
+  useEffect(() => {
+    getZones({}).then(setZones).catch(() => {})
+    getAdminProducts({ pageSize: 50 }).then((p) => setProducts(Array.isArray(p) ? p : p?.items ?? [])).catch(() => {})
+  }, [])
+
+  const handleDispatch = async (flowType, extra = {}) => {
     setDispatching(true)
-    if (flowType === 'ad') setAdStatusMsg(null)
-    if (flowType === 'patrol') setPatrolStatusMsg(null)
-    if (flowType === 'guide') setGuideStatusMsg(null)
-
+    const clear = () => {
+      if (flowType === 'ad')      { setAdMsg(null); setAdWaypoints(null) }
+      if (flowType === 'patrol')  { setPatrolMsg(null); setPatrolWaypoints(null) }
+      if (flowType === 'guide')   { setGuideMsg(null); setGuideWaypoints(null) }
+    }
+    clear()
     try {
-      const response = await client.post('/v1/navigation/dispatch-autonomous', {
+      const payload = {
         robotCode: selectedRobot,
         flowType,
-        ...extraData,
-      })
-      const data = response.data
-      const msgObj = { type: 'success', text: `✅ ${data.message || 'Đã phát lệnh tự hành qua MQTT!'}` }
-      if (flowType === 'ad') setAdStatusMsg(msgObj)
-      if (flowType === 'patrol') setPatrolStatusMsg(msgObj)
-      if (flowType === 'guide') setGuideStatusMsg(msgObj)
+        ...extra,
+      }
+      const data = await dispatchAutonomous(payload)
+      const msg = `✅ ${data.message || `Đã phát lệnh ${flowType}!`}`
+      if (flowType === 'ad')      { setAdMsg({ type: 'success', text: msg });      setAdWaypoints(data.waypoints) }
+      if (flowType === 'patrol')  { setPatrolMsg({ type: 'success', text: msg });  setPatrolWaypoints(data.waypoints) }
+      if (flowType === 'guide')   { setGuideMsg({ type: 'success', text: msg });   setGuideWaypoints(data.waypoints) }
     } catch (e) {
-      const errMsg = e?.response?.data?.message || e?.message || 'Lỗi phát lệnh'
-      const errObj = { type: 'error', text: `❌ ${errMsg}` }
-      if (flowType === 'ad') setAdStatusMsg(errObj)
-      if (flowType === 'patrol') setPatrolStatusMsg(errObj)
-      if (flowType === 'guide') setGuideStatusMsg(errObj)
+      const err = `❌ ${e?.response?.data?.message || e?.message || 'Lỗi phát lệnh'}`
+      if (flowType === 'ad')      setAdMsg({ type: 'error', text: err })
+      if (flowType === 'patrol')  setPatrolMsg({ type: 'error', text: err })
+      if (flowType === 'guide')   setGuideMsg({ type: 'error', text: err })
     } finally {
       setDispatching(false)
-    }
-  }
-
-  const handleAiScanTest = async () => {
-    setScanningAi(true)
-    setPatrolStatusMsg(null)
-    try {
-      const response = await client.post('/v1/shelf-patrol/analyze-image', {
-        aisleCode: selectedPatrolZone ? `A0${selectedPatrolZone}` : 'A01',
-        imageUrlOrBase64: 'https://res.cloudinary.com/dg24w82y0/image/upload/v1785591481/floorplans/f9h1ofnvwnjlob6tlixy.png'
-      })
-      setAiScanResult(response.data)
-      setPatrolStatusMsg({ type: 'success', text: `📸 Gemini Vision AI đã quét xong Kệ ${response.data.aisleCode}! Mật độ lấp đầy: ${response.data.occupancyRatePct}%` })
-    } catch (e) {
-      setPatrolStatusMsg({ type: 'error', text: `❌ Lỗi phân tích Gemini AI: ${e.message}` })
-    } finally {
-      setScanningAi(false)
     }
   }
 
   const handleCancel = async () => {
     setDispatching(true)
-    setEstopStatusMsg(null)
+    setEstopMsg(null)
     try {
-      await client.post(`/v1/navigation/robots/${selectedRobot}/cancel`)
-      setEstopStatusMsg({ type: 'success', text: `🔴 Đã gửi lệnh DỪNG KHẨN CẤP tới Robot ${selectedRobot}!` })
+      await cancelRobotNavigation(selectedRobot)
+      setEstopMsg({ type: 'success', text: `🔴 Đã gửi lệnh DỪNG KHẨN CẤP tới Robot ${selectedRobot}!` })
     } catch (e) {
-      setEstopStatusMsg({ type: 'error', text: `❌ Lỗi gửi lệnh dừng khẩn cấp: ${e.message}` })
+      setEstopMsg({ type: 'error', text: `❌ Lỗi: ${e?.message}` })
     } finally {
       setDispatching(false)
     }
   }
 
+  const zoneOptions = [
+    { value: '', label: '📢 Tất cả các Zone (toàn siêu thị)' },
+    ...zones.map((z) => ({ value: String(z.zoneId), label: z.zoneName || `Zone #${z.zoneId}` })),
+  ]
+  const productOptions = [
+    { value: '', label: '— Chọn sản phẩm —' },
+    ...products.map((p) => ({ value: String(p.productId), label: p.productName || `#${p.productId}` })),
+  ]
+
   return (
     <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 text-xs">
       {/* Robot selector */}
-      <div className="rounded-xl border border-smb-outline-variant/60 bg-smb-surface-container-low p-3">
-        <label className="mb-1 block font-bold text-smb-on-surface">Chọn Robot Thực Thi:</label>
+      <div className="rounded-xl border border-smb-outline-variant/60 bg-smb-surface-container p-3.5">
+        <label className="mb-2 block font-bold text-smb-on-surface text-[11px] uppercase tracking-wider">Robot thực thi</label>
         <select
           value={selectedRobot}
           onChange={(e) => setSelectedRobot(e.target.value)}
-          className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container px-3 py-2 text-xs font-semibold text-smb-on-surface"
+          className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-smb-primary"
         >
-          {robots.length > 0 ? (
+          {robots.length === 0 ? (
+            <option value="">Đang tải robot…</option>
+          ) : (
             robots.map((r) => (
               <option key={r.robotCode} value={r.robotCode}>
-                {r.robotName || r.robotCode} ({r.status})
+                {r.robotName || r.robotCode} · {r.status} · {r.batteryPct ?? '?'}%
               </option>
             ))
-          ) : (
-            <option value="RB001">Robot RB001 (Default)</option>
           )}
         </select>
       </div>
 
       {/* 3 Flow Cards */}
-      <div className="flex flex-col gap-3">
-        {/* Flow 1: Quảng Cáo Theo Zone / Toàn Siêu Thị */}
-        <div className="rounded-xl border border-orange-500/30 bg-orange-500/5 p-3.5 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-orange-600 dark:text-orange-400 flex items-center gap-1.5 text-xs">
-              <span className="material-symbols-outlined text-[18px]">campaign</span>
-              1. Flow Quảng Cáo Sản Phẩm
-            </span>
-            <span className="rounded-full bg-orange-500/20 px-2 py-0.5 text-[10px] font-bold text-orange-600">Linh Hoạt</span>
-          </div>
-          <p className="mt-1 text-[11px] text-smb-on-surface-variant">
-            Robot sẽ di chuyển đến từng dãy kệ thuộc Zone đã chọn, tự động nhận diện và phát loa/video giới thiệu danh mục sản phẩm trên kệ đó!
-          </p>
-
-          <div className="mt-2.5">
-            <label className="mb-1 block text-[10px] font-bold text-orange-700 dark:text-orange-300 uppercase tracking-wider">
-              Chọn Khu Vực (Zone) Quảng Cáo:
-            </label>
-            <select
-              value={selectedAdZone}
-              onChange={(e) => setSelectedAdZone(e.target.value)}
-              className="w-full rounded-lg border border-orange-500/40 bg-smb-surface-container px-2.5 py-1.5 text-xs font-bold text-smb-on-surface outline-none"
-            >
-              <option value="">📢 Tất Cả Các Zone (Toàn Siêu Thị)</option>
-              <option value="1">🌾 Zone 1: Đồ Khô & Bánh Kẹo (Kệ A01 - A02)</option>
-              <option value="2">🧃 Zone 2: Nước Giải Khát & Sữa (Kệ B01 - B02)</option>
-              <option value="3">🧼 Zone 3: Hóa Mỹ Phẩm & Gia Dụng (Kệ C01 - C02)</option>
-              <option value="4">🔥 Zone 4: Khu Trưng Bày Khuyến Mãi HOT</option>
-            </select>
-          </div>
-
-          {adStatusMsg && (
-            <div className={`mt-2.5 rounded-lg p-2.5 text-[11px] font-semibold ${adStatusMsg.type === 'success' ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 border border-rose-500/20'}`}>
-              {adStatusMsg.text}
+      <div className="flex flex-col gap-4">
+        {/* Flow 1: Quảng Cáo */}
+        <div className="rounded-2xl border border-orange-500/30 bg-gradient-to-br from-orange-500/5 to-orange-50/30 p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex size-8 items-center justify-center rounded-xl bg-orange-500/15">
+                <Icon name="campaign" className="text-[18px] text-orange-600" />
+              </div>
+              <div>
+                <p className="font-bold text-orange-700 dark:text-orange-400">Flow Quảng Cáo</p>
+                <p className="text-[10px] text-orange-600/70">Robot phát nhạc/video khi dừng tại kệ</p>
+              </div>
             </div>
-          )}
+            <span className="rounded-full bg-orange-500/20 px-2.5 py-1 text-[10px] font-bold text-orange-700">Linh hoạt</span>
+          </div>
+
+          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-orange-700/70">
+            Khu vực quảng cáo
+          </label>
+          <select
+            value={selectedAdZone}
+            onChange={(e) => setSelectedAdZone(e.target.value)}
+            className="mb-3 w-full rounded-xl border border-orange-500/40 bg-smb-surface-container-lowest px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-orange-500"
+          >
+            {zoneOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
 
           <button
             disabled={dispatching}
             onClick={() => handleDispatch('ad', selectedAdZone ? { zoneId: parseInt(selectedAdZone, 10) } : {})}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-orange-600 py-2 text-xs font-bold text-white shadow-xs hover:bg-orange-700 active:scale-95 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 to-orange-500 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-orange-700 hover:to-orange-600 active:scale-95 disabled:opacity-50 disabled:scale-100"
           >
-            <span className="material-symbols-outlined text-[16px]">play_arrow</span>
-            Phát Lệnh Quảng Cáo {selectedAdZone ? `(Zone ${selectedAdZone})` : '(Toàn Siêu Thị)'}
+            {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="play_arrow" className="text-[16px]" />}
+            Phát lệnh quảng cáo
           </button>
+
+          <StatusBadge msg={adMsg} />
+          <WaypointList waypoints={adWaypoints} />
         </div>
 
-        {/* Flow 2: Tuần Tra Kệ Hàng & Gemini Vision AI */}
-        <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-3.5 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5 text-xs">
-              <span className="material-symbols-outlined text-[18px]">shield</span>
-              2. Flow Tuần Tra Kệ Hàng (AI Gemini Vision)
-            </span>
-            <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-[10px] font-bold text-blue-600">8 Kệ A01..P02</span>
-          </div>
-          <p className="mt-1 text-[11px] text-smb-on-surface-variant">
-            Robot di chuyển qua các kệ hàng, chụp ảnh 3 tầng kệ gửi Gemini AI phân tích mật độ lấp đầy (%) & phát hiện vị trí trống hàng.
-          </p>
-
-          <div className="mt-2.5">
-            <label className="mb-1 block text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">
-              Chọn Khu Vực Tuần Tra:
-            </label>
-            <select
-              value={selectedPatrolZone}
-              onChange={(e) => setSelectedPatrolZone(e.target.value)}
-              className="w-full rounded-lg border border-blue-500/40 bg-smb-surface-container px-2.5 py-1.5 text-xs font-bold text-smb-on-surface outline-none"
-            >
-              <option value="">🛡️ Tất Cả Các Zone (8 Kệ hàng A01..P02)</option>
-              <option value="1">🌾 Zone 1: Đồ Khô (Kệ A01 - A02)</option>
-              <option value="2">🧃 Zone 2: Nước Giải Khát (Kệ B01 - B02)</option>
-              <option value="3">🧼 Zone 3: Gia Dụng (Kệ C01 - C02)</option>
-              <option value="4">🔥 Zone 4: Khuyến Mãi (Kệ D01 - D02)</option>
-            </select>
+        {/* Flow 2: Tuần Tra */}
+        <div className="rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/5 to-blue-50/30 p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex size-8 items-center justify-center rounded-xl bg-blue-500/15">
+                <Icon name="shield" className="text-[18px] text-blue-600" />
+              </div>
+              <div>
+                <p className="font-bold text-blue-700 dark:text-blue-400">Flow Tuần Tra Kệ Hàng</p>
+                <p className="text-[10px] text-blue-600/70">Robot chụp ảnh kệ → Gemini AI phân tích mật độ</p>
+              </div>
+            </div>
+            <span className="rounded-full bg-blue-500/20 px-2.5 py-1 text-[10px] font-bold text-blue-700">AI Vision</span>
           </div>
 
-          <div className="mt-3 flex gap-2">
+          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-blue-700/70">
+            Khu vực tuần tra
+          </label>
+          <select
+            value={selectedPatrolZone}
+            onChange={(e) => setSelectedPatrolZone(e.target.value)}
+            className="mb-3 w-full rounded-xl border border-blue-500/40 bg-smb-surface-container-lowest px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-blue-500"
+          >
+            {zoneOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+
+          <div className="mb-3 flex gap-2">
             <button
               disabled={dispatching}
               onClick={() => handleDispatch('patrol', selectedPatrolZone ? { zoneId: parseInt(selectedPatrolZone, 10) } : {})}
-              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 py-2 text-xs font-bold text-white shadow-xs hover:bg-blue-700 active:scale-95 disabled:opacity-50"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-blue-700 hover:to-blue-600 active:scale-95 disabled:opacity-50 disabled:scale-100"
             >
-              <span className="material-symbols-outlined text-[16px]">search</span>
-              Phát Lệnh Tuần Tra
+              {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="search" className="text-[16px]" />}
+              Phát lệnh tuần tra
             </button>
 
             <button
-              disabled={scanningAi}
-              onClick={handleAiScanTest}
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-blue-600 bg-blue-500/10 px-3 py-2 text-xs font-bold text-blue-600 hover:bg-blue-500/20 active:scale-95 disabled:opacity-50"
-              title="Giả lập Robot chụp ảnh kệ gửi Gemini AI quét"
+              disabled={dispatching}
+              onClick={() => handleDispatch('patrol', selectedPatrolZone ? { zoneId: parseInt(selectedPatrolZone, 10) } : {})}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-blue-700 hover:to-blue-600 active:scale-95 disabled:opacity-50 disabled:scale-100"
             >
-              <span className="material-symbols-outlined text-[16px]">linked_camera</span>
-              {scanningAi ? 'Đang Quét...' : 'Mô Phỏng Quét AI'}
+              {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="search" className="text-[16px]" />}
+              Phát lệnh tuần tra
             </button>
           </div>
 
-          {patrolStatusMsg && (
-            <div className={`mt-2.5 rounded-lg p-2.5 text-[11px] font-semibold ${patrolStatusMsg.type === 'success' ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 border border-rose-500/20'}`}>
-              {patrolStatusMsg.text}
-            </div>
-          )}
-
-          {/* AI Scan Live Results Widget */}
-          {aiScanResult && (
-            <div className="mt-3 rounded-lg border border-blue-400/40 bg-smb-surface-container-lowest p-2.5 shadow-sm text-[11px]">
-              <div className="flex items-center justify-between font-bold text-blue-700 dark:text-blue-300 mb-1">
-                <span>🤖 Gemini AI Patrol Feed (Kệ {aiScanResult.aisleCode}):</span>
-                <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[10px] text-blue-600">
-                  {aiScanResult.stockStatus}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 my-1.5">
-                <div className="rounded bg-blue-500/5 p-1.5 text-center">
-                  <span className="block text-[10px] text-smb-on-surface-variant">Mật độ lấp đầy</span>
-                  <span className="text-sm font-black text-emerald-600">{aiScanResult.occupancyRatePct}%</span>
-                </div>
-                <div className="rounded bg-rose-500/5 p-1.5 text-center">
-                  <span className="block text-[10px] text-smb-on-surface-variant">Vị trí bị trống</span>
-                  <span className="text-sm font-black text-rose-600">{aiScanResult.emptySlotCount} slot</span>
-                </div>
-              </div>
-              <p className="text-[10px] font-semibold text-smb-on-surface-variant">
-                💡 <b>Gợi ý AI:</b> {aiScanResult.aiRecommendation}
-              </p>
-            </div>
-          )}
+          <StatusBadge msg={patrolMsg} />
+          <WaypointList waypoints={patrolWaypoints} />
         </div>
 
-        {/* Flow 3: Dẫn Đường Khách */}
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 text-xs">
-              <span className="material-symbols-outlined text-[18px]">navigation</span>
-              3. Flow Dẫn Đường Khách
-            </span>
-            <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-600">Tự Động</span>
-          </div>
-          <p className="mt-1 text-[11px] text-smb-on-surface-variant">Dẫn khách từ vị trí hiện tại tới Kệ Hàng đã chọn trên màn hình con Robot.</p>
-
-          {guideStatusMsg && (
-            <div className={`mt-2.5 rounded-lg p-2.5 text-[11px] font-semibold ${guideStatusMsg.type === 'success' ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 border border-rose-500/20'}`}>
-              {guideStatusMsg.text}
+        {/* Flow 3: Dẫn Đường */}
+        <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 to-emerald-50/30 p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex size-8 items-center justify-center rounded-xl bg-emerald-500/15">
+                <Icon name="near_me" className="text-[18px] text-emerald-600" />
+              </div>
+              <div>
+                <p className="font-bold text-emerald-700 dark:text-emerald-400">Flow Dẫn Đường Khách</p>
+                <p className="text-[10px] text-emerald-600/70">Robot dẫn khách từ vị trí hiện tại đến kệ hàng</p>
+              </div>
             </div>
-          )}
+            <span className="rounded-full bg-emerald-500/20 px-2.5 py-1 text-[10px] font-bold text-emerald-700">Tự động</span>
+          </div>
+
+          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-emerald-700/70">
+            Sản phẩm đích
+          </label>
+          <select
+            value={selectedProductId}
+            onChange={(e) => setSelectedProductId(e.target.value)}
+            className="mb-3 w-full rounded-xl border border-emerald-500/40 bg-smb-surface-container-lowest px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-emerald-500"
+          >
+            {productOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
 
           <button
-            disabled={dispatching}
-            onClick={() => handleDispatch('guide')}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 active:scale-95 disabled:opacity-50"
+            disabled={dispatching || !selectedProductId}
+            onClick={() => handleDispatch('guide', { productId: parseInt(selectedProductId, 10) })}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-emerald-700 hover:to-emerald-600 active:scale-95 disabled:opacity-50 disabled:scale-100"
           >
-            <span className="material-symbols-outlined text-[16px]">near_me</span>
-            Phát Lệnh Dẫn Đường Trải Nghiệm
+            {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="near_me" className="text-[16px]" />}
+            Phát lệnh dẫn đường
           </button>
+
+          <StatusBadge msg={guideMsg} />
+          <WaypointList waypoints={guideWaypoints} />
         </div>
       </div>
 
-      {estopStatusMsg && (
-        <div className={`rounded-xl p-3 text-xs font-semibold ${estopStatusMsg.type === 'success' ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20' : 'bg-rose-500/10 text-rose-600 border border-rose-500/20'}`}>
-          {estopStatusMsg.text}
-        </div>
-      )}
+      {/* E-Stop */}
+      <button
+        disabled={dispatching}
+        onClick={handleCancel}
+        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-rose-700 to-rose-600 py-3 text-xs font-bold text-white shadow-lg transition-all hover:from-rose-800 hover:to-rose-700 active:scale-95 disabled:opacity-50 disabled:scale-100"
+      >
+        <Icon name="emergency_home" className="text-[20px]" />
+        DỪNG KHẨN CẤP (E-STOP)
+      </button>
+      <StatusBadge msg={estopMsg} />
 
-      {/* E-STOP & Direct link to WebManager Map Editor */}
-      <div className="mt-auto flex flex-col gap-2 pt-2">
-        <button
-          disabled={dispatching}
-          onClick={handleCancel}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-rose-600 py-2.5 text-xs font-bold text-white shadow-md hover:bg-rose-700 active:scale-95 disabled:opacity-50"
-        >
-          <span className="material-symbols-outlined text-[18px]">emergency_home</span>
-          DỪNG KHẨN CẤP (E-STOP VIA MQTT)
-        </button>
-
-        <a
-          href="/robot-monitoring/map-editor"
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-smb-primary/40 bg-smb-primary/10 py-2.5 text-xs font-bold text-smb-primary shadow-xs hover:bg-smb-primary hover:text-white transition-all active:scale-95"
-        >
-          <span className="material-symbols-outlined text-[18px]">map</span>
-          Mở WebManager (Map Editor Full)
-        </a>
-      </div>
+      {/* Map Editor shortcut */}
+      <a
+        href="/robot-monitoring/map-editor"
+        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-smb-primary/40 bg-smb-primary/10 py-2.5 text-xs font-bold text-smb-primary shadow-sm transition-all hover:bg-smb-primary hover:text-white active:scale-95"
+      >
+        <Icon name="map" className="text-[18px]" />
+        Mở WebManager (Map Editor)
+      </a>
     </div>
   )
 }
@@ -783,12 +808,11 @@ function NewRouteForm({ robots, map, onCreated }) {
 
   const [maps, setMaps] = useState([])
   const [zones, setZones] = useState([])
-  const [routeTypes, setRouteTypes] = useState(FALLBACK_ROUTE_TYPES)
+  const [routeTypes, setRouteTypes] = useState([])
   const [loadingMaps, setLoadingMaps] = useState(false)
   const [loadingZones, setLoadingZones] = useState(false)
 
-  // Load route types once on mount from the BE so the dropdown reflects the
-  // canonical enum. Falls back to a hardcoded list if the endpoint fails.
+  // Load route types from BE; dropdown will be empty if the endpoint fails.
   useEffect(() => {
     let cancelled = false
     fetchRouteTypes()

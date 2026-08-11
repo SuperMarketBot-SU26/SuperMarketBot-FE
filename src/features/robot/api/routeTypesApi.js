@@ -11,7 +11,7 @@
 
 import client from '../../../api/client'
 
-const ENDPOINT = '/v1/routes/types'
+const ENDPOINT = '/api/v1/routes/types'
 
 /**
  * Fetch the list of valid RouteType values.

@@ -19,7 +19,7 @@
 
 import client from '../../../api/client'
 
-const ENDPOINT = '/v1/brands'
+const ENDPOINT = '/api/v1/brands'
 
 export const getBrands = () =>
   client.get(ENDPOINT).then((res) => res.data)
@@ -43,3 +43,13 @@ export const deleteBrand = (brandId) =>
  */
 export const topUpWallet = (brandId, payload) =>
   client.post(`${ENDPOINT}/${brandId}/wallet/topup`, payload).then((res) => res.data)
+
+/**
+ * Admin deposit — admin manually adds funds to a brand's wallet.
+ * Use for promotional credit, settlement, manual top-up, etc.
+ *
+ * Request:  { amountVnd: number, note?: string }
+ * Response: { brandId, previousBalance, amountAdded, newBalance, note }
+ */
+export const adminDepositBrand = (brandId, payload) =>
+  client.post(`${ENDPOINT}/${brandId}/deposit`, payload).then((res) => res.data)

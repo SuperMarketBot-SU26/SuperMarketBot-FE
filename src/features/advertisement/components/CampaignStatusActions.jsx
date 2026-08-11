@@ -17,7 +17,7 @@ const colorMap = {
   neutral: 'bg-gray-100 text-gray-600 border-gray-200',
 }
 
-export function CampaignStatusActions({ status, onActivate, onPause, onCancel, onViewLogs, loading }) {
+export function CampaignStatusActions({ status, completionStatus, onActivate, onPause, onCancel, onComplete, onViewLogs, loading }) {
   const [confirmAction, setConfirmAction] = useState(null)
 
   const handleConfirm = async () => {
@@ -31,20 +31,22 @@ export function CampaignStatusActions({ status, onActivate, onPause, onCancel, o
   }
 
   const config = STATUS_CONFIG[status] || { label: status, icon: 'help', color: 'neutral' }
+  const isEnded = completionStatus?.isExpired || completionStatus?.isCompleted
 
-  // Actions are available for: Inactive, Active, Paused
-  const isActionable = ['Inactive', 'Active', 'Paused'].includes(status)
+  // Actions are available for: Inactive, Active, Paused (and not ended)
+  const isActionable = ['Inactive', 'Active', 'Paused'].includes(status) && !isEnded
   const isActive     = status === 'Active'
   const isPaused     = status === 'Paused'
   const isInactive   = status === 'Inactive'
+  const isCompletable = status === 'Active' && !isEnded
 
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-4">
         {/* Status badge */}
         <div className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold border ${colorMap[config.color] || colorMap.neutral}`}>
-          <span className="material-symbols-outlined text-[18px]">{config.icon}</span>
-          {config.label}
+          <span className="material-symbols-outlined text-[18px]">{isEnded ? 'event_busy' : config.icon}</span>
+          {isEnded ? 'Đã kết thúc' : config.label}
         </div>
 
         {/* Action buttons */}
@@ -83,19 +85,36 @@ export function CampaignStatusActions({ status, onActivate, onPause, onCancel, o
 
             {/* Pause — shown for Active */}
             {isActive && (
-              <Button
-                variant="warning"
-                icon="pause"
-                size="sm"
-                disabled={loading}
-                onClick={() => setConfirmAction({
-                  type: 'pause',
-                  message: 'Bạn có chắc muốn tạm dừng chiến dịch này?',
-                  handler: onPause,
-                })}
-              >
-                Tạm Dừng
-              </Button>
+              <>
+                <Button
+                  variant="info"
+                  icon="task_alt"
+                  size="sm"
+                  disabled={loading || isEnded}
+                  onClick={() => setConfirmAction({
+                    type: 'complete',
+                    message: isEnded
+                      ? 'Chiến dịch đã kết thúc, không thể đánh dấu hoàn thành.'
+                      : 'Bạn có chắc muốn đánh dấu chiến dịch này là hoàn thành?',
+                    handler: isEnded ? () => {} : onComplete,
+                  })}
+                >
+                  Hoàn Thành
+                </Button>
+                <Button
+                  variant="warning"
+                  icon="pause"
+                  size="sm"
+                  disabled={loading}
+                  onClick={() => setConfirmAction({
+                    type: 'pause',
+                    message: 'Bạn có chắc muốn tạm dừng chiến dịch này?',
+                    handler: onPause,
+                  })}
+                >
+                  Tạm Dừng
+                </Button>
+              </>
             )}
 
             {/* Resume (activate after pause) — shown for Paused */}

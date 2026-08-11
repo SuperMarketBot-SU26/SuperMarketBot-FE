@@ -26,7 +26,7 @@
 
 import client from '../../../api/client'
 
-const ENDPOINT = '/auth'
+const ENDPOINT = '/api/auth'
 
 // ── Public types (shape only — JS at runtime) ────────────────────────
 // AuthSession {
@@ -70,6 +70,45 @@ export const refreshTokens = async ({ refreshToken }) => {
 export const logout = async ({ refreshToken }) => {
   const res = await client.post(`${ENDPOINT}/logout`, { refreshToken })
   return res.data ?? { message: 'Đã đăng xuất.' }
+}
+
+// ── Face login ────────────────────────────────────────────────────────
+/**
+ * Login by sending a base64-encoded face image (the BE handles embedding + match).
+ * Returns same AuthResponseDto shape as email login.
+ */
+export const loginWithFaceImage = async ({ image }) => {
+  const res = await client.post(`${ENDPOINT}/login-face`, { image })
+  return normalizeAuthResponse(res.data)
+}
+
+/**
+ * Login by sending a pre-computed face embedding vector (number[]).
+ * Use when FE performs embedding locally (e.g. face-api.js).
+ */
+export const loginWithFaceEmbedding = async ({ faceEmbedding }) => {
+  const res = await client.post(`${ENDPOINT}/face-login`, { faceEmbedding })
+  return normalizeAuthResponse(res.data)
+}
+
+/**
+ * Register a face embedding for an already-logged-in user.
+ * @param {{ accountId: number, faceEmbedding: number[] }} payload
+ */
+export const registerFace = async ({ accountId, faceEmbedding }) => {
+  const res = await client.post(`${ENDPOINT}/register-face`, { accountId, faceEmbedding })
+  return res.data ?? { message: 'Đã đăng ký khuôn mặt.' }
+}
+
+// ── Forgot / reset password ───────────────────────────────────────────
+export const forgotPassword = async ({ email }) => {
+  const res = await client.post(`${ENDPOINT}/forgot-password`, { email })
+  return res.data ?? { message: 'Đã gửi OTP đặt lại mật khẩu.' }
+}
+
+export const resetPassword = async ({ email, otp, newPassword }) => {
+  const res = await client.post(`${ENDPOINT}/reset-password`, { email, otp, newPassword })
+  return res.data ?? { message: 'Đặt lại mật khẩu thành công.' }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────

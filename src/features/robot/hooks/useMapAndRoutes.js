@@ -7,7 +7,7 @@ import { getRouteTypes } from '../api/routeTypesApi'
  * useMapAndRoutes
  *
  * Two-step load:
- *   1. Fetch the latest floorplan via `/v1/maps/latest?floorId=…`. The BE
+ *   1. Fetch the latest floorplan via `/api/v1/maps/latest?floorId=…`. The BE
  *      decides which `mapId` corresponds to that floor.
  *   2. Use the `mapId` from step 1 to fetch all routes for that map.
  *      Each route is enriched with full waypoint details via `GET /v1/routes/:id`

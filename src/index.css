@@ -377,6 +377,54 @@ html.dark .text-gradient-primary {
   background-clip: text;
 }
 
+/* ── React Toastify Custom Styles ─────────────────────────────── */
+:root {
+  --toastify-color-success: #15803d;
+  --toastify-color-error: #dc2626;
+  --toastify-color-warning: #d97706;
+  --toastify-color-info: #2563eb;
+}
+
+.Toastify__toast-container {
+  z-index: 9999 !important;
+}
+
+.Toastify__toast {
+  border-radius: 12px !important;
+  font-family: var(--font-sans) !important;
+  box-shadow: 0 4px 14px -2px rgba(15, 40, 20, 0.15), 0 2px 6px -2px rgba(15, 40, 20, 0.1) !important;
+  padding: 14px 20px !important;
+  min-height: 56px !important;
+  margin: 8px !important;
+}
+
+.Toastify__toast-body {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  align-items: center !important;
+  padding: 0 8px !important;
+}
+
+.Toastify__toast-icon {
+  width: 20px !important;
+  height: 20px !important;
+  margin-right: 10px !important;
+}
+
+.Toastify__progress-bar {
+  border-radius: 0 8px 8px 0 !important;
+  height: 3px !important;
+}
+
+.Toastify__close-button {
+  color: inherit !important;
+  opacity: 0.7 !important;
+}
+
+.Toastify__close-button:hover {
+  opacity: 1 !important;
+}
+
 /* ── Reduced Motion ──────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .smb-press, .smb-lift, .smb-fade-in, .smb-pop-in, .smb-slide-up,

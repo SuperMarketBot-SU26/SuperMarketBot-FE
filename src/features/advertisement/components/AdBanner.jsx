@@ -22,6 +22,7 @@
 
 import { useEffect } from 'react'
 import useAdTracking from '../../../hooks/useAdTracking'
+import { getOriginalImageUrl } from '../../../utils/cloudinary'
 
 export default function AdBanner({
   campaignId,
@@ -51,7 +52,7 @@ export default function AdBanner({
 
   return (
     <div
-      className={`ad-banner relative overflow-hidden rounded-xl border border-gray-200 bg-gradient-to-r from-amber-50 to-orange-50 shadow-sm ${className}`}
+      className={`ad-banner relative overflow-hidden rounded-xl border border-gray-200 bg-linear-to-r from-amber-50 to-orange-50 shadow-sm ${className}`}
       onClick={handleClick}
       role="button"
       tabIndex={0}
@@ -65,9 +66,13 @@ export default function AdBanner({
       <div className="flex items-center gap-4 p-4">
         {imageUrl && (
           <img
-            src={imageUrl}
+            src={getOriginalImageUrl(imageUrl)}
             alt={title || 'Quảng cáo'}
-            className="h-20 w-20 flex-shrink-0 rounded-lg object-cover"
+            className="h-24 w-24 shrink-0 rounded-lg object-contain"
+            onError={(e) => {
+              e.currentTarget.onerror = null
+              e.currentTarget.src = '/placeholder-needs-reupload.png'
+            }}
           />
         )}
         <div className="flex-1 min-w-0">
@@ -76,7 +81,7 @@ export default function AdBanner({
         </div>
         <button
           type="button"
-          className="flex-shrink-0 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-400"
+          className="shrink-0 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-400"
         >
           {ctaText}
         </button>

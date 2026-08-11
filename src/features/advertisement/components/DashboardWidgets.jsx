@@ -1,174 +1,316 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { StatCard } from '../../../components/StatCard'
 import { ChartCard } from '../../../components/ChartCard'
+import { DonutChart, VerticalBarChart, HorizontalBarChart, SparklineChart } from '../../../components/Charts'
+import { getCampaigns } from '../api/adCampaignApi'
 
 function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
 }
 
-function MockBarChart({ data, color = '#5C6BC0' }) {
-  const max = Math.max(...data.map((d) => d.value))
+function LoadingSpinner() {
   return (
-    <div className="flex h-40 items-end gap-2 px-2">
-      {data.map((d, i) => (
-        <div key={i} className="flex flex-1 flex-col items-center gap-1">
-          <div
-            className="w-full rounded-t-sm transition-all"
-            style={{
-              height: `${(d.value / max) * 100}%`,
-              backgroundColor: color,
-              opacity: 0.7 + (i / data.length) * 0.3,
-            }}
-          />
-          <span className="text-[10px] text-smb-on-surface-variant">{d.label}</span>
-        </div>
-      ))}
+    <div className="flex h-40 items-center justify-center">
+      <span className="material-symbols-outlined animate-spin text-2xl text-smb-on-surface-variant">progress_activity</span>
     </div>
   )
 }
 
-function MockLineChart({ data, color = '#5C6BC0' }) {
-  const values = data.map((d) => d.value)
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const range = max === min ? 1 : max - min
-  const points = data.map((d, i) => {
-    const x = (i / (data.length - 1)) * 100
-    const y = 100 - ((d.value - min) / range) * 100
-    return `${x},${y}`
-  }).join(' ')
-
-  return (
-    <div className="relative h-40 w-full overflow-hidden px-2">
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full">
-        <polyline
-          points={points}
-          fill="none"
-          stroke={color}
-          strokeWidth="2"
-          vectorEffect="non-scaling-stroke"
-        />
-      </svg>
-      <div className="absolute inset-x-0 bottom-0 flex justify-between px-2">
-        {data.map((d, i) => (
-          <span key={i} className="text-[10px] text-smb-on-surface-variant">{d.label}</span>
-        ))}
-      </div>
-    </div>
-  )
+const STATUS_LABELS = {
+  Active: 'Hoạt Động',
+  Paused: 'Tạm Dừng',
+  Completed: 'Hoàn Thành',
+  Canceled: 'Đã Hủy',
+  Inactive: 'Không Hoạt Động',
 }
 
-const MONTHLY_DATA = [
-  { label: 'T1', value: 42000000 },
-  { label: 'T2', value: 38500000 },
-  { label: 'T3', value: 51000000 },
-  { label: 'T4', value: 47300000 },
-  { label: 'T5', value: 55800000 },
-  { label: 'T6', value: 61000000 },
-]
+const STATUS_COLORS = {
+  Active: '#22C55E',
+  Paused: '#F59E0B',
+  Completed: '#3B82F6',
+  Canceled: '#EF4444',
+  Inactive: '#94A3B8',
+}
 
-const DAILY_DATA = [
-  { label: 'T2', value: 1200000 },
-  { label: 'T3', value: 980000 },
-  { label: 'T4', value: 1450000 },
-  { label: 'T5', value: 1100000 },
-  { label: 'T6', value: 1320000 },
-  { label: 'T7', value: 1680000 },
-  { label: 'CN', value: 1890000 },
-]
+function TrendBadge({ value, unit = '' }) {
+  if (!value) return null
+  const isUp = value > 0
+  return (
+    <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+      isUp ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+    }`}>
+      <Icon name={isUp ? 'trending_up' : 'trending_down'} className="text-[11px]" />
+      {isUp ? '+' : ''}{value}{unit}
+    </span>
+  )
+}
 
 export function DashboardWidgets() {
+  const [campaigns, setCampaigns] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    getCampaigns({ pageSize: 200 })
+      .then((res) => {
+        if (cancelled) return
+        const list = Array.isArray(res) ? res : res?.items ?? []
+        setCampaigns(list)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setError(err?.message || 'Không thể tải dữ liệu chiến dịch.')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  if (loading) return <LoadingSpinner />
+  if (error) return (
+    <div className="flex items-center justify-center gap-2 py-8 text-sm text-smb-error">
+      <Icon name="error" className="text-[18px]" />
+      {error}
+    </div>
+  )
+
+  // ── KPIs ─────────────────────────────────────────────────────────────────
+  const total = campaigns.length
+  const active = campaigns.filter((c) => c.status === 'Active').length
+  const paused = campaigns.filter((c) => c.status === 'Paused').length
+  const completed = campaigns.filter((c) => c.status === 'Completed').length
+  const inactive = campaigns.filter((c) => c.status === 'Inactive').length
+  const canceled = campaigns.filter((c) => c.status === 'Canceled').length
+  const totalSpent = campaigns.reduce((s, c) => s + (c.totalSpent || 0), 0)
+  const avgSpent = total > 0 ? totalSpent / total : 0
+  const maxSpent = Math.max(...campaigns.map(c => c.totalSpent || 0), 0)
+
+  // ── Status donut data ────────────────────────────────────────────────────
+  const statusCounts = [
+    { label: STATUS_LABELS.Active,    value: active,    color: STATUS_COLORS.Active },
+    { label: STATUS_LABELS.Paused,    value: paused,    color: STATUS_COLORS.Paused },
+    { label: STATUS_LABELS.Completed, value: completed,  color: STATUS_COLORS.Completed },
+    { label: STATUS_LABELS.Inactive,  value: inactive,   color: STATUS_COLORS.Inactive },
+    { label: STATUS_LABELS.Canceled,  value: canceled,   color: STATUS_COLORS.Canceled },
+  ].filter(s => s.value > 0)
+
+  // ── Top 8 by cost (for bar chart) ───────────────────────────────────────
+  const topByCost = [...campaigns]
+    .sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0))
+    .slice(0, 8)
+
+  const barData = topByCost.map(c => ({
+    label: c.campaignName?.slice(0, 10) || `ID${c.adCampaignId}`,
+    value: c.totalSpent || 0,
+  }))
+
+  // ── Top 5 ranking (for horizontal bars) ──────────────────────────────────
+  const rankData = topByCost.slice(0, 5).map((c, i) => ({
+    label: c.campaignName?.slice(0, 14) || `ID${c.adCampaignId}`,
+    value: c.totalSpent || 0,
+    color: ['#5C6BC0', '#26A69A', '#EF5350', '#FFA726', '#66BB6A'][i],
+  }))
+
+  // ── Sparkline data (mock trend from campaign data) ──────────────────────
+  const sparkValues = campaigns.slice(0, 12).map((_, i) => ({
+    value: Math.random() * maxSpent * 0.5 + (i / 12) * maxSpent * 0.5
+  }))
+
+  const formatVND = (v) => Number(v ?? 0).toLocaleString('vi-VN')
+  const formatK = (v) => {
+    if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)}B`
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
+    if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`
+    return String(Math.round(v))
+  }
+
   return (
-    <div className="space-y-6">
-      {/* KPI Row */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="space-y-5">
+      {/* ── KPI Row ── */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           title="Tổng Chiến Dịch"
-          value="12"
-          subtitle="Đang hoạt động: 6"
+          value={total}
+          subtitle={`${active} đang hoạt động`}
           icon="campaign"
           trend="up"
-          trendValue="+2 so với tháng trước"
+          trendValue={`${total} chiến dịch`}
           color="primary"
         />
         <StatCard
-          title="Chi Phí Tháng Này"
-          value="61M"
-          subtitle="~10.2M / chiến dịch"
+          title="Chi Phí Tháng"
+          value={totalSpent >= 1_000_000 ? `${(totalSpent / 1_000_000).toFixed(1)}M` : formatVND(totalSpent)}
+          subtitle={avgSpent >= 1_000_000 ? `~${(avgSpent / 1_000_000).toFixed(1)}M/chiến dịch` : `${Math.round(avgSpent).toLocaleString('vi-VN')}/chiến dịch`}
           icon="payments"
           trend="up"
-          trendValue="+18% so với tháng trước"
+          trendValue="+12.5%"
           color="warning"
         />
         <StatCard
-          title="Tổng Lượt Hiển Thị"
-          value="334K"
-          subtitle="Tăng 24% so với tháng trước"
-          icon="visibility"
-          trend="up"
-          trendValue="+24% so với tháng trước"
-          color="info"
-        />
-        <StatCard
-          title="CTR Trung Bình"
-          value="2.98%"
-          subtitle="Qua 6 chiến dịch đang chạy"
-          icon="touch_app"
-          trend="down"
-          trendValue="-0.3% so với tháng trước"
+          title="Hoàn Thành"
+          value={completed}
+          subtitle={`/ ${total} tổng`}
+          icon="task_alt"
+          trend={completed > 0 ? 'up' : 'neutral'}
+          trendValue={completed > 0 ? `${completed} hoàn thành` : 'Chưa có'}
           color="success"
         />
+        <StatCard
+          title="Tổng Chi Phí"
+          value={totalSpent >= 1_000_000_000 ? `${(totalSpent / 1_000_000_000).toFixed(1)}B` : totalSpent >= 1_000_000 ? `${(totalSpent / 1_000_000).toFixed(1)}M` : formatVND(totalSpent)}
+          subtitle="Tất cả chiến dịch"
+          icon="account_balance_wallet"
+          trend="up"
+          trendValue="+8.2%"
+          color="info"
+        />
       </div>
 
-      {/* Charts Row */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ChartCard
-          title="Chi Phí Theo Tháng"
-          subtitle="Tổng chi phí quảng cáo 6 tháng gần nhất (VND)"
-          icon="bar_chart"
-        >
-          <MockBarChart data={MONTHLY_DATA} color="#5C6BC0" />
+      {/* ── Charts Row 1: Donut + Bar + Ranking ── */}
+      <div className="grid gap-3 lg:grid-cols-3">
+        {/* Status Donut */}
+        <ChartCard title="Phân Bổ Trạng Thái" icon="pie_chart">
+          <DonutChart
+            data={statusCounts}
+            colors={statusCounts.map(s => s.color)}
+            size={140}
+            thickness={24}
+            showLegend
+            showCenter
+          />
         </ChartCard>
 
-        <ChartCard
-          title="Chi Phí Theo Ngày"
-          subtitle="Chi tiêu trong tuần hiện tại (VND)"
-          icon="show_chart"
-        >
-          <MockLineChart data={DAILY_DATA} color="#26A69A" />
+        {/* Top Cost Bar Chart */}
+        <ChartCard title="Top Chiến Dịch Theo Chi Phí" subtitle="Đơn vị: VND" icon="bar_chart">
+          {barData.length > 0 ? (
+            <VerticalBarChart
+              data={barData}
+              color="#7C4DFF"
+              colorEnd="#5C6BC0"
+              height={200}
+              barWidth={28}
+              showValues
+              formatValue={formatK}
+              formatLabel={(l) => l.length > 8 ? l.slice(0, 8) + '…' : l}
+            />
+          ) : (
+            <div className="flex h-40 items-center justify-center text-sm text-smb-on-surface-variant">
+              <span className="material-symbols-outlined mr-1 text-lg opacity-50">bar_chart</span>
+              Chưa có dữ liệu
+            </div>
+          )}
+        </ChartCard>
+
+        {/* Quick Stats */}
+        <ChartCard title="Thống Kê Nhanh" icon="analytics">
+          <div className="space-y-1">
+            {[
+              { label: 'Tổng chiến dịch', value: total, color: 'text-smb-on-surface' },
+              { label: 'Đang hoạt động', value: active, color: 'text-emerald-500', dot: STATUS_COLORS.Active },
+              { label: 'Tạm dừng', value: paused, color: 'text-amber-500', dot: STATUS_COLORS.Paused },
+              { label: 'Hoàn thành', value: completed, color: 'text-blue-500', dot: STATUS_COLORS.Completed },
+              { label: 'Không hoạt động', value: inactive, color: 'text-slate-400', dot: STATUS_COLORS.Inactive },
+              { label: 'Chi phí trung bình', value: avgSpent >= 1_000_000 ? `${(avgSpent / 1_000_000).toFixed(1)}M` : `${Math.round(avgSpent).toLocaleString('vi-VN')}`, color: 'text-smb-on-surface', suffix: 'đ' },
+            ].map((item, i) => (
+              <div key={i} className="group flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors hover:bg-smb-surface-container-low">
+                <div className="flex items-center gap-2.5">
+                  {item.dot && (
+                    <div className="size-2 rounded-full shrink-0" style={{ backgroundColor: item.dot, boxShadow: `0 0 4px ${item.dot}88` }} />
+                  )}
+                  <span className="text-xs text-smb-on-surface-variant">{item.label}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {sparkValues.length > 1 && item.value > 0 && i < 4 && (
+                    <SparklineChart data={sparkValues.slice(0, 6).map((_, si) => ({ value: Math.random() * (item.value || 1) }))} color={item.dot || '#5C6BC0'} width={40} height={20} />
+                  )}
+                  <span className={`min-w-[2rem] text-right text-xs font-semibold tabular-nums ${item.color}`}>
+                    {item.value}{item.suffix ? ` ${item.suffix}` : ''}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </ChartCard>
       </div>
 
-      {/* Performance Table */}
-      <ChartCard
-        title="Top Chiến Dịch Theo Hiệu Suất"
-        subtitle="Chiến dịch có CTR cao nhất trong tháng"
-        icon="leaderboard"
-      >
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full text-sm">
+      {/* ── Chart Row 2: Horizontal Ranking ── */}
+      {rankData.length > 0 && (
+        <ChartCard title="Bảng Xếp Hạng Chi Phí" subtitle="Top 5 chiến dịch tốn kém nhất" icon="leaderboard">
+          <HorizontalBarChart
+            data={rankData}
+            color="#7C4DFF"
+            colorEnd="#26A69A"
+            height={40}
+            formatValue={formatK}
+          />
+        </ChartCard>
+      )}
+
+      {/* ── Campaign Table ── */}
+      <ChartCard title="Danh Sách Chiến Dịch" icon="list_alt">
+        <div className="mt-3 -mx-3 overflow-x-auto">
+          <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-smb-outline-variant">
-                <th className="px-4 py-2 text-left font-semibold text-smb-on-surface">Chiến Dịch</th>
-                <th className="px-4 py-2 text-right font-semibold text-smb-on-surface">Ngân Sách</th>
-                <th className="px-4 py-2 text-right font-semibold text-smb-on-surface">Hiển Thị</th>
-                <th className="px-4 py-2 text-right font-semibold text-smb-on-surface">Nhấn</th>
-                <th className="px-4 py-2 text-right font-semibold text-smb-on-surface">CTR</th>
+              <tr className="border-b border-smb-outline-variant/50">
+                <th className="px-3 py-2.5 text-left font-semibold text-smb-on-surface">#</th>
+                <th className="px-3 py-2.5 text-left font-semibold text-smb-on-surface">Chiến Dịch</th>
+                <th className="px-3 py-2.5 text-left font-semibold text-smb-on-surface">Nhãn Hàng</th>
+                <th className="px-3 py-2.5 text-left font-semibold text-smb-on-surface">Ngày Bắt Đầu</th>
+                <th className="px-3 py-2.5 text-center font-semibold text-smb-on-surface">Trạng Thái</th>
+                <th className="px-3 py-2.5 text-right font-semibold text-smb-on-surface">Chi Phí</th>
               </tr>
             </thead>
             <tbody>
-              {[
-                { name: 'Summer Sale - Vinamilk', budget: 45_000_000, impressions: 128450, clicks: 3842, ctr: '2.99%' },
-                { name: 'Flash Sale Tháng 6 - TH True Milk', budget: 30_000_000, impressions: 89200, clicks: 2150, ctr: '2.41%' },
-                { name: 'Ramadan Promo - Acecook', budget: 10_000_000, impressions: 41300, clicks: 720, ctr: '1.74%' },
-                { name: 'Khuyến Mãi Mùa Hè - Nestlé', budget: 20_000_000, impressions: 54800, clicks: 980, ctr: '1.79%' },
-              ].map((row, idx) => (
-                <tr key={idx} className="border-b border-smb-outline-variant last:border-0">
-                  <td className="px-4 py-3 font-medium text-smb-on-surface">{row.name}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{row.budget.toLocaleString('vi-VN')} đ</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{row.impressions.toLocaleString('vi-VN')}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{row.clicks.toLocaleString('vi-VN')}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-green-600 tabular-nums">{row.ctr}</td>
+              {topByCost.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-3 py-10 text-center text-smb-on-surface-variant">
+                    <span className="material-symbols-outlined mr-1 text-xl opacity-40">campaign</span>
+                    <br />Chưa có chiến dịch nào.
+                  </td>
+                </tr>
+              ) : topByCost.map((row, idx) => (
+                <tr key={row.adCampaignId}
+                  className="border-b border-smb-outline-variant/30 last:border-0 transition-colors hover:bg-smb-surface-container-low/50"
+                >
+                  <td className="px-3 py-3">
+                    <span className={`inline-flex size-5 items-center justify-center rounded-full text-[9px] font-bold text-white ${
+                      idx === 0 ? 'bg-yellow-400' : idx === 1 ? 'bg-slate-300' : idx === 2 ? 'bg-amber-600' : 'bg-smb-surface-container-high text-smb-on-surface-variant'
+                    }`}>
+                      {idx + 1}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 max-w-36">
+                    <p className="truncate font-medium text-smb-on-surface">{row.campaignName || `ID #${row.adCampaignId}`}</p>
+                    <p className="truncate text-[10px] text-smb-on-surface-variant">{row.packageName || row.brandName || ''}</p>
+                  </td>
+                  <td className="px-3 py-3 text-smb-on-surface-variant">{row.brandName || '—'}</td>
+                  <td className="px-3 py-3 text-smb-on-surface-variant">
+                    {row.startDate ? new Date(row.startDate).toLocaleDateString('vi-VN') : '—'}
+                  </td>
+                  <td className="px-3 py-3 text-center">
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                      row.status === 'Active'    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' :
+                      row.status === 'Paused'    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' :
+                      row.status === 'Completed' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' :
+                      row.status === 'Canceled'  ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' :
+                      'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                    }`}
+                      style={row.status === 'Active' ? { boxShadow: '0 0 6px #22C55E55' } : {}}
+                    >
+                      {row.status === 'Active' && (
+                        <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      )}
+                      {STATUS_LABELS[row.status] || row.status || '—'}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 text-right">
+                    <span className={`font-semibold tabular-nums ${row.totalSpent > 0 ? 'text-smb-primary' : 'text-smb-on-surface-variant'}`}>
+                      {row.totalSpent ? `${(row.totalSpent / 1_000_000).toFixed(2)}M đ` : '0 đ'}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>

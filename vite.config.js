@@ -15,6 +15,9 @@ export default defineConfig(({ mode }) => {
   // Only attach the ngrok interstitial-bypass header when actually proxying to ngrok.
   const isNgrok = activeBackend === 'ngrok' && !!env.VITE_NGROK_API_URL
 
+  // The FE sends `/api/v1/...` and the BE is also mounted at `/api/v1/...`,
+  // so we forward the path verbatim — no rewrite needed. (Kestrel on
+  // `localhost:5000` already has `/api/v1` mapped in its route table.)
   const proxyConfig = {
     target: proxyTarget,
     changeOrigin: true,
@@ -45,6 +48,8 @@ export default defineConfig(({ mode }) => {
       },
       proxy: {
         '/api': proxyConfig,
+        '/uploads': proxyConfig,
+        '/storage': proxyConfig,
         '/hubs': {
           ...proxyConfig,
           ws: true,

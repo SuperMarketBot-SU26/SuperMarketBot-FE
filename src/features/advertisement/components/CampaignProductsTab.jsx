@@ -1,16 +1,37 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { getProducts } from '../../product/api/productApi'
-import { assignCampaignSponsoredProducts } from '../api/adCampaignApi'
+import { getCampaignSponsoredProducts, assignCampaignSponsoredProducts } from '../api/adCampaignApi'
 import { getErrorMessage } from '../../../api/client'
+import { buildImageUrl } from '../../../utils/cloudinary'
 
 function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
 }
 
-export function CampaignProductsTab({ products = [], sponsoredProductCount, canEdit, campaignId, brandId, onChanged }) {
-  const items = Array.isArray(products) ? products : []
+export function CampaignProductsTab({ products, sponsoredProductCount, canEdit = true, campaignId, brandId, onChanged }) {
+  const [internalProducts, setInternalProducts] = useState(products)
+  const [loading, setLoading] = useState(false)
+  const items = Array.isArray(products ?? internalProducts) ? (products ?? internalProducts) : []
   const totalCount = sponsoredProductCount ?? items.length
   const [open, setOpen] = useState(false)
+
+  // Fetch sponsored products from BE if not provided via props
+  useEffect(() => {
+    if (!campaignId) return
+    // Only auto-fetch if products prop is not provided (undefined/null)
+    if (products !== undefined && products !== null) return
+    let cancelled = false
+    setLoading(true)
+    getCampaignSponsoredProducts(campaignId)
+      .then((data) => {
+        if (cancelled) return
+        const list = data?.products ?? data?.items ?? data ?? []
+        setInternalProducts(list)
+      })
+      .catch(() => { /* silently fail — show empty state */ })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [campaignId])
 
   return (
     <div className="flex flex-col gap-4">
@@ -33,7 +54,12 @@ export function CampaignProductsTab({ products = [], sponsoredProductCount, canE
         )}
       </div>
 
-      {items.length === 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center rounded-lg border border-dashed border-smb-outline-variant bg-smb-surface-container-lowest py-12 text-sm text-smb-on-surface-variant">
+          <Icon name="progress_activity" className="mr-2 animate-spin text-[16px]" />
+          Đang tải sản phẩm...
+        </div>
+      ) : items.length === 0 ? (
         <div className="rounded-lg border border-dashed border-smb-outline-variant bg-smb-surface-container-lowest py-12 text-center text-sm text-smb-on-surface-variant">
           <Icon name="inventory_2" className="mx-auto mb-2 block text-[28px]" />
           Chưa có sản phẩm tài trợ.
@@ -50,7 +76,15 @@ export function CampaignProductsTab({ products = [], sponsoredProductCount, canE
             const name = p.name ?? p.productName ?? '—'
             const sku = p.sku ?? ''
             const price = p.price ?? null
-            const imageUrl = p.imageUrl ?? p.image ?? null
+            // buildImageUrl: Cloudinary URL gets transform; legacy/local returns
+            // placeholder so we know it's broken. External URL is left alone.
+            const imageUrl = buildImageUrl(p.imageUrl ?? p.image ?? null, {
+              width: 96,
+              height: 96,
+              crop: 'fill',
+              quality: 'auto',
+              format: 'auto',
+            })
             const categoryName = p.categoryName ?? p.category?.name ?? null
             return (
               <div
@@ -63,8 +97,15 @@ export function CampaignProductsTab({ products = [], sponsoredProductCount, canE
                     alt={name}
                     className="size-12 shrink-0 rounded-md object-cover"
                     onError={(e) => {
-                      e.currentTarget.style.display = 'none'
-                      e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                      if (!e.currentTarget.dataset.retried) {
+                        e.currentTarget.dataset.retried = '1'
+                        setTimeout(() => { e.currentTarget.src = imageUrl }, 2000)
+                        return
+                      }
+                      e.currentTarget.onerror = null
+                      e.currentTarget.src = '/placeholder-needs-reupload.png'
+                      e.currentTarget.classList.add('object-contain')
+                      e.currentTarget.classList.remove('object-cover')
                     }}
                   />
                 ) : null}
@@ -104,6 +145,10 @@ export function CampaignProductsTab({ products = [], sponsoredProductCount, canE
           onClose={() => setOpen(false)}
           onSaved={() => {
             setOpen(false)
+            // Refetch products + notify parent to refresh campaign counts
+            getCampaignSponsoredProducts(campaignId)
+              .then((data) => setInternalProducts(data?.products ?? data?.items ?? data ?? []))
+              .catch(() => {})
             onChanged?.()
           }}
         />
@@ -209,7 +254,21 @@ function AddProductsModal({ campaignId, assignedIds, onClose, onSaved }) {
                       : 'border-smb-outline bg-smb-surface-container'
                   }`}>{isPicked && '✓'}</span>
                   {p.imageUrl ? (
-                    <img src={p.imageUrl} alt={name} className="size-7 shrink-0 rounded object-cover" />
+                    <img
+                      src={buildImageUrl(p.imageUrl, {
+                        width: 64,
+                        height: 64,
+                        crop: 'fill',
+                        quality: 'auto',
+                        format: 'auto',
+                      })}
+                      alt={name}
+                      className="size-7 shrink-0 rounded object-cover"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null
+                        e.currentTarget.src = '/placeholder-needs-reupload.png'
+                      }}
+                    />
                   ) : (
                     <Icon name="inventory_2" className="size-5 shrink-0 text-smb-primary-container" />
                   )}

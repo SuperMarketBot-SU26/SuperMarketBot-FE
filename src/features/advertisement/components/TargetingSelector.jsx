@@ -35,8 +35,8 @@ import {
   assignCampaignShelf,
 } from '../api/adCampaignApi'
 
-const ENDPOINT_CAMPAIGN = '/v1/ad-campaigns'
-const ENDPOINT_ROUTES   = '/v1/routes'
+const ENDPOINT_CAMPAIGN = '/api/v1/ad-campaigns'
+const ENDPOINT_ROUTES   = '/api/v1/routes'
 
 const TABS = [
   { key: 'shelf',  label: 'Kệ Hàng',     icon: 'inventory_2', single: true  },
@@ -96,11 +96,11 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
     setLoading(true)
     try {
       // Discover latest mapId for /routes filter
-      const mapRes = await client.get('/v1/maps/latest', { params: { floorId: 1 } })
+      const mapRes = await client.get('/api/v1/maps/latest', { params: { floorId: 1 } })
       const mapId = mapRes.data?.mapId
 
       const [shelfPickerRes, routeRes, zonesRes, shelfRes, campaignRoutesRes] = await Promise.all([
-        client.get('/v1/semantic-objects', { params: { pageNumber: 1, pageSize: 500 } }),
+        client.get('/api/v1/semantic-objects', { params: { pageNumber: 1, pageSize: 500 } }),
         mapId
           ? client.get(ENDPOINT_ROUTES, { params: { mapId } })
           : Promise.resolve({ data: [] }),

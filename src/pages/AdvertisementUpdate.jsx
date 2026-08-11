@@ -13,10 +13,12 @@ import {
   activateCampaign,
   pauseCampaign,
   cancelCampaign,
+  completeCampaign,
   getCampaignRoutes,
   getCampaignZones,
   getCampaignShelf,
   getCampaignSponsoredProducts,
+  getCompletionStatus,
 } from '../features/advertisement/api/adCampaignApi'
 import { getPackages } from '../features/advertisement/api/adPackageApi'
 
@@ -39,6 +41,8 @@ export function AdvertisementUpdate() {
   const [targetingCounts, setTargetingCounts] = useState({ routeCount: 0, zoneCount: 0, hasShelf: false })
   // Sponsored products list riêng (BE CampaignResponseDto không trả list, chỉ trả count)
   const [sponsoredProducts, setSponsoredProducts] = useState([])
+  // Completion status từ BE
+  const [completionStatus, setCompletionStatus] = useState(null)
 
   const editRef = useRef(null)
 
@@ -51,11 +55,12 @@ export function AdvertisementUpdate() {
       // Đồng thời fetch targeting counts + sponsored products từ BE để modal activate biết chính xác.
       // Best-effort — lỗi sẽ fallback về 0 / [] (không block load trang).
       try {
-        const [routes, zones, shelf, sponsored] = await Promise.all([
+        const [routes, zones, shelf, sponsored, completion] = await Promise.all([
           getCampaignRoutes(Number(id)).catch(() => ({ routes: [] })),
           getCampaignZones(Number(id)).catch(() => ({ zones: [] })),
           getCampaignShelf(Number(id)).catch(() => ({ shelves: [] })),
           getCampaignSponsoredProducts(Number(id)).catch(() => ({ products: [] })),
+          getCompletionStatus(Number(id)).catch(() => null),
         ])
         setTargetingCounts({
           routeCount: (routes?.routes ?? []).length,
@@ -71,6 +76,7 @@ export function AdvertisementUpdate() {
               ? sponsored.items
               : []
         setSponsoredProducts(productList)
+        setCompletionStatus(completion)
       } catch {
         // giữ state mặc định nếu fetch counts fail
       }
@@ -186,6 +192,19 @@ const STATUS_LABELS = {
     }
   }
 
+  const handleComplete = async () => {
+    setActionLoading(true)
+    setActionError(null)
+    try {
+      await completeCampaign(Number(id))
+      fetchCampaign()
+    } catch (err) {
+      setActionError(err?.response?.data?.error || err.message || 'Hoàn thành chiến dịch thất bại.')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
   const handleDiscard = () => navigate(-1)
 
   const handleViewLogs = () => navigate(`/advertisement/logs/${id}`)
@@ -256,9 +275,11 @@ const STATUS_LABELS = {
             <div className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest p-6">
               <CampaignStatusActions
                 status={campaign.status}
+                completionStatus={completionStatus}
                 onActivate={handleActivateWrapper}
                 onPause={() => setShowPauseModal(true)}
                 onCancel={handleCancel}
+                onComplete={handleComplete}
                 onViewLogs={handleViewLogs}
                 loading={actionLoading}
               />

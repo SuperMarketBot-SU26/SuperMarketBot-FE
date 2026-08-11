@@ -323,8 +323,15 @@ export function CampaignLogsTab({ campaignId }) {
                     {/* Người thực hiện */}
                     <td className="px-4 py-3 text-xs text-smb-on-surface">
                       <div className="flex flex-col gap-0.5">
-                        {log.performedBy && (
-                          <span className="font-medium text-smb-on-surface">{log.performedBy}</span>
+                        {log.performedByName ? (
+                          <>
+                            <span className="font-medium text-smb-on-surface">{log.performedByName}</span>
+                            <span className="text-[10px] text-smb-on-surface-variant/70">ID #{log.performedBy}</span>
+                          </>
+                        ) : log.performedBy ? (
+                          <span className="font-medium text-smb-on-surface">#{log.performedBy}</span>
+                        ) : (
+                          <span className="text-smb-on-surface-variant/70 italic">Hệ thống</span>
                         )}
                         <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-smb-on-surface-variant/80">
                           {log.robotId != null && <span>Robot #{log.robotId}</span>}
