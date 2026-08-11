@@ -474,7 +474,29 @@
     }
 
     // ── State ─────────────────────────────────────────────────────
-    const SCALE = 64; // px per meter
+    // ── ROS2 Coordinate Conversions ─────────────────────────────────
+    function getRes() { return (currentMap && currentMap.resolution) || 0.05; }
+    function getOriginX() { return (currentMap && currentMap.originX) || 0.0; }
+    function getOriginY() { return (currentMap && currentMap.originY) || 0.0; }
+    function getMapWidthPx() {
+        return bgImg ? bgImg.width : (currentMap && currentMap.widthMeters ? currentMap.widthMeters / getRes() : 400);
+    }
+    function getMapHeightPx() {
+        return bgImg ? bgImg.height : (currentMap && currentMap.heightMeters ? currentMap.heightMeters / getRes() : 300);
+    }
+
+    function rosToCanvas(metersX, metersY) {
+        const px = (metersX - getOriginX()) / getRes();
+        const py = getMapHeightPx() - ((metersY - getOriginY()) / getRes());
+        return { x: px, y: py };
+    }
+
+    function canvasToRos(px, py) {
+        const metersX = getOriginX() + (px * getRes());
+        const metersY = getOriginY() + ((getMapHeightPx() - py) * getRes());
+        return { x: metersX, y: metersY };
+    }
+
     const MIN_ZOOM = 0.2, MAX_ZOOM = 4;
     let zoom = 1, panX = 0, panY = 0;
     let currentTool = 'select';
@@ -555,8 +577,8 @@
 
         // Map boundary
         if (currentMap) {
-            const mapW = (currentMap.widthMeters || 20) * SCALE;
-            const mapH = (currentMap.heightMeters || 15) * SCALE;
+            const mapW = getMapWidthPx();
+            const mapH = getMapHeightPx();
             gCtx.save();
             gCtx.translate(panX, panY);
             gCtx.scale(zoom, zoom);
@@ -849,8 +871,9 @@
         panel.classList.remove('hidden');
         document.getElementById('propName').value = node.nodeName || '';
         document.getElementById('propType').value = node.nodeType || 'landmark';
-        document.getElementById('propX').value = (node.x / SCALE).toFixed(2);
-        document.getElementById('propY').value = (node.y / SCALE).toFixed(2);
+        const rosPos = canvasToRos(node.x, node.y);
+        document.getElementById('propX').value = rosPos.x.toFixed(2);
+        document.getElementById('propY').value = rosPos.y.toFixed(2);
     }
 
     function hidePropertiesPanel() {
@@ -891,8 +914,8 @@
     document.getElementById('btnResetView').addEventListener('click', () => {
         if (!currentMap) return;
         const rect = container.getBoundingClientRect();
-        const mapW = (currentMap.widthMeters || 20) * SCALE;
-        const mapH = (currentMap.heightMeters || 15) * SCALE;
+        const mapW = getMapWidthPx();
+        const mapH = getMapHeightPx();
         zoom = Math.min((rect.width - 40) / mapW, (rect.height - 40) / mapH, MAX_ZOOM);
         // Origin (0,0) is the floorplan's top-left.
         panX = (rect.width - mapW * zoom) / 2;
@@ -910,7 +933,7 @@
             img.onload = () => {
                 bgImg = img;
                 if (!currentMap) {
-                    currentMap = { widthMeters: img.width / SCALE, heightMeters: img.height / SCALE };
+                    currentMap = { widthMeters: img.width * 0.05, heightMeters: img.height * 0.05, resolution: 0.05, originX: 0, originY: 0 };
                     fitToView();
                 }
                 log(`Đã tải ảnh: ${file.name} (${img.width}×${img.height})`, 'success');
@@ -952,11 +975,12 @@
                 // render loop draws at pixel scale, so convert meters → pixels here.
                 const metersX = n.xCoord ?? n.XCoord ?? n.x ?? n.X ?? 0;
                 const metersY = n.yCoord ?? n.YCoord ?? n.y ?? n.Y ?? 0;
+                const canvasPos = rosToCanvas(metersX, metersY);
                 return {
                     ...n,
                     nodeId,
-                    x: metersX * SCALE,
-                    y: metersY * SCALE,
+                    x: canvasPos.x,
+                    y: canvasPos.y,
                     nodeName: n.nodeName ?? n.NodeName ?? n.label ?? `N-${String(nodeId).padStart(3, '0')}`,
                     nodeType: n.nodeType ?? n.NodeType ?? 'landmark',
                 };
@@ -1027,8 +1051,8 @@
             Nodes: nodes.map((n) => ({
                 NodeId: n.nodeId > 0 ? n.nodeId : null,
                 NodeName: n.nodeName || `N-${n.nodeId}`,
-                XCoord: (n.x || 0) / SCALE,
-                YCoord: (n.y || 0) / SCALE,
+                XCoord: canvasToRos(n.x || 0, n.y || 0).x,
+                YCoord: canvasToRos(n.x || 0, n.y || 0).y,
                 NodeType: n.nodeType || 'landmark',
                 IsBlocked: !!n.isBlocked,
             })),
@@ -1070,8 +1094,8 @@
     function fitToView() {
         if (!currentMap) return;
         const rect = container.getBoundingClientRect();
-        const mapW = (currentMap.widthMeters || 20) * SCALE;
-        const mapH = (currentMap.heightMeters || 15) * SCALE;
+        const mapW = getMapWidthPx();
+        const mapH = getMapHeightPx();
         zoom = Math.min((rect.width - 40) / mapW, (rect.height - 40) / mapH, MAX_ZOOM);
         // Origin (0,0) is the floorplan's top-left, so the floorplan top-left
         // is the canvas point we offset from.
