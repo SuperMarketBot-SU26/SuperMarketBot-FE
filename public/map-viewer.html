@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🗺️ SmartMarketBot — ROS2 SLAM Map Viewer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-0: #0a0e17;
+      --bg-1: #111827;
+      --bg-2: #1e293b;
+      --bg-3: #334155;
+      --border: rgba(148, 163, 184, 0.15);
+      --text-0: #f8fafc;
+      --text-1: #cbd5e1;
+      --text-2: #94a3b8;
+      --text-3: #64748b;
+      --accent: #8b5cf6;
+      --accent-glow: rgba(139, 92, 246, 0.25);
+      --emerald: #10b981;
+      --rose: #f43f5e;
+      --amber: #f59e0b;
+      --blue: #3b82f6;
+      --cyan: #06b6d4;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg-0);
+      color: var(--text-0);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Top Bar ── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: var(--bg-1);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      z-index: 50;
+    }
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .topbar-logo {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--accent), var(--emerald));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .topbar h1 {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    .topbar h1 span { color: var(--text-2); font-weight: 500; }
+    .topbar-right { display: flex; align-items: center; gap: 8px; }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px; font-weight: 700;
+      border: 1px solid;
+    }
+    .badge-purple  { background: rgba(139,92,246,0.12); color: #a78bfa; border-color: rgba(139,92,246,0.25); }
+    .badge-emerald { background: rgba(16,185,129,0.12); color: #34d399; border-color: rgba(16,185,129,0.25); }
+    .badge-blue    { background: rgba(59,130,246,0.12); color: #60a5fa; border-color: rgba(59,130,246,0.25); }
+    .badge-amber   { background: rgba(245,158,11,0.12); color: #fbbf24; border-color: rgba(245,158,11,0.25); }
+    .badge-rose    { background: rgba(244,63,94,0.12);  color: #fb7185; border-color: rgba(244,63,94,0.25);  }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border-radius: 10px;
+      font-size: 12px; font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--bg-2);
+      color: var(--text-1);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn:hover { background: var(--bg-3); color: var(--text-0); }
+    .btn:active { transform: scale(0.97); }
+    .btn-accent { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn-accent:hover { background: #7c3aed; }
+
+    .material-symbols-outlined { font-size: 18px; }
+
+    /* ── Main Layout ── */
+    .main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 300px;
+      flex-shrink: 0;
+      background: var(--bg-1);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .sidebar-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-header h2 {
+      font-size: 12px; font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-2);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .sidebar-body {
+      flex: 1; overflow-y: auto;
+      padding: 12px;
+    }
+    .sidebar-body::-webkit-scrollbar { width: 4px; }
+    .sidebar-body::-webkit-scrollbar-track { background: transparent; }
+    .sidebar-body::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 4px; }
+
+    /* ── Map Metadata Panel ── */
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .meta-card {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .meta-card .label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .meta-card .value { font-size: 14px; font-weight: 700; color: var(--text-0); font-variant-numeric: tabular-nums; }
+    .meta-card .value .unit { font-size: 10px; color: var(--text-3); font-weight: 500; margin-left: 2px; }
+
+    /* ── Node List ── */
+    .node-list-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .node-list-header h3 {
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.6px;
+      color: var(--text-2);
+    }
+    .search-input {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 11px;
+      color: var(--text-0);
+      outline: none;
+      width: 100%;
+      margin-bottom: 8px;
+      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    .search-input:focus { border-color: var(--accent); }
+    .search-input::placeholder { color: var(--text-3); }
+
+    .node-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.12s;
+      margin-bottom: 2px;
+    }
+    .node-item:hover { background: var(--bg-2); }
+    .node-item.active { background: rgba(139, 92, 246, 0.15); border: 1px solid rgba(139, 92, 246, 0.3); }
+    .node-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      border: 2px solid #fff;
+    }
+    .node-dot.blocked { background: var(--rose); }
+    .node-dot.normal { background: var(--blue); }
+    .node-info { flex: 1; min-width: 0; }
+    .node-name { font-size: 12px; font-weight: 600; color: var(--text-0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .node-coords { font-size: 10px; color: var(--text-3); font-family: 'SF Mono', 'Fira Code', monospace; margin-top: 1px; }
+    .node-type-badge {
+      font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
+      text-transform: uppercase; letter-spacing: 0.3px;
+      flex-shrink: 0;
+    }
+
+    /* ── Canvas Area ── */
+    .canvas-area {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(139,92,246,0.03) 0%, transparent 70%),
+        var(--bg-0);
+    }
+    .canvas-area svg {
+      width: 100%; height: 100%;
+      user-select: none;
+    }
+
+    /* ── Floating HUD ── */
+    .hud {
+      position: absolute;
+      z-index: 30;
+      display: flex;
+      gap: 6px;
+    }
+    .hud-top-left  { top: 12px; left: 12px; }
+    .hud-top-right { top: 12px; right: 12px; }
+    .hud-bottom-left  { bottom: 12px; left: 12px; }
+    .hud-bottom-right { bottom: 12px; right: 12px; }
+
+    .hud-panel {
+      background: rgba(17, 24, 39, 0.92);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px;
+      display: flex;
+      gap: 2px;
+    }
+    .hud-btn {
+      width: 34px; height: 34px;
+      display: flex; align-items: center; justify-content: center;
+      border: none; background: transparent;
+      color: var(--text-2);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .hud-btn:hover { background: var(--bg-3); color: var(--text-0); }
+
+    /* ── Coordinate Tooltip ── */
+    .coord-tooltip {
+      position: absolute;
+      bottom: 12px; right: 12px;
+      background: rgba(17, 24, 39, 0.92);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 11px;
+      color: var(--text-2);
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      z-index: 30;
+      pointer-events: none;
+    }
+    .coord-tooltip strong { color: var(--text-0); }
+
+    /* ── Loading State ── */
+    .loader-overlay {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px;
+      background: var(--bg-0);
+      z-index: 100;
+    }
+    .loader-spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--bg-3);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader-text { font-size: 13px; color: var(--text-2); }
+
+    /* ── Error State ── */
+    .error-panel {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 12px;
+      background: var(--bg-0);
+      z-index: 100;
+    }
+    .error-panel .material-symbols-outlined { font-size: 48px; color: var(--rose); }
+    .error-panel p { font-size: 13px; color: var(--text-2); max-width: 400px; text-align: center; }
+
+    /* 🔸 SVG Node Label 🔸 */
+    .svg-node-label {
+      font-family: 'Inter', sans-serif;
+      font-size: 3.5px;
+      font-weight: 700;
+      fill: #a78bfa;
+      paint-order: stroke;
+      stroke: rgba(10,14,23,0.85);
+      stroke-width: 0.5px;
+      pointer-events: none;
+    }
+    .svg-node-label.selected { fill: #34d399; }
+    .svg-node-label.blocked  { fill: #fb7185; }
+
+    /* ── Scrollbar for sidebar ── */
+    .sidebar-body { scrollbar-width: thin; scrollbar-color: var(--bg-3) transparent; }
+
+    /* Toggle */
+    .toggle-row {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 12px;
+      padding: 8px 10px;
+      background: var(--bg-2);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .toggle-row label { font-size: 11px; color: var(--text-1); cursor: pointer; }
+    .toggle-row input[type=checkbox] { accent-color: var(--accent); }
+
+    /* Empty */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 40px 20px; text-align: center; color: var(--text-3);
+    }
+    .empty-state .material-symbols-outlined { font-size: 40px; margin-bottom: 8px; opacity: 0.4; }
+    .empty-state p { font-size: 12px; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════ TOP BAR ═══════ -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="topbar-logo">🤖</div>
+    <h1>SmartMarketBot <span>— ROS2 SLAM Map Viewer</span></h1>
+  </div>
+  <div class="topbar-right" id="topbar-badges"></div>
+</div>
+
+<!-- ═══════ MAIN ═══════ -->
+<div class="main">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2><span class="material-symbols-outlined" style="font-size:16px">info</span> Thông Tin Bản Đồ</h2>
+    </div>
+    <div class="sidebar-body">
+      <!-- Map Metadata -->
+      <div class="meta-grid" id="meta-grid"></div>
+
+      <!-- Show labels toggle -->
+      <div class="toggle-row">
+        <input type="checkbox" id="toggle-labels" checked />
+        <label for="toggle-labels">Hiện tên Node trên bản đồ</label>
+      </div>
+      <div class="toggle-row">
+        <input type="checkbox" id="toggle-edges" checked />
+        <label for="toggle-edges">Hiện đường nối (Edges)</label>
+      </div>
+      <div class="toggle-row">
+        <input type="checkbox" id="toggle-grid" />
+        <label for="toggle-grid">Hiện lưới tọa độ (Grid)</label>
+      </div>
+
+      <!-- Node list -->
+      <div class="node-list-header">
+        <h3 id="node-list-title">📍 Danh Sách Node (0)</h3>
+      </div>
+      <input type="text" class="search-input" id="node-search" placeholder="🔍 Tìm kiếm node..." />
+      <div id="node-list"></div>
+    </div>
+  </div>
+
+  <!-- Canvas -->
+  <div class="canvas-area" id="canvas-area">
+    <!-- Loading overlay -->
+    <div class="loader-overlay" id="loader">
+      <div class="loader-spinner"></div>
+      <div class="loader-text">Đang tải bản đồ từ Backend API...</div>
+    </div>
+
+    <!-- Error overlay (hidden) -->
+    <div class="error-panel" id="error-panel" style="display:none">
+      <span class="material-symbols-outlined">error</span>
+      <p id="error-message">Không thể kết nối Backend</p>
+      <button class="btn btn-accent" onclick="loadMap()">
+        <span class="material-symbols-outlined">refresh</span> Thử lại
+      </button>
+    </div>
+
+    <!-- SVG Map -->
+    <svg id="map-svg" style="display:none"></svg>
+
+    <!-- Zoom HUD -->
+    <div class="hud hud-top-right" id="zoom-hud" style="display:none">
+      <div class="hud-panel">
+        <button class="hud-btn" onclick="zoomIn()" title="Phóng to"><span class="material-symbols-outlined">add</span></button>
+        <button class="hud-btn" onclick="zoomOut()" title="Thu nhỏ"><span class="material-symbols-outlined">remove</span></button>
+        <button class="hud-btn" onclick="fitView()" title="Vừa khung"><span class="material-symbols-outlined">fit_screen</span></button>
+        <button class="hud-btn" onclick="resetView()" title="Reset"><span class="material-symbols-outlined">restart_alt</span></button>
+      </div>
+    </div>
+
+    <!-- Live indicator -->
+    <div class="hud hud-top-left" id="live-badge" style="display:none">
+      <div class="badge badge-emerald" style="padding:6px 12px; font-size:12px;">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#34d399;animation:pulse-dot 1.5s infinite;"></span>
+        <span id="map-name-badge">Map Loaded</span>
+      </div>
+    </div>
+
+    <!-- Coord tooltip -->
+    <div class="coord-tooltip" id="coord-tooltip" style="display:none">
+      X: <strong id="coord-x">0.000</strong> m &nbsp; Y: <strong id="coord-y">0.000</strong> m &nbsp; Pixel: <strong id="coord-px">0, 0</strong>
+    </div>
+  </div>
+</div>
+
+<style>
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+</style>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════════════════
+const API_BASE = 'http://localhost:5000/api/v1/maps';
+const FLOOR_ID = 1;
+
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+let mapData = null;
+let transform = { x: 0, y: 0, zoom: 1 };
+let isDragging = false;
+let lastMouse = { x: 0, y: 0 };
+let selectedNodeId = null;
+let showLabels = true;
+let showEdges = true;
+let showGrid = false;
+
+// Coordinate Metadata
+let mapResolution = 0.05;
+let mapOriginX = 0;
+let mapOriginY = 0;
+let imgWidthPixels = 0;
+let imgHeightPixels = 0;
+
+const NODE_TYPE_COLORS = {
+  Corridor:  '#3b82f6',
+  CHECKOUT:  '#f59e0b',
+  DOCK:      '#10b981',
+  REST:      '#8b5cf6',
+  Entrance:  '#06b6d4',
+  Shelf:     '#f97316',
+  default:   '#3b82f6',
+};
+
+// ═══════════════════════════════════════════════════════════════
+// DOM REFS
+// ═══════════════════════════════════════════════════════════════
+const $loader      = document.getElementById('loader');
+const $error       = document.getElementById('error-panel');
+const $errorMsg    = document.getElementById('error-message');
+const $svg         = document.getElementById('map-svg');
+const $canvas      = document.getElementById('canvas-area');
+const $zoomHud     = document.getElementById('zoom-hud');
+const $liveBadge   = document.getElementById('live-badge');
+const $topBadges   = document.getElementById('topbar-badges');
+const $metaGrid    = document.getElementById('meta-grid');
+const $nodeList    = document.getElementById('node-list');
+const $nodeSearch  = document.getElementById('node-search');
+const $nodeTitle   = document.getElementById('node-list-title');
+const $coordTip    = document.getElementById('coord-tooltip');
+const $coordX      = document.getElementById('coord-x');
+const $coordY      = document.getElementById('coord-y');
+const $coordPx     = document.getElementById('coord-px');
+const $mapNameBadge= document.getElementById('map-name-badge');
+const $toggleLabels= document.getElementById('toggle-labels');
+const $toggleEdges = document.getElementById('toggle-edges');
+const $toggleGrid  = document.getElementById('toggle-grid');
+
+// ═══════════════════════════════════════════════════════════════
+// COORDINATE CONVERSION (ROS2 meters ↔ SVG pixels)
+// ═══════════════════════════════════════════════════════════════
+/**
+ * Converts a Canvas Pixel (px, py) to a ROS 2 Coordinate (ros_x, ros_y)
+ */
+function pixelsToRos(px, py) {
+  if (imgHeightPixels <= 0) return { x: 0, y: 0 };
+  
+  // Invert the Y axis (Canvas Top-Left vs ROS 2 Bottom-Left)
+  const ros_grid_y = (imgHeightPixels - 1) - py;
+  
+  return {
+    x: mapOriginX + (px * mapResolution),
+    y: mapOriginY + (ros_grid_y * mapResolution)
+  };
+}
+
+/**
+ * Converts a ROS 2 Coordinate (ros_x, ros_y) to a Canvas Pixel (px, py)
+ */
+function rosToPixels(ros_x, ros_y) {
+  if (imgHeightPixels <= 0) return { x: 0, y: 0 };
+
+  const px = (ros_x - mapOriginX) / mapResolution;
+  const ros_grid_y = (ros_y - mapOriginY) / mapResolution;
+  
+  // Invert the Y axis back for Canvas
+  const py = (imgHeightPixels - 1) - ros_grid_y;
+  
+  return { x: px, y: py };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FETCH MAP DATA
+// ═══════════════════════════════════════════════════════════════
+async function loadMap() {
+  $loader.style.display = 'flex';
+  $error.style.display = 'none';
+  $svg.style.display = 'none';
+
+  try {
+    const token = localStorage.getItem('accessToken') || '';
+    const res = await fetch(`${API_BASE}/latest?floorId=${FLOOR_ID}`, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    mapData = await res.json();
+    
+    // Set metadata for coordinate math
+    mapResolution = mapData.resolution || 0.05;
+    mapOriginX = mapData.originX || 0;
+    mapOriginY = mapData.originY || 0;
+    imgWidthPixels = Math.round(mapData.widthMeters / mapResolution);
+    imgHeightPixels = Math.round(mapData.heightMeters / mapResolution);
+
+    $loader.style.display = 'none';
+    $svg.style.display = 'block';
+    $zoomHud.style.display = 'flex';
+    $liveBadge.style.display = 'flex';
+    $coordTip.style.display = 'block';
+
+    renderMetadata();
+    renderNodeList();
+    renderMap();
+    fitView();
+  } catch (err) {
+    console.error('Failed to load map:', err);
+    $loader.style.display = 'none';
+    $errorMsg.textContent = `Lỗi: ${err.message}`;
+    $error.style.display = 'flex';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER METADATA
+// ═══════════════════════════════════════════════════════════════
+function renderMetadata() {
+  if (!mapData) return;
+
+  $mapNameBadge.textContent = mapData.mapName || 'ROS2 Map';
+
+  const items = [
+    { label: 'Map ID',      value: `#${mapData.mapId}`,                        icon: 'tag' },
+    { label: 'Floor',       value: `Tầng ${mapData.floorId}`,                  icon: 'layers' },
+    { label: 'Kích thước',  value: `${mapData.widthMeters?.toFixed(1)} × ${mapData.heightMeters?.toFixed(1)}`, unit: 'm', icon: 'straighten' },
+    { label: 'Resolution',  value: `${mapData.resolution}`,                    unit: 'm/px', icon: 'grid_on' },
+    { label: 'Origin X',    value: `${mapData.originX?.toFixed(3)}`,           unit: 'm',    icon: 'east' },
+    { label: 'Origin Y',    value: `${mapData.originY?.toFixed(3)}`,           unit: 'm',    icon: 'south' },
+    { label: 'Nodes',       value: `${mapData.nodes?.length || 0}`,            icon: 'location_on' },
+    { label: 'Edges',       value: `${mapData.edges?.length || 0}`,            icon: 'timeline' },
+  ];
+
+  $metaGrid.innerHTML = items.map(i => `
+    <div class="meta-card">
+      <div class="label">${i.label}</div>
+      <div class="value">${i.value}${i.unit ? `<span class="unit">${i.unit}</span>` : ''}</div>
+    </div>
+  `).join('');
+
+  // Top bar badges
+  $topBadges.innerHTML = `
+    <span class="badge badge-purple">Map #${mapData.mapId}</span>
+    <span class="badge badge-blue">${mapData.nodes?.length || 0} Nodes</span>
+    <span class="badge badge-amber">${mapData.edges?.length || 0} Edges</span>
+    <span class="badge badge-emerald">Res: ${mapData.resolution} m/px</span>
+    ${mapData.isActive ? '<span class="badge badge-emerald">✓ Active</span>' : '<span class="badge badge-rose">Inactive</span>'}
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER NODE LIST (Sidebar)
+// ═══════════════════════════════════════════════════════════════
+function renderNodeList(filter = '') {
+  if (!mapData?.nodes) return;
+
+  const nodes = mapData.nodes.filter(n => {
+    if (!filter) return true;
+    const q = filter.toLowerCase();
+    return (n.nodeName || '').toLowerCase().includes(q) ||
+           (n.nodeType || '').toLowerCase().includes(q) ||
+           String(n.nodeId).includes(q);
+  });
+
+  $nodeTitle.textContent = `📍 Danh Sách Node (${nodes.length})`;
+
+  if (nodes.length === 0) {
+    $nodeList.innerHTML = `<div class="empty-state"><span class="material-symbols-outlined">search_off</span><p>Không tìm thấy node</p></div>`;
+    return;
+  }
+
+  $nodeList.innerHTML = nodes.map(n => {
+    const color = NODE_TYPE_COLORS[n.nodeType] || NODE_TYPE_COLORS.default;
+    const isActive = selectedNodeId === n.nodeId;
+    return `
+      <div class="node-item ${isActive ? 'active' : ''}" onclick="selectNode(${n.nodeId})" data-node-id="${n.nodeId}">
+        <div class="node-dot ${n.isBlocked ? 'blocked' : 'normal'}" style="background:${n.isBlocked ? '' : color}"></div>
+        <div class="node-info">
+          <div class="node-name">${n.nodeName || `Node ${n.nodeId}`}</div>
+          <div class="node-coords">X: ${n.xCoord?.toFixed(3)}  Y: ${n.yCoord?.toFixed(3)}</div>
+        </div>
+        <span class="node-type-badge" style="background:${color}22;color:${color}">${n.nodeType || 'N/A'}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+$nodeSearch.addEventListener('input', () => renderNodeList($nodeSearch.value));
+
+// ═══════════════════════════════════════════════════════════════
+// SELECT NODE
+// ═══════════════════════════════════════════════════════════════
+function selectNode(nodeId) {
+  selectedNodeId = selectedNodeId === nodeId ? null : nodeId;
+  renderNodeList($nodeSearch.value);
+  renderMap();
+
+  // Focus on selected node
+  if (selectedNodeId && mapData) {
+    const node = mapData.nodes.find(n => n.nodeId === nodeId);
+    if (node) {
+      const pos = rosToPixels(node.xCoord, node.yCoord);
+      const px = pos.x;
+      const py = pos.y;
+      
+      const rect = $canvas.getBoundingClientRect();
+      transform.zoom = Math.max(transform.zoom, 1.5);
+      transform.x = rect.width / 2 - px * transform.zoom;
+      transform.y = rect.height / 2 - py * transform.zoom;
+      renderMap();
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER SVG MAP
+// ═══════════════════════════════════════════════════════════════
+function renderMap() {
+  if (!mapData) return;
+
+  const wPx = imgWidthPixels;
+  const hPx = imgHeightPixels;
+  const nodes = mapData.nodes || [];
+  const edges = mapData.edges || [];
+  const nodeById = Object.fromEntries(nodes.map(n => [n.nodeId, n]));
+
+  // Floorplan image
+  let floorplanSvg = '';
+  if (mapData.floorplanImageUrl) {
+    const imgUrl = mapData.floorplanImageUrl.startsWith('http')
+      ? mapData.floorplanImageUrl
+      : `http://localhost:5000${mapData.floorplanImageUrl}`;
+    floorplanSvg = `<image href="${imgUrl}" x="0" y="0" width="${wPx}" height="${hPx}" preserveAspectRatio="none" opacity="0.85" />`;
+  }
+
+  // Grid
+  let gridSvg = '';
+  if (showGrid) {
+    const gridStep = 1.0 / mapResolution; // 1 meter in pixels
+    let lines = '';
+    for (let x = 0; x <= wPx; x += gridStep) {
+      lines += `<line x1="${x}" y1="0" x2="${x}" y2="${hPx}" stroke="rgba(148,163,184,0.08)" stroke-width="0.5" />`;
+    }
+    for (let y = 0; y <= hPx; y += gridStep) {
+      lines += `<line x1="0" y1="${y}" x2="${wPx}" y2="${y}" stroke="rgba(148,163,184,0.08)" stroke-width="0.5" />`;
+    }
+    gridSvg = `<g class="grid-layer">${lines}</g>`;
+  }
+
+  // Edges
+  let edgesSvg = '';
+  if (showEdges) {
+    edgesSvg = edges.map(e => {
+      const a = nodeById[e.fromNodeId];
+      const b = nodeById[e.toNodeId];
+      if (!a || !b) return '';
+      
+      const posA = rosToPixels(a.xCoord, a.yCoord);
+      const posB = rosToPixels(b.xCoord, b.yCoord);
+      const x1 = posA.x, y1 = posA.y;
+      const x2 = posB.x, y2 = posB.y;
+      
+      const dash = e.isBidirectional ? '' : 'stroke-dasharray="6 4"';
+      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="rgba(203,213,225,0.4)" stroke-width="1.5" ${dash} />`;
+    }).join('');
+    edgesSvg = `<g class="edges-layer" pointer-events="none">${edgesSvg}</g>`;
+  }
+
+  // Nodes
+  const nodesSvg = nodes.map(n => {
+    const pos = rosToPixels(n.xCoord, n.yCoord);
+    const cx = pos.x;
+    const cy = pos.y;
+    
+    const isSelected = selectedNodeId === n.nodeId;
+    const color = n.isBlocked ? '#f43f5e' : (isSelected ? '#22c55e' : (NODE_TYPE_COLORS[n.nodeType] || NODE_TYPE_COLORS.default));
+    const r = isSelected ? 3.5 : 2.5;
+    const strokeW = isSelected ? 1 : 0.5;
+    const glow = isSelected ? `<circle cx="${cx}" cy="${cy}" r="6" fill="${color}" fill-opacity="0.2"><animate attributeName="r" values="6;8;6" dur="1.5s" repeatCount="indefinite"/></circle>` : '';
+    const label = showLabels ? `<text x="${cx}" y="${cy - 4}" text-anchor="middle" class="svg-node-label ${isSelected ? 'selected' : ''} ${n.isBlocked ? 'blocked' : ''}">${n.nodeName || `Node ${n.nodeId}`}</text>` : '';
+
+    return `
+      <g class="node-group" style="cursor:pointer" onclick="selectNode(${n.nodeId})">
+        ${glow}
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" fill-opacity="0.9" stroke="#fff" stroke-width="${strokeW}" />
+        ${label}
+      </g>
+    `;
+  }).join('');
+
+  // Compose
+  $svg.innerHTML = `
+    <defs>
+      <pattern id="bg-dots" width="20" height="20" patternUnits="userSpaceOnUse">
+        <circle cx="1" cy="1" r="0.5" fill="rgba(148,163,184,0.1)" />
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#bg-dots)" />
+    <g id="map-group" transform="translate(${transform.x}, ${transform.y}) scale(${transform.zoom})">
+      <rect x="0" y="0" width="${wPx}" height="${hPx}" fill="rgba(30,41,59,0.3)" rx="4" />
+      ${floorplanSvg}
+      ${gridSvg}
+      ${edgesSvg}
+      <g class="nodes-layer">${nodesSvg}</g>
+    </g>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PAN / ZOOM
+// ═══════════════════════════════════════════════════════════════
+$canvas.addEventListener('mousedown', (e) => {
+  isDragging = true;
+  lastMouse = { x: e.clientX, y: e.clientY };
+  $canvas.style.cursor = 'grabbing';
+});
+
+$canvas.addEventListener('mousemove', (e) => {
+  // Update coord tooltip
+  const rect = $canvas.getBoundingClientRect();
+  const canvasX = (e.clientX - rect.left - transform.x) / transform.zoom;
+  const canvasY = (e.clientY - rect.top - transform.y) / transform.zoom;
+  
+  const rosCoords = pixelsToRos(canvasX, canvasY);
+  $coordX.textContent = rosCoords.x.toFixed(3);
+  $coordY.textContent = rosCoords.y.toFixed(3);
+  $coordPx.textContent = `${Math.round(canvasX)}, ${Math.round(canvasY)}`;
+
+  if (!isDragging) return;
+  const dx = e.clientX - lastMouse.x;
+  const dy = e.clientY - lastMouse.y;
+  lastMouse = { x: e.clientX, y: e.clientY };
+  transform.x += dx;
+  transform.y += dy;
+
+  // Update only the transform (no full re-render for perf)
+  const g = document.getElementById('map-group');
+  if (g) g.setAttribute('transform', `translate(${transform.x}, ${transform.y}) scale(${transform.zoom})`);
+});
+
+$canvas.addEventListener('mouseup', () => { isDragging = false; $canvas.style.cursor = 'grab'; });
+$canvas.addEventListener('mouseleave', () => { isDragging = false; $canvas.style.cursor = 'grab'; });
+
+$canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const rect = $canvas.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  const newZoom = Math.max(0.1, Math.min(10, transform.zoom * delta));
+  transform.x = mouseX - (mouseX - transform.x) * (newZoom / transform.zoom);
+  transform.y = mouseY - (mouseY - transform.y) * (newZoom / transform.zoom);
+  transform.zoom = newZoom;
+
+  const g = document.getElementById('map-group');
+  if (g) g.setAttribute('transform', `translate(${transform.x}, ${transform.y}) scale(${transform.zoom})`);
+}, { passive: false });
+
+function zoomIn()  { transform.zoom = Math.min(10, transform.zoom * 1.3); renderMap(); }
+function zoomOut() { transform.zoom = Math.max(0.1, transform.zoom / 1.3); renderMap(); }
+function resetView() { transform = { x: 0, y: 0, zoom: 1 }; renderMap(); }
+
+function fitView() {
+  if (!mapData) return;
+  const rect = $canvas.getBoundingClientRect();
+  const wPx = imgWidthPixels;
+  const hPx = imgHeightPixels;
+  const zoom = Math.min((rect.width - 60) / wPx, (rect.height - 60) / hPx, 5);
+  transform = {
+    x: (rect.width - wPx * zoom) / 2,
+    y: (rect.height - hPx * zoom) / 2,
+    zoom
+  };
+  renderMap();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TOGGLE HANDLERS
+// ═══════════════════════════════════════════════════════════════
+$toggleLabels.addEventListener('change', () => { showLabels = $toggleLabels.checked; renderMap(); });
+$toggleEdges.addEventListener('change', () => { showEdges = $toggleEdges.checked; renderMap(); });
+$toggleGrid.addEventListener('change', () => { showGrid = $toggleGrid.checked; renderMap(); });
+
+// ═══════════════════════════════════════════════════════════════
+// WINDOW RESIZE
+// ═══════════════════════════════════════════════════════════════
+window.addEventListener('resize', () => { if (mapData) fitView(); });
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+loadMap();
+</script>
+</body>
+</html>

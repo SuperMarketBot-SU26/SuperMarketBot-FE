@@ -37,11 +37,11 @@ export function EdgesLayer({ nodes, edges, effScaleX, effScaleY }) {
  * Blocked nodes glow red.
  * Node name is only shown for the currently selected node.
  */
-export function NodesLayer({ nodes, metersToPx, effScaleX, effScaleY, onNodeClick, selectedNodeId = null }) {
+export function NodesLayer({ nodes, metersToPx, effScaleX, effScaleY, onNodeClick, selectedNodeId = null, showAllLabels = false }) {
   return (
     <g>
       {nodes.map((n) => {
-        const r = n.nodeType === 'dock' ? 7 : n.nodeType === 'poi' ? 6 : 5
+        const r = n.nodeType === 'dock' ? 3 : n.nodeType === 'poi' ? 2.5 : 2
         const isSelected = selectedNodeId === n.nodeId
         const cx = effScaleX ? effScaleX(n.xCoord) : metersToPx(n.xCoord)
         const cy = effScaleY ? effScaleY(n.yCoord) : metersToPx(n.yCoord)
@@ -59,11 +59,12 @@ export function NodesLayer({ nodes, metersToPx, effScaleX, effScaleY, onNodeClic
               stroke="#ffffff"
               strokeWidth={2}
             />
-            {isSelected && (
+            {(isSelected || showAllLabels) && (
               <text
-                y={-12}
+                y={-6}
                 textAnchor="middle"
-                className="text-[11px] font-bold fill-emerald-600 dark:fill-emerald-400 stroke-white stroke-2 paint-order-stroke"
+                className="font-sans font-bold fill-emerald-600 dark:fill-emerald-400 stroke-white stroke-[0.3px] paint-order-stroke"
+                style={{ fontSize: 4 }}
               >
                 {n.nodeName || n.label || `Node ${n.nodeId}`}
               </text>
@@ -98,7 +99,7 @@ export function RouteLayer({ route, nodesById, effScaleX, effScaleY }) {
         points={polylinePts}
         fill="none"
         stroke={stroke}
-        strokeWidth={6}
+        strokeWidth={2}
         strokeOpacity={0.25}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -108,20 +109,20 @@ export function RouteLayer({ route, nodesById, effScaleX, effScaleY }) {
         points={polylinePts}
         fill="none"
         stroke={stroke}
-        strokeWidth={3}
-        strokeDasharray="8 6"
+        strokeWidth={1}
+        strokeDasharray="4 3"
         strokeLinecap="round"
         strokeLinejoin="round"
         className="animate-route-dash"
       />
       {pts.map((p, idx) => (
         <g key={`${route.robotRouteId}-${idx}`} transform={`translate(${effScaleX(p.xCoord)}, ${effScaleY(p.yCoord)})`}>
-          <circle r={8} fill={stroke} fillOpacity={0.3} className="smb-pulse-ring" />
-          <circle r={6} fill={stroke} />
+          <circle r={3.5} fill={stroke} fillOpacity={0.3} className="smb-pulse-ring" />
+          <circle r={2.5} fill={stroke} />
           <text
-            y={3.5} textAnchor="middle"
+            y={1} textAnchor="middle"
             className="fill-white"
-            style={{ fontSize: 9, fontWeight: 800 }}
+            style={{ fontSize: 3.5, fontWeight: 800 }}
           >
             {idx + 1}
           </text>
@@ -161,7 +162,7 @@ export function SemanticObjectsLayer({ objects, effScaleX, effScaleY }) {
                 textAnchor="middle"
                 dominantBaseline="middle"
                 className="fill-smb-on-secondary-fixed-variant"
-                style={{ fontSize: 10, fontWeight: 600 }}
+                style={{ fontSize: 4, fontWeight: 600 }}
               >
                 {o.label}
               </text>

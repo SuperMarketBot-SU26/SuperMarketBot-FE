@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
@@ -9,15 +9,41 @@ export function ThreeDSupermarketMap({
   robotPoses = {},
   selectedNodeId = null,
   onNodeClick,
+  onToggleEdit,
+  // ROS Bridge Props
+  enableRosBridge = false,
+  rosMapData = null,
+  rosRobotPose = null,
+  laserScan = null,
 }) {
-  const navigate = useNavigate()
   const mountRef = useRef(null)
   const sceneRef = useRef(null)
   const robotMeshesRef = useRef({})
   const nodesGroupRef = useRef(null)
+  const floorMeshRef = useRef(null)
+  const laserPointsRef = useRef(null)
+  const smoothedRosPoseRef = useRef({ x: 0, y: 0, yaw: 0 })
 
   const widthMeters = map?.widthMeters || 13.6
   const heightMeters = map?.heightMeters || 8.35
+
+  // Smooth ROS pose for 3D animation
+  useEffect(() => {
+    if (!rosRobotPose) return
+
+    const target = {
+      x: rosRobotPose.position?.x || 0,
+      y: rosRobotPose.position?.y || 0,
+      yaw: rosRobotPose.orientation?.yaw || 0,
+    }
+
+    const lerpFactor = 0.15
+    smoothedRosPoseRef.current = {
+      x: smoothedRosPoseRef.current.x + (target.x - smoothedRosPoseRef.current.x) * lerpFactor,
+      y: smoothedRosPoseRef.current.y + (target.y - smoothedRosPoseRef.current.y) * lerpFactor,
+      yaw: smoothedRosPoseRef.current.yaw + (target.yaw - smoothedRosPoseRef.current.yaw) * lerpFactor,
+    }
+  }, [rosRobotPose])
 
   useEffect(() => {
     const container = mountRef.current
@@ -113,6 +139,7 @@ export function ThreeDSupermarketMap({
     floor.position.set(centerX, 0, centerY)
     floor.receiveShadow = true
     scene.add(floor)
+    floorMeshRef.current = floor
 
     // Grid Helper centered on floor
     const gridHelper = new THREE.GridHelper(Math.max(mapW, mapH) * 1.3, 20, 0x334155, 0x1e293b)
@@ -219,15 +246,22 @@ export function ThreeDSupermarketMap({
       }
       renderer.dispose()
     }
-  }, [map, widthMeters, heightMeters, selectedNodeId])
+  }, [map, widthMeters, heightMeters, selectedNodeId, enableRosBridge])
 
   // Update Robot 3D Position & Heading
   useEffect(() => {
     const scene = sceneRef.current
     if (!scene) return
 
+    // Use ROS pose if available, otherwise fall back to robotPoses
+    const useRosPose = enableRosBridge && smoothedRosPoseRef.current
+
     robots.forEach((r) => {
-      const pose = robotPoses[r.robotCode] || { x: widthMeters / 2, y: heightMeters / 2, headingDeg: 0 }
+      const basePose = useRosPose ? smoothedRosPoseRef.current : (robotPoses[r.robotCode] || { x: widthMeters / 2, y: heightMeters / 2, headingDeg: 0 })
+      
+      const pose = useRosPose 
+        ? basePose 
+        : { x: basePose.x, y: basePose.y, headingDeg: basePose.headingDeg || 0 }
 
       let robotMesh = robotMeshesRef.current[r.robotCode]
       if (!robotMesh) {
@@ -271,9 +305,114 @@ export function ThreeDSupermarketMap({
       }
 
       robotMesh.group.position.set(pose.x, 0, pose.y)
-      robotMesh.group.rotation.y = -(pose.headingDeg || 0) * (Math.PI / 180)
+      const yaw = useRosPose ? -pose.yaw : -(pose.headingDeg || 0) * (Math.PI / 180)
+      robotMesh.group.rotation.y = yaw
     })
-  }, [robots, robotPoses, widthMeters, heightMeters])
+  }, [robots, robotPoses, widthMeters, heightMeters, enableRosBridge])
+
+  // Update floor texture from ROS OccupancyGrid
+  useEffect(() => {
+    if (!enableRosBridge || !rosMapData || !floorMeshRef.current) return
+
+    const { info, data } = rosMapData
+    if (!data || !data.length) return
+
+    const { width, height, resolution } = info
+    const size = width * height
+    
+    // Create image data for DataTexture
+    const imageData = new Uint8Array(size * 4)
+    
+    for (let i = 0; i < size; i++) {
+      const value = data[i] ?? -1
+      const idx = i * 4
+      
+      if (value === -1) {
+        // Unknown - gray
+        imageData[idx] = 100
+        imageData[idx + 1] = 100
+        imageData[idx + 2] = 120
+        imageData[idx + 3] = 128
+      } else if (value === 0) {
+        // Free space
+        imageData[idx] = 30
+        imageData[idx + 1] = 35
+        imageData[idx + 2] = 45
+        imageData[idx + 3] = 200
+      } else {
+        // Occupied - darker
+        const intensity = Math.min(255, value * 2.5)
+        imageData[idx] = intensity * 0.2
+        imageData[idx + 1] = intensity * 0.25
+        imageData[idx + 2] = intensity * 0.35
+        imageData[idx + 3] = 255
+      }
+    }
+
+    const texture = new THREE.DataTexture(imageData, width, height, THREE.RGBAFormat)
+    texture.needsUpdate = true
+    texture.magFilter = THREE.NearestFilter
+    texture.minFilter = THREE.NearestFilter
+
+    if (floorMeshRef.current.material) {
+      floorMeshRef.current.material.map = texture
+      floorMeshRef.current.material.needsUpdate = true
+    }
+  }, [enableRosBridge, rosMapData])
+
+  // Update laser scan visualization
+  useEffect(() => {
+    const scene = sceneRef.current
+    if (!scene || !enableRosBridge || !laserScan?.points?.length) return
+
+    // Remove old laser points
+    if (laserPointsRef.current) {
+      scene.remove(laserPointsRef.current)
+      laserPointsRef.current.geometry?.dispose()
+      laserPointsRef.current.material?.dispose()
+    }
+
+    // Create new point cloud
+    const points = laserScan.points
+    const positions = new Float32Array(points.length * 3)
+    const colors = new Float32Array(points.length * 3)
+
+    points.forEach((p, i) => {
+      positions[i * 3] = p.x
+      positions[i * 3 + 1] = p.y
+      positions[i * 3 + 2] = 0.1 // Slightly above floor
+
+      // Red gradient based on distance
+      const intensity = Math.min(1, p.range / 5)
+      colors[i * 3] = 1.0
+      colors[i * 3 + 1] = 0.3 * (1 - intensity)
+      colors[i * 3 + 2] = 0.2 * (1 - intensity)
+    })
+
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+
+    const material = new THREE.PointsMaterial({
+      size: 0.05,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.8,
+      sizeAttenuation: true,
+    })
+
+    const pointCloud = new THREE.Points(geometry, material)
+    laserPointsRef.current = pointCloud
+    scene.add(pointCloud)
+
+    return () => {
+      if (laserPointsRef.current) {
+        scene.remove(laserPointsRef.current)
+        laserPointsRef.current.geometry?.dispose()
+        laserPointsRef.current.material?.dispose()
+      }
+    }
+  }, [enableRosBridge, laserScan])
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-2xl border border-smb-outline-variant/60 bg-[#0b0f17] shadow-sm">
@@ -294,7 +433,7 @@ export function ThreeDSupermarketMap({
 
         <button
           type="button"
-          onClick={() => navigate('/robot-monitoring/map-editor')}
+          onClick={onToggleEdit}
           className="flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-purple-600/30 transition-all hover:bg-purple-500 active:scale-95 cursor-pointer"
         >
           <span className="material-symbols-outlined text-[18px]">edit_square</span>

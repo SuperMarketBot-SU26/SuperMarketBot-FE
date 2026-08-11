@@ -8,10 +8,12 @@ import {
 } from './MapLayers'
 import { FloorplanLayer } from './Floorplan'
 import { ThreeDSupermarketMap } from './ThreeDSupermarketMap'
+import { SlamCanvas, SlamMinimap } from './SlamCanvas'
 import { statusPalette, clampZoom } from '../utils/robotHelpers'
+import { useRosConnection } from '../hooks/useRosConnection'
 import { ROUTE_TYPE_META } from './RobotAssignmentPanel'
 import logoUrl from '../../../assets/logo.png'
-import { syncMap } from '../api/mapsApi'
+import { syncMap, uploadFloorplanImage } from '../api/mapsApi'
 
 
 const STATUS_HEX = {
@@ -46,7 +48,11 @@ export function FleetMap({
   onClearSelection,
   onSelectRobot,
   isEditing = false,
+  onToggleEdit,
   onMapSaved,
+  robotIp = '192.168.0.105',
+  foxglovePort = 8765,
+  enableRosBridge = false,
 }) {
   const navigate = useNavigate()
   const containerRef = useRef(null)
@@ -58,6 +64,28 @@ export function FleetMap({
   const isDragging = useRef(false)
   const lastPos = useRef({ x: 0, y: 0 })
 
+  // ROS Bridge Connection State
+  const {
+    isConnected: rosConnected,
+    connectionState: rosConnectionState,
+    rosMapData,
+    robotPose: rosRobotPose,
+    laserScan,
+    reconnect: rosReconnect,
+  } = useRosConnection({
+    robotIp,
+    port: foxglovePort,
+    autoConnect: enableRosBridge && viewMode === 'slam',
+    subscribeTopics: ['/map', '/odom', '/scan', '/tf'],
+  })
+
+  // Update ROS auto-connect when SLAM mode changes
+  useEffect(() => {
+    if (enableRosBridge && viewMode === 'slam') {
+      rosReconnect();
+    }
+  }, [viewMode, enableRosBridge, rosReconnect])
+
 
   const [drawMode, setDrawMode] = useState('none')
   const [localNodes, setLocalNodes] = useState([])
@@ -65,6 +93,9 @@ export function FleetMap({
   const [tempEdge, setTempEdge] = useState(null)
   const [saving, setSaving] = useState(false)
   const [activeEditNodeId, setActiveEditNodeId] = useState(null)
+  const [showAllLabels, setShowAllLabels] = useState(false)
+  const [history, setHistory] = useState([])
+  const slamFileRef = useRef(null)
 
   useEffect(() => {
     if (isEditing && map) {
@@ -72,58 +103,60 @@ export function FleetMap({
       setLocalEdges(map.edges || [])
       setDrawMode('none')
       setActiveEditNodeId(null)
+      if (viewMode === '3d_interactive') {
+        setViewMode('slam')
+      }
     }
-  }, [isEditing, map])
+  }, [isEditing, map, viewMode])
 
-  const pxToMetersX = useCallback((xPx) => {
-    const xMetersRaw = xPx / scale;
-    if (map?.resolution > 0 && map?.originX !== undefined) {
-      return (xMetersRaw * map.resolution) + map.originX;
-    }
-    return xMetersRaw;
-  }, [map?.resolution, map?.originX, scale])
+  // Map Metadata & Coordinate Math Helpers
+  const mapResolution = map?.resolution || 0.05;
+  const mapOriginX = map?.originX || 0;
+  const mapOriginY = map?.originY || 0;
 
-  const pxToMetersY = useCallback((yPx) => {
-    const yMetersRaw = yPx / scale;
-    if (map?.resolution > 0 && map?.originY !== undefined) {
-      return (yMetersRaw * map.resolution) + map.originY;
-    }
-    return yMetersRaw;
-  }, [map?.resolution, map?.originY, scale])
+  const [effSize, setEffSize] = useState({ widthMeters: 20, heightMeters: 15, widthPx: 400, heightPx: 300 })
 
-  const [effSize, setEffSize] = useState({ widthMeters: 20, heightMeters: 15, widthPx: 20 * 64, heightPx: 15 * 64 })
+  const pxToMetersX = useCallback((px) => {
+    return mapOriginX + (px * mapResolution);
+  }, [mapOriginX, mapResolution])
+
+  const pxToMetersY = useCallback((py) => {
+    const imgHeightPixels = effSize.heightPx;
+    if (imgHeightPixels <= 0) return mapOriginY;
+    const ros_grid_y = (imgHeightPixels - 1) - py;
+    return mapOriginY + (ros_grid_y * mapResolution);
+  }, [mapOriginY, mapResolution, effSize.heightPx])
+
 
   useEffect(() => {
     if (!map) return
+    const res = map.resolution || 0.05;
     setEffSize({
       widthMeters: map.widthMeters || 20,
       heightMeters: map.heightMeters || 15,
-      widthPx: (map.widthMeters || 20) * scale,
-      heightPx: (map.heightMeters || 15) * scale,
+      widthPx: Math.round((map.widthMeters || 20) / res),
+      heightPx: Math.round((map.heightMeters || 15) / res),
     })
-  }, [map?.mapId, scale, map?.widthMeters, map?.heightMeters])
+  }, [map?.mapId, map?.resolution, map?.widthMeters, map?.heightMeters])
 
   const svgW = effSize.widthPx
   const svgH = effSize.heightPx
 
   // Map ROS SLAM (Meters) -> Pixel canvas using Resolution & Origin
-  const effScaleX = useCallback((xMeters) => {
-    if (map?.resolution > 0 && map?.originX !== undefined) {
-      return (xMeters - map.originX) / map.resolution
-    }
-    return xMeters * scale
-  }, [map?.resolution, map?.originX, scale])
+  const effScaleX = useCallback((ros_x) => {
+    return (ros_x - mapOriginX) / mapResolution;
+  }, [mapOriginX, mapResolution])
 
-  const effScaleY = useCallback((yMeters) => {
-    if (map?.resolution > 0 && map?.originY !== undefined) {
-      return (yMeters - map.originY) / map.resolution
-    }
-    return yMeters * scale
-  }, [map?.resolution, map?.originY, effSize.heightPx, scale])
+  const effScaleY = useCallback((ros_y) => {
+    const imgHeightPixels = effSize.heightPx;
+    if (imgHeightPixels <= 0) return 0;
+    const ros_grid_y = (ros_y - mapOriginY) / mapResolution;
+    return (imgHeightPixels - 1) - ros_grid_y;
+  }, [mapOriginY, mapResolution, effSize.heightPx])
 
   const effScale = useCallback((val) => {
-    return val * (effSize.widthMeters > 0 ? effSize.widthPx / effSize.widthMeters : scale)
-  }, [effSize, scale])
+    return val / mapResolution;
+  }, [mapResolution])
 
   useEffect(() => {
     const container = containerRef.current
@@ -181,6 +214,7 @@ export function FleetMap({
   useEffect(() => {
     if (!map || !containerRef.current) return
     const fitToView = () => {
+      if (!containerRef.current) return
       const rect = containerRef.current.getBoundingClientRect()
       const zoom = Math.min((rect.width - 80) / svgW, (rect.height - 80) / svgH, 4)
       const newTransform = {
@@ -206,8 +240,8 @@ export function FleetMap({
     if (!pose) return
 
     const rect = containerRef.current.getBoundingClientRect()
-    const robotX = effScale(pose.x)
-    const robotY = effScale(pose.y)
+    const robotX = effScaleX(pose.x)
+    const robotY = effScaleY(pose.y)
     const zoom = Math.max(currentTransform.zoom, 1.2)
 
     setTargetTransform({
@@ -271,7 +305,6 @@ export function FleetMap({
 
   const handleMouseUp = () => {
     isDragging.current = false
-    if (isEditing && drawMode === 'none') setActiveEditNodeId(null)
   }
 
   const handleClick = (e) => {
@@ -284,9 +317,10 @@ export function FleetMap({
           const canvasX = ((e.clientX - rect.left) - currentTransform.x) / currentTransform.zoom
           const canvasY = ((e.clientY - rect.top) - currentTransform.y) / currentTransform.zoom
           
+          pushHistory()
           const newNode = {
             nodeId: 'temp_' + Date.now(),
-            nodeName: 'New Node',
+            nodeName: 'Node mới',
             xCoord: pxToMetersX(canvasX),
             yCoord: pxToMetersY(canvasY),
             nodeType: 'Corridor',
@@ -320,6 +354,7 @@ export function FleetMap({
             (e.toNodeId === tempEdge.sourceId && e.fromNodeId === n.nodeId && e.isBidirectional)
           )
           if (!exists) {
+            pushHistory()
             setLocalEdges(prev => [...prev, {
               edgeId: 'temp_' + Date.now(),
               fromNodeId: tempEdge.sourceId,
@@ -363,38 +398,111 @@ export function FleetMap({
     
     setSaving(true)
     try {
+
+      let tempNodeCounter = -1;
+      const idMapping = new Map();
+
+      const nodesPayload = localNodes.map(n => {
+        let finalId = Number(n.nodeId);
+        if (typeof n.nodeId === 'string' && n.nodeId.startsWith('temp_')) {
+          finalId = tempNodeCounter--;
+        }
+        idMapping.set(n.nodeId, finalId);
+
+        return {
+          nodeId: finalId,
+          nodeName: n.nodeName || n.name || `Node ${n.nodeId}`,
+          xCoord: Number(Number(n.xCoord).toFixed(2)),
+          yCoord: Number(Number(n.yCoord).toFixed(2)),
+          nodeType: n.nodeType || 'Corridor',
+          nodeRole: n.nodeRole || null,
+          isBlocked: n.isBlocked || false
+        }
+      });
+
+      let tempEdgeCounter = -1;
+      const edgesPayload = localEdges.map(e => {
+        let finalEdgeId = Number(e.edgeId);
+        if (typeof e.edgeId === 'string' && e.edgeId.startsWith('temp_')) {
+          finalEdgeId = tempEdgeCounter--;
+        }
+
+        const a = localNodes.find(n => n.nodeId === e.fromNodeId)
+        const b = localNodes.find(n => n.nodeId === e.toNodeId)
+        const dist = (a && b) ? Math.sqrt(Math.pow(a.xCoord - b.xCoord, 2) + Math.pow(a.yCoord - b.yCoord, 2)) : 0
+        
+        return {
+          edgeId: finalEdgeId,
+          fromNodeId: idMapping.get(e.fromNodeId) ?? -1,
+          toNodeId: idMapping.get(e.toNodeId) ?? -1,
+          distance: dist,
+          isBidirectional: e.isBidirectional
+        }
+      });
+
       const payload = {
         floorId: 1,
         mapName: map.mapName || 'Floor 1 Map',
-        nodes: localNodes.map(n => ({
-          nodeId: typeof n.nodeId === 'string' && n.nodeId.startsWith('temp_') ? 0 : Number(n.nodeId),
-          nodeName: n.nodeName || n.name || Node ,
-          xCoord: n.xCoord,
-          yCoord: n.yCoord,
-          nodeType: n.nodeType || 'Corridor'
-        })),
-        edges: localEdges.map(e => ({
-          edgeId: typeof e.edgeId === 'string' && e.edgeId.startsWith('temp_') ? 0 : Number(e.edgeId),
-          fromNodeId: typeof e.fromNodeId === 'string' && e.fromNodeId.startsWith('temp_') ? -1 : Number(e.fromNodeId),
-          toNodeId: typeof e.toNodeId === 'string' && e.toNodeId.startsWith('temp_') ? -1 : Number(e.toNodeId),
-          isBidirectional: e.isBidirectional
-        }))
+        widthMeters: map.widthMeters || 20,
+        heightMeters: map.heightMeters || 15,
+        resolution: map.resolution || 0.05,
+        originX: map.originX || 0,
+        originY: map.originY || 0,
+        originYaw: map.originYaw || 0,
+        nodes: nodesPayload,
+        edges: edgesPayload,
+        semanticObjects: map.semanticObjects || []
       }
       
       const res = await syncMap(payload)
       alert(res.message || 'Luu DB thanh cong!')
       onMapSaved?.()
     } catch (err) {
-      alert('Luu DB that bai: ' + err.message)
+      console.error("Sync Error Payload:", err.response?.data)
+      const detail = JSON.stringify(err.response?.data, null, 2) || err.message
+      alert('Lưu DB thất bại: ' + detail)
     } finally {
       setSaving(false)
     }
   }
 
+  const pushHistory = () => {
+    setHistory(prev => [...prev.slice(-20), { nodes: [...localNodes], edges: [...localEdges] }])
+  }
+
+  const undo = () => {
+    if (history.length === 0) return
+    const last = history[history.length - 1]
+    setLocalNodes(last.nodes)
+    setLocalEdges(last.edges)
+    setHistory(prev => prev.slice(0, -1))
+    setActiveEditNodeId(null)
+  }
+
+  const deleteEdgesOfNode = (nodeId) => {
+    pushHistory()
+    setLocalEdges(prev => prev.filter(e => e.fromNodeId !== nodeId && e.toNodeId !== nodeId))
+  }
+
   const deleteActiveNode = () => {
+    pushHistory()
     setLocalNodes(prev => prev.filter(n => n.nodeId !== activeEditNodeId))
     setLocalEdges(prev => prev.filter(e => e.fromNodeId !== activeEditNodeId && e.toNodeId !== activeEditNodeId))
     setActiveEditNodeId(null)
+  }
+
+  const handleUploadSlam = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file || !map?.mapId) return
+    const formData = new FormData()
+    formData.append('file', file)
+    try {
+      await uploadFloorplanImage(map.mapId, formData)
+      alert('Upload ảnh SLAM thành công!')
+      onMapSaved?.()
+    } catch (err) {
+      alert('Upload thất bại: ' + err.message)
+    }
   }
 
   const routeTypeLegend = Object.fromEntries(
@@ -490,7 +598,175 @@ export function FleetMap({
           robotPoses={robotPoses}
           selectedNodeId={isEditing ? activeEditNodeId : selectedNodeId}
           onNodeClick={isEditing ? handleNodeClickEdit : onNodeClick}
+          onToggleEdit={onToggleEdit}
+          enableRosBridge={enableRosBridge}
+          rosMapData={rosMapData}
+          rosRobotPose={rosRobotPose}
+          laserScan={laserScan}
         />
+      </div>
+    )
+  }
+
+  // SLAM 2D Mode - Real-time ROS 2 Bridge View
+  if (viewMode === 'slam') {
+    return (
+      <div className="relative h-full w-full overflow-hidden rounded-2xl border border-smb-outline-variant/60 bg-[#0b0f17] shadow-sm">
+        {/* SLAM Header */}
+        <div className="absolute left-4 top-4 z-20 flex items-center gap-3">
+          <div className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-slate-900/90 px-3.5 py-1.5 backdrop-blur-md shadow-md">
+            <span className="relative flex size-2.5">
+              {rosConnected ? (
+                <>
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
+                </>
+              ) : (
+                <span className="relative inline-flex size-2.5 rounded-full bg-amber-500" />
+              )}
+            </span>
+            <span className="text-xs font-semibold text-white">
+              {rosConnected ? 'ROS Bridge Connected' : rosConnectionState === 'reconnecting' ? 'Reconnecting...' : 'ROS Bridge Offline'}
+            </span>
+            <span className="text-[10px] text-emerald-300/70">
+              ws://{robotIp}:{foxglovePort}
+            </span>
+          </div>
+
+          {rosMapData && (
+            <div className="rounded-full border border-blue-500/30 bg-slate-900/90 px-3 py-1 backdrop-blur-md shadow-md">
+              <span className="text-xs font-semibold text-blue-400">
+                🗺️ {rosMapData.info?.width}x{rosMapData.info?.height} @ {((rosMapData.info?.resolution || 0.05) * 100).toFixed(1)}cm
+              </span>
+            </div>
+          )}
+
+          {laserScan && (
+            <div className="rounded-full border border-red-500/30 bg-slate-900/90 px-3 py-1 backdrop-blur-md shadow-md">
+              <span className="text-xs font-semibold text-red-400">
+                📡 {laserScan.pointCount || 0} pts
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* View Mode Toggle */}
+        <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
+          <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900/90 p-1 backdrop-blur-md shadow-md">
+            <button
+              type="button"
+              onClick={() => setViewMode('3d_interactive')}
+              className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-300 hover:bg-slate-800 hover:text-white"
+            >
+              <Icon name="3d_rotation" className="text-[16px]" />
+              <span>🧊 3D</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('3d')}
+              className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-300 hover:bg-slate-800 hover:text-white"
+            >
+              <Icon name="view_in_ar" className="text-[16px]" />
+              <span>🎨 3D Flat</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('slam')}
+              className="flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-bold text-white shadow-xs"
+            >
+              <Icon name="grid_view" className="text-[16px]" />
+              <span>📐 LiDAR SLAM</span>
+            </button>
+          </div>
+        </div>
+
+        {/* SLAM Canvas - Full viewport */}
+        <div className="absolute inset-0">
+          <SlamCanvas
+            rosMapData={rosMapData}
+            robotPose={rosRobotPose}
+            laserScan={laserScan}
+            scale={64}
+            showLaserPoints={true}
+            showRobot={true}
+            showGrid={true}
+          />
+        </div>
+
+        {/* Robot Telemetry HUD - Bottom Left */}
+        {rosRobotPose && (
+          <div className="absolute bottom-4 left-4 z-20 flex items-center gap-3">
+            <div className="rounded-xl border border-emerald-500/30 bg-slate-900/90 p-3 backdrop-blur-md shadow-lg">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 mb-2">
+                Robot Pose (ROS)
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="text-center">
+                  <div className="text-[9px] text-slate-500 uppercase">X (m)</div>
+                  <div className="text-sm font-mono font-bold text-white">
+                    {rosRobotPose.position?.x?.toFixed(2) || '0.00'}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[9px] text-slate-500 uppercase">Y (m)</div>
+                  <div className="text-sm font-mono font-bold text-white">
+                    {rosRobotPose.position?.y?.toFixed(2) || '0.00'}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[9px] text-slate-500 uppercase">Yaw (°)</div>
+                  <div className="text-sm font-mono font-bold text-emerald-400">
+                    {rosRobotPose.orientation?.yawDeg?.toFixed(1) || '0.0'}°
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Mini SLAM Map */}
+            <SlamMinimap
+              rosMapData={rosMapData}
+              robotPose={rosRobotPose}
+              laserScan={laserScan}
+              size={150}
+            />
+          </div>
+        )}
+
+        {/* Connection Controls - Bottom Right */}
+        <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2">
+          {!rosConnected && (
+            <button
+              type="button"
+              onClick={rosReconnect}
+              className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-emerald-600/30 transition-all hover:bg-emerald-500 active:scale-95"
+            >
+              <Icon name="sync" className="text-[16px]" />
+              Kết Nối ROS
+            </button>
+          )}
+
+          <div className="rounded-xl border border-slate-700/80 bg-slate-900/90 p-2 backdrop-blur-md shadow-md">
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] text-slate-400">
+                IP: <span className="font-mono text-white">{robotIp}</span>
+              </span>
+              <span className="text-slate-600">:</span>
+              <span className="font-mono text-white">{foxglovePort}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* SLAM Instructions */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
+          <div className="rounded-full border border-slate-700/80 bg-slate-900/80 px-4 py-1.5 backdrop-blur-md shadow-md">
+            <span className="text-[10px] text-slate-400">
+              <span className="text-emerald-400">●</span> Kết nối thành công với ROS 2 | 
+              <span className="text-blue-400"> 🗺️</span> Bản đồ SLAM | 
+              <span className="text-red-400"> 📡</span> YDLIDAR | 
+              <span className="text-white"> 🤖</span> Vị trí Robot
+            </span>
+          </div>
+        </div>
       </div>
     )
   }
@@ -605,7 +881,7 @@ export function FleetMap({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onClick={handleClick}
-        style={{ cursor: isDragging.current ? 'grabbing' : 'grab' }}
+        style={{ cursor: isEditing && drawMode === 'add_node' ? 'crosshair' : isEditing && drawMode === 'add_edge' ? 'pointer' : isDragging.current ? 'grabbing' : 'grab' }}
       >
         <svg width="100%" height="100%" style={{ userSelect: 'none' }}>
           <g transform={`translate(${currentTransform.x}, ${currentTransform.y}) scale(${currentTransform.zoom})`}>
@@ -632,6 +908,7 @@ export function FleetMap({
               effScaleY={effScaleY}
               onNodeClick={isEditing ? handleNodeClickEdit : onNodeClick}
               selectedNodeId={isEditing ? activeEditNodeId : selectedNodeId}
+              showAllLabels={showAllLabels}
             />
 
 
@@ -697,65 +974,168 @@ export function FleetMap({
       </div>
 
       
-      {/* Edit Toolbar Overlay */}
+      {/* Edit Toolbar Overlay — Premium Full-Feature Panel */}
       {isEditing && (
-        <div className="absolute top-16 left-4 z-30 flex flex-col gap-2 w-56">
-          <div className="rounded-xl border border-smb-outline-variant/60 bg-slate-900/95 p-3 backdrop-blur-md shadow-lg space-y-2">
-            <h3 className="text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-2">Cong Cu Ve</h3>
+        <div className="absolute top-16 left-4 z-30 flex flex-col gap-2 w-64 max-h-[calc(100%-6rem)] overflow-y-auto scrollbar-thin">
+          {/* Header + Stats */}
+          <div className="rounded-xl border border-purple-500/40 bg-slate-900/95 p-3.5 backdrop-blur-md shadow-lg">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                <Icon name="edit_square" className="text-[16px] text-purple-400" />
+                Chỉnh Sửa Bản Đồ
+              </h3>
+              <div className="flex items-center gap-1.5">
+                <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-[10px] font-bold text-blue-300">{localNodes.length} nodes</span>
+                <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300">{localEdges.length} edges</span>
+              </div>
+            </div>
+
+            {/* Show all labels toggle */}
+            <label className="flex items-center gap-2 cursor-pointer group mb-1">
+              <input
+                type="checkbox"
+                checked={showAllLabels}
+                onChange={(e) => setShowAllLabels(e.target.checked)}
+                className="accent-purple-500 size-3.5"
+              />
+              <span className="text-[11px] text-slate-400 group-hover:text-white transition-colors">Hiện tên tất cả Node</span>
+            </label>
+          </div>
+
+          {/* Drawing Tools */}
+          <div className="rounded-xl border border-slate-700/80 bg-slate-900/95 p-3 backdrop-blur-md shadow-lg space-y-1.5">
+            <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Công Cụ Vẽ</h4>
             <button
               onClick={() => { setDrawMode('none'); setTempEdge(null); }}
-              className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${drawMode === 'none' ? 'bg-purple-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${drawMode === 'none' ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30' : 'text-slate-300 hover:bg-slate-800'}`}
             >
-              <Icon name="near_me" className="text-[16px]" /> Chuot
+              <Icon name="near_me" className="text-[16px]" />
+              <div className="text-left"><div>Con Trỏ</div><div className="text-[9px] opacity-60 font-normal">Chọn & kéo thả node</div></div>
             </button>
             <button
               onClick={() => { setDrawMode('add_node'); setTempEdge(null); setActiveEditNodeId(null); }}
-              className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${drawMode === 'add_node' ? 'bg-purple-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${drawMode === 'add_node' ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30' : 'text-slate-300 hover:bg-slate-800'}`}
             >
-              <Icon name="add_circle" className="text-[16px]" /> Them Node
+              <Icon name="add_circle" className="text-[16px]" />
+              <div className="text-left"><div>Thêm Node</div><div className="text-[9px] opacity-60 font-normal">Click trên bản đồ để đặt</div></div>
             </button>
             <button
               onClick={() => { setDrawMode('add_edge'); setTempEdge(null); setActiveEditNodeId(null); }}
-              className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${drawMode === 'add_edge' ? 'bg-purple-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${drawMode === 'add_edge' ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30' : 'text-slate-300 hover:bg-slate-800'}`}
             >
-              <Icon name="timeline" className="text-[16px]" /> Noi Canh
+              <Icon name="timeline" className="text-[16px]" />
+              <div className="text-left"><div>Nối Cạnh</div><div className="text-[9px] opacity-60 font-normal">Click 2 node để nối</div></div>
             </button>
-            <div className="pt-2 mt-2 border-t border-slate-700">
+          </div>
+
+          {/* Selected Node Properties */}
+          {activeEditNodeId && drawMode === 'none' && (() => {
+            const activeNode = localNodes.find(n => n.nodeId === activeEditNodeId)
+            if (!activeNode) return null
+            const connectedEdges = localEdges.filter(e => e.fromNodeId === activeEditNodeId || e.toNodeId === activeEditNodeId)
+            return (
+              <div className="rounded-xl border border-emerald-500/30 bg-slate-900/95 p-3 backdrop-blur-md shadow-lg space-y-2">
+                <h4 className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Icon name="info" className="text-[14px]" /> Thuộc Tính Node
+                </h4>
+                {/* Node ID */}
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-slate-500">ID</span>
+                  <span className="text-[10px] font-mono text-slate-400">{activeNode.nodeId}</span>
+                </div>
+                {/* Node Name */}
+                <div>
+                  <label className="text-[10px] text-slate-500 mb-0.5 block">Tên Node</label>
+                  <input
+                    type="text"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500/30 transition-all"
+                    value={activeNode.nodeName || ''}
+                    onChange={(e) => setLocalNodes(prev => prev.map(n => n.nodeId === activeEditNodeId ? { ...n, nodeName: e.target.value } : n))}
+                    placeholder="Nhập tên node"
+                  />
+                </div>
+                {/* Node Type */}
+                <div>
+                  <label className="text-[10px] text-slate-500 mb-0.5 block">Loại Node</label>
+                  <select
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-purple-500 focus:outline-none transition-all"
+                    value={activeNode.nodeType || 'Corridor'}
+                    onChange={(e) => setLocalNodes(prev => prev.map(n => n.nodeId === activeEditNodeId ? { ...n, nodeType: e.target.value } : n))}
+                  >
+                    <option value="Corridor">🚶 Hành lang</option>
+                    <option value="CHECKOUT">🛒 Quầy Thu Ngân</option>
+                    <option value="DOCK">🔋 Trạm Sạc</option>
+                    <option value="REST">🚻 Nhà Vệ Sinh</option>
+                    <option value="Entrance">🚪 Lối vào</option>
+                    <option value="Shelf">📦 Kệ hàng</option>
+                  </select>
+                </div>
+                {/* Coordinates */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-slate-500 mb-0.5 block">X (m)</label>
+                    <div className="bg-slate-800/60 border border-slate-700/50 rounded-lg px-2 py-1.5 text-[11px] font-mono text-slate-300">{activeNode.xCoord?.toFixed(3)}</div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-500 mb-0.5 block">Y (m)</label>
+                    <div className="bg-slate-800/60 border border-slate-700/50 rounded-lg px-2 py-1.5 text-[11px] font-mono text-slate-300">{activeNode.yCoord?.toFixed(3)}</div>
+                  </div>
+                </div>
+                {/* isBlocked */}
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={activeNode.isBlocked || false}
+                    onChange={(e) => setLocalNodes(prev => prev.map(n => n.nodeId === activeEditNodeId ? { ...n, isBlocked: e.target.checked } : n))}
+                    className="accent-rose-500 size-3.5"
+                  />
+                  <span className="text-[11px] text-slate-400">🚫 Chặn node (isBlocked)</span>
+                </label>
+                {/* Connected edges info */}
+                <div className="text-[10px] text-slate-500">{connectedEdges.length} cạnh kết nối</div>
+                {/* Action buttons */}
+                <div className="flex gap-1.5 pt-1">
+                  <button onClick={deleteActiveNode} className="flex-1 flex justify-center items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-bold bg-rose-500/15 text-rose-400 hover:bg-rose-500 hover:text-white transition-all">
+                    <Icon name="delete" className="text-[14px]" /> Xóa Node
+                  </button>
+                  {connectedEdges.length > 0 && (
+                    <button onClick={() => deleteEdgesOfNode(activeEditNodeId)} className="flex-1 flex justify-center items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-bold bg-amber-500/15 text-amber-400 hover:bg-amber-500 hover:text-white transition-all">
+                      <Icon name="link_off" className="text-[14px]" /> Xóa Cạnh
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Actions Panel */}
+          <div className="rounded-xl border border-slate-700/80 bg-slate-900/95 p-3 backdrop-blur-md shadow-lg space-y-2">
+            <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Hành Động</h4>
+            <button
+              onClick={undo}
+              disabled={history.length === 0}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <Icon name="undo" className="text-[16px]" /> Hoàn tác
+              {history.length > 0 && <span className="ml-auto text-[9px] text-slate-500">({history.length})</span>}
+            </button>
+            <div className="flex gap-1.5">
               <button
                 onClick={handleSaveDb}
                 disabled={saving}
-                className="w-full flex justify-center items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-md active:scale-95 disabled:opacity-50"
+                className="flex-1 flex justify-center items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-md shadow-emerald-600/20 active:scale-95 disabled:opacity-50"
               >
-                <Icon name="save" className="text-[16px]" /> {saving ? 'Dang luu...' : 'Luu Vao DB'}
+                <Icon name="save" className="text-[15px]" /> {saving ? 'Đang lưu...' : 'Lưu DB'}
+              </button>
+              <button
+                onClick={() => slamFileRef.current?.click()}
+                className="flex-1 flex justify-center items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-md shadow-blue-600/20 active:scale-95"
+              >
+                <Icon name="upload" className="text-[15px]" /> Ảnh SLAM
               </button>
             </div>
+            <input ref={slamFileRef} type="file" accept="image/*,.pgm,.yaml" className="hidden" onChange={handleUploadSlam} />
           </div>
-          
-          {activeEditNodeId && drawMode === 'none' && (
-            <div className="rounded-xl border border-smb-outline-variant/60 bg-slate-900/95 p-3 backdrop-blur-md shadow-lg space-y-2">
-              <h3 className="text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-2">Thuoc Tinh Node</h3>
-              <input 
-                type="text" 
-                className="w-full bg-slate-800 border border-slate-700 rounded p-1.5 text-xs text-white focus:border-purple-500 focus:outline-none"
-                value={localNodes.find(n => n.nodeId === activeEditNodeId)?.nodeName || ''}
-                onChange={(e) => setLocalNodes(prev => prev.map(n => n.nodeId === activeEditNodeId ? { ...n, nodeName: e.target.value } : n))}
-                placeholder="Ten Node"
-              />
-              <select 
-                className="w-full bg-slate-800 border border-slate-700 rounded p-1.5 text-xs text-white focus:border-purple-500 focus:outline-none"
-                value={localNodes.find(n => n.nodeId === activeEditNodeId)?.nodeType || 'Corridor'}
-                onChange={(e) => setLocalNodes(prev => prev.map(n => n.nodeId === activeEditNodeId ? { ...n, nodeType: e.target.value } : n))}
-              >
-                <option value="Corridor">Hanh lang</option>
-                <option value="CHECKOUT">Quay Thu Ngan</option>
-                <option value="DOCK">Sac Pin</option>
-                <option value="REST">Nha Ve Sinh</option>
-              </select>
-              <button onClick={deleteActiveNode} className="w-full mt-2 flex justify-center items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white transition-all">
-                <Icon name="delete" className="text-[16px]" /> Xoa Node
-              </button>
-            </div>
-          )}
         </div>
       )}
 

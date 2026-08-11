@@ -97,8 +97,8 @@ export function RobotAssignmentPanel({
 /*  Autonomous 3-Flow Tab                                               */
 /* -------------------------------------------------------------------- */
 
+import { dispatchAutonomous, cancelNavigation } from '../api/navigationApi'
 import client from '../../../api/client'
-
 function AutonomousTab({ robots = [] }) {
   const [selectedRobot, setSelectedRobot] = useState(robots[0]?.robotCode || 'RB001')
   const [selectedAdZone, setSelectedAdZone] = useState('') // empty string = all zones
@@ -118,12 +118,11 @@ function AutonomousTab({ robots = [] }) {
     if (flowType === 'guide') setGuideStatusMsg(null)
 
     try {
-      const response = await client.post('/v1/navigation/dispatch-autonomous', {
+      const data = await dispatchAutonomous({
         robotCode: selectedRobot,
         flowType,
         ...extraData,
       })
-      const data = response.data
       const msgObj = { type: 'success', text: `✅ ${data.message || 'Đã phát lệnh tự hành qua MQTT!'}` }
       if (flowType === 'ad') setAdStatusMsg(msgObj)
       if (flowType === 'patrol') setPatrolStatusMsg(msgObj)
@@ -160,7 +159,7 @@ function AutonomousTab({ robots = [] }) {
     setDispatching(true)
     setEstopStatusMsg(null)
     try {
-      await client.post(`/v1/navigation/robots/${selectedRobot}/cancel`)
+      await cancelNavigation(selectedRobot)
       setEstopStatusMsg({ type: 'success', text: `🔴 Đã gửi lệnh DỪNG KHẨN CẤP tới Robot ${selectedRobot}!` })
     } catch (e) {
       setEstopStatusMsg({ type: 'error', text: `❌ Lỗi gửi lệnh dừng khẩn cấp: ${e.message}` })
@@ -534,13 +533,22 @@ function RobotDetailModal({ robotCode, onClose }) {
     </div>
   )
 }
-
 /* -------------------------------------------------------------------- */
 /*  Tab 1 — Robot list                                                  */
 /* -------------------------------------------------------------------- */
 
-function RobotsTab({ robots, poses, selectedRobotCode, onSelectRobot }) {
+function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot }) {
   const [detailRobotCode, setDetailRobotCode] = useState(null)
+  
+  const handleCancelRobot = async (robotCode) => {
+    try {
+      await cancelNavigation(robotCode)
+      alert(`Đã gửi lệnh dừng khẩn cấp cho Robot ${robotCode}`)
+    } catch (e) {
+      alert(`Lỗi khi dừng khẩn cấp: ${e.message}`)
+    }
+  }
+
   const summary = useMemo(() => {
     const acc = { Moving: 0, Idle: 0, Interacting: 0, Offline_Charging: 0, Power_Off: 0 }
     robots.forEach((r) => { acc[r.status] = (acc[r.status] ?? 0) + 1 })
@@ -582,10 +590,9 @@ function RobotsTab({ robots, poses, selectedRobotCode, onSelectRobot }) {
               const isSel = selectedRobotCode === r.robotCode
               return (
                 <li key={r.robotId}>
-                  <button
-                    type="button"
+                  <div
                     onClick={() => onSelectRobot?.(r)}
-                    className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors ${isSel ? 'bg-smb-active-bg' : 'hover:bg-smb-surface-container-low'}`}
+                    className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left cursor-pointer transition-colors ${isSel ? 'bg-smb-active-bg' : 'hover:bg-smb-surface-container-low'}`}
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <div className={`flex size-9 shrink-0 items-center justify-center rounded-full ${p.dot} text-smb-on-primary`}>
@@ -606,6 +613,14 @@ function RobotsTab({ robots, poses, selectedRobotCode, onSelectRobot }) {
                       </div>
                       <button
                         type="button"
+                        title="Dừng Khẩn Cấp (Cancel Route)"
+                        onClick={(e) => { e.stopPropagation(); handleCancelRobot(r.robotCode) }}
+                        className="flex size-7 shrink-0 items-center justify-center rounded text-rose-500 hover:bg-rose-500/10"
+                      >
+                        <Icon name="cancel" className="text-[16px]" />
+                      </button>
+                      <button
+                        type="button"
                         title="Xem chi tiết"
                         onClick={(e) => { e.stopPropagation(); setDetailRobotCode(r.robotCode) }}
                         className="flex size-7 shrink-0 items-center justify-center rounded text-smb-on-surface-variant hover:bg-smb-surface-container-hover hover:text-smb-primary"
@@ -613,7 +628,7 @@ function RobotsTab({ robots, poses, selectedRobotCode, onSelectRobot }) {
                         <Icon name="info" className="text-[16px]" />
                       </button>
                     </div>
-                  </button>
+                  </div>
                 </li>
               )
             })}

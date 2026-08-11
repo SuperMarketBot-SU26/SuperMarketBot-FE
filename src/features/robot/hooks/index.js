@@ -1,3 +1,4 @@
 export { useRobotFleet } from './useRobotFleet'
 export { useMapAndRoutes } from './useMapAndRoutes'
 export { useAssignments } from './useAssignments'
+export { useRosConnection, useRobotPose, useLaserScan, useRosMap } from './useRosConnection'

@@ -24,6 +24,8 @@ export function RobotMonitoring() {
   const [previewedRoute, setPreviewedRoute] = useState(null)
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [isEditingMap, setIsEditingMap] = useState(false)
+  const [robotIp, setRobotIp] = useState('192.168.69.226')
+  const [enableRos, setEnableRos] = useState(false) // Tắt tạm - bật khi Pi 5 online
 
   const handleSelectRobot = useCallback((robot) => {
     setSelectedRobotCode(robot.robotCode)
@@ -47,6 +49,33 @@ export function RobotMonitoring() {
 
         <main className="flex flex-col gap-6 px-6 py-6">
           <FleetStatsHeader robots={robots} />
+
+          {/* ROS Bridge Settings */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setEnableRos(!enableRos)}
+              className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold transition-all ${
+                enableRos 
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400' 
+                  : 'border-slate-600 bg-slate-700/50 text-slate-400'
+              }`}
+            >
+              <span className="material-symbols-outlined text-base">cable</span>
+              ROS Bridge: {enableRos ? 'ON' : 'OFF'}
+            </button>
+            {enableRos && (
+              <button
+                onClick={() => {
+                  const newIp = prompt('Nhập IP Pi 5 (ROS Bridge):', robotIp)
+                  if (newIp && newIp.trim()) setRobotIp(newIp.trim())
+                }}
+                className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-700/50 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-600/50 transition-all"
+              >
+                <span className="material-symbols-outlined text-base">settings_ethernet</span>
+                <span className="font-mono">{robotIp}:8765</span>
+              </button>
+            )}
+          </div>
 
           {mapLoading || robotsLoading ? (
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:grid-rows-[minmax(640px,calc(100vh-220px))]">
@@ -74,7 +103,11 @@ export function RobotMonitoring() {
                   onClearSelection={() => { setSelectedRobotCode(null); setSelectedNodeId(null) }}
                   tick={tick}
                   isEditing={isEditingMap}
+                  onToggleEdit={() => setIsEditingMap(!isEditingMap)}
                   onMapSaved={() => window.location.reload()}
+                  robotIp={robotIp}
+                  foxglovePort={8765}
+                  enableRosBridge={enableRos}
                 />
               </div>
               <div className="lg:col-span-3">
