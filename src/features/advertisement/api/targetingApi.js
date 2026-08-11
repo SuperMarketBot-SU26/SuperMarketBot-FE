@@ -21,14 +21,14 @@ const unwrap = (res) => {
 }
 
 export const getZonesByFloor = (floorId) =>
-  client.get('/v1/zones', { params: { floorId } }).then(unwrap)
+  client.get('/api/v1/zones', { params: { floorId } }).then(unwrap)
 
 // ── Shelves (semantic objects of type Shelf) ──────────────────────────────
 // Endpoint: GET /v1/semantic-objects?floorId=N&type=Shelf
 // Response: [{ objectId, label/name, floorId, x, y, objectType }, ...]
 export const getShelvesByFloor = (floorId) =>
   client
-    .get('/v1/semantic-objects', { params: { floorId, type: 'Shelf' } })
+    .get('/api/v1/semantic-objects', { params: { floorId, type: 'Shelf' } })
     .then(unwrap)
 
 // ── Robot routes ──────────────────────────────────────────────────────────
@@ -38,17 +38,17 @@ export const getShelvesByFloor = (floorId) =>
 export const getRoutesByFloor = async (floorId) => {
   // Discover latest map for this floor (the BE usually indexes routes by map)
   try {
-    const mapRes = await client.get('/v1/maps/latest', { params: { floorId } })
+    const mapRes = await client.get('/api/v1/maps/latest', { params: { floorId } })
     const mapId = mapRes.data?.mapId
     if (mapId) {
-      const res = await client.get('/v1/routes', { params: { mapId } })
+      const res = await client.get('/api/v1/routes', { params: { mapId } })
       const data = res?.data
       return Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : []
     }
   } catch {
     // ignore — try fallback
   }
-  const res = await client.get('/v1/robot-routes', { params: { floorId } })
+  const res = await client.get('/api/v1/robot-routes', { params: { floorId } })
   return unwrap(res)
 }
 

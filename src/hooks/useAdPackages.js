@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import client from '../api/client'
 
-const endpoint = '/v1/ad-packages'
+const endpoint = '/api/v1/ad-packages'
 
 export const useAdPackages = () => useQuery({
   queryKey: ['ad-packages'],

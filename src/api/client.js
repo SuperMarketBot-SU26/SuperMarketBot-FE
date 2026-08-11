@@ -11,15 +11,24 @@ const NGROK_URL = import.meta.env.VITE_NGROK_API_URL || ''
 const ABSOLUTE_BASE_URL =
   ACTIVE_BACKEND === 'ngrok' && NGROK_URL ? NGROK_URL : LOCAL_URL
 
-// In dev, always go through the Vite proxy (`/api`) so the `ngrok-skip-browser-warning`
-// header can be injected server-side. In a production build there is no proxy, so we
-// call the absolute URL directly. You can force absolute mode by setting
-// `VITE_API_BASE_URL` directly.
-const DEV_PROXY_BASE = '/api'
+// In dev, all API requests already include the full `/api/v1/...` prefix in
+// their relative URL, so we leave `baseURL` empty and let the request paths
+// flow through to the Vite proxy unchanged. In a production build there is
+// no proxy, so we call the absolute URL directly. You can force absolute
+// mode by setting `VITE_API_BASE_URL` directly.
+const DEV_PROXY_BASE = ''
 const EXPLICIT_BASE = import.meta.env.VITE_API_BASE_URL
 
 export const ACTIVE_BACKEND_MODE = ACTIVE_BACKEND
 export const ACTIVE_BACKEND_URL = ABSOLUTE_BASE_URL
+
+/** Base URL for media — DEPRECATED, kept for backward compatibility.
+ *  New code should use `buildImageUrl()` from `src/utils/cloudinary.js` which
+ *  transparently handles Cloudinary URLs (with transforms) and legacy local URLs.
+ *  This constant only points to the local backend and will return empty / 404 for
+ *  images now served from Cloudinary.
+ */
+export const MEDIA_BASE_URL = LOCAL_URL
 
 /**
  * Extract a user-facing message from an Axios error in the standard SmartMarketBot

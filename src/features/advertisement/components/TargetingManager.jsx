@@ -58,11 +58,6 @@ export function TargetingManager({ campaignId, status, priceRoute, priceZone, pr
 
   useEffect(() => { fetchAll() }, [campaignId])
 
-  // Re-emit counts so parent (for activate breakdown) can stay in sync
-  useEffect(() => {
-    onChanged?.({ routeCount: routes.length, zoneCount: zones.length, hasShelf: !!shelf })
-  }, [routes, zones, shelf])
-
   return (
     <div className="space-y-4">
       {error && (

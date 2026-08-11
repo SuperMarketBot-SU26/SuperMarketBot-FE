@@ -21,7 +21,7 @@
 
 import client from '../../../api/client'
 
-const ENDPOINT = '/v1/admin/users'
+const ENDPOINT = '/api/v1/admin/users'
 
 export const getUsers = (params = {}) =>
   client.get(ENDPOINT, { params }).then((res) => res.data)

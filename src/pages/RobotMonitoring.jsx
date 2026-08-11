@@ -8,11 +8,13 @@ import {
   FleetMap,
   RobotAssignmentPanel,
   FleetStatsHeader,
+  ZoneHierarchyPanel,
 } from '../features/robot'
 import {
   useRobotFleet,
   useMapAndRoutes,
 } from '../features/robot/hooks'
+import { mapAisleToNode } from '../features/robot/api/zonesApi'
 
 export function RobotMonitoring() {
   const navigate = useNavigate()
@@ -23,6 +25,8 @@ export function RobotMonitoring() {
   const [selectedNodeId, setSelectedNodeId] = useState(null)
   const [previewedRoute, setPreviewedRoute] = useState(null)
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
+  const [showHierarchy, setShowHierarchy] = useState(false)
+  const [hierarchyKey, setHierarchyKey] = useState(0)
   const [isEditingMap, setIsEditingMap] = useState(false)
   const [robotIp, setRobotIp] = useState('192.168.69.226')
   const [enableRos, setEnableRos] = useState(false) // Tắt tạm - bật khi Pi 5 online
@@ -32,6 +36,17 @@ export function RobotMonitoring() {
     setSelectedNodeId(null)
     setPreviewedRoute(null)
   }, [])
+
+  const handleMapNodeLink = useCallback(async (aisleId, nodeId) => {
+    try {
+      await mapAisleToNode(aisleId, nodeId)
+      setHierarchyKey((k) => k + 1)
+    } catch (e) {
+      console.error('[RobotMonitoring] mapAisleToNode failed:', e)
+    }
+  }, [])
+
+  const mapNodes = map?.nodes ?? []
 
   return (
     <div className="min-h-screen bg-smb-surface transition-colors duration-200">
@@ -47,7 +62,7 @@ export function RobotMonitoring() {
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         />
 
-        <main className="flex flex-col gap-6 px-6 py-6">
+        <main className="flex flex-1 flex-col overflow-hidden px-6 py-6 gap-4">
           <FleetStatsHeader robots={robots} />
 
           {/* ROS Bridge Settings */}
@@ -77,18 +92,21 @@ export function RobotMonitoring() {
             )}
           </div>
 
+          {/* Main area: map + sidebar panel */}
+
           {mapLoading || robotsLoading ? (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:grid-rows-[minmax(640px,calc(100vh-220px))]">
-              <div className="lg:col-span-9">
+            <div className="flex flex-1 gap-4 min-h-0">
+              <div className="flex-1 min-h-0">
                 <MapSkeleton />
               </div>
-              <div className="lg:col-span-3">
+              <div className="w-80 shrink-0">
                 <PanelSkeleton />
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:grid-rows-[minmax(640px,calc(100vh-220px))]">
-              <div className="lg:col-span-9">
+            <div className="flex flex-1 gap-4 min-h-0 overflow-hidden">
+              {/* Map — takes all available height */}
+              <div className="flex-1 min-h-0 rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest overflow-hidden">
                 <FleetMap
                   map={map}
                   robots={robots}
@@ -110,7 +128,8 @@ export function RobotMonitoring() {
                   enableRosBridge={enableRos}
                 />
               </div>
-              <div className="lg:col-span-3">
+              {/* Sidebar panel — fixed width, internal scroll */}
+              <div className="w-80 shrink-0 flex flex-col min-h-0 overflow-hidden rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest">
                 <RobotAssignmentPanel
                   robots={robots}
                   poses={poses}
@@ -124,6 +143,30 @@ export function RobotMonitoring() {
               </div>
             </div>
           )}
+
+          {/* Zone Hierarchy Panel */}
+          <div className="pb-4 shrink-0">
+            <button
+              onClick={() => setShowHierarchy((s) => !s)}
+              className="mb-2 flex items-center gap-2 text-xs font-bold text-smb-on-surface transition-colors hover:text-smb-primary"
+            >
+              <span className={`material-symbols-outlined text-[16px] transition-transform ${showHierarchy ? 'rotate-90' : ''}`}>
+                chevron_right
+              </span>
+              {showHierarchy ? 'Ẩn' : 'Hiện'} Cây Phân Cấp Zone → Kệ → Node
+            </button>
+            {showHierarchy && (
+              <ZoneHierarchyPanel
+                key={hierarchyKey}
+                floorId={1}
+                mapNodes={mapNodes}
+                onSelectAisle={(aisle) => {
+                  console.debug('[Hierarchy] Aisle clicked:', aisle)
+                }}
+                onMapNodeLink={handleMapNodeLink}
+              />
+            )}
+          </div>
 
           <div className="flex justify-end">
             <button

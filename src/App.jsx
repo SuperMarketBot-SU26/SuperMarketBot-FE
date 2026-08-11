@@ -6,7 +6,7 @@ import AdvertisementDashboard from './pages/AdvertisementDashboard'
 import AdvertisementCreation from './pages/AdvertisementCreation'
 import AdvertisementUpdate from './pages/AdvertisementUpdate'
 import AdvertisementLogs from './pages/AdvertisementLogs'
-import DemoLogsPage from './pages/DemoLogsPage'
+import CampaignDetail from './pages/CampaignDetail'
 import AdPackageCreation from './pages/AdPackageCreation'
 import BrandDashboard from './pages/BrandDashboard'
 import BrandCreation from './pages/BrandCreation'
@@ -35,7 +35,16 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <GlobalAlerts />
-        <ToastContainer />
+        <ToastContainer
+          position="top-right"
+          autoClose={4000}
+          newestOnTop
+          closeOnClick
+          pauseOnHover
+          draggable
+          theme="colored"
+          style={{ marginTop: '60px' }}
+        />
         <BrowserRouter>
           <Routes>
             {/* Public */}
@@ -81,6 +90,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AdvertisementLogs />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/advertisement/detail/:id"
+              element={
+                <ProtectedRoute>
+                  <CampaignDetail />
                 </ProtectedRoute>
               }
             />
@@ -177,7 +194,6 @@ function App() {
 
             {/* Catch-all */}
             <Route path="*" element={<Navigate to="/" replace />} />
-            <Route path="/__demo/logs" element={<DemoLogsPage />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

@@ -13,7 +13,7 @@
 
 import client from '../../../api/client'
 
-const ENDPOINT = '/v1/aisles'
+const ENDPOINT = '/api/v1/aisles'
 
 /**
  * List aisles (optionally filtered by zone).

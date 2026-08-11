@@ -1,6 +1,6 @@
 import client from '../../../api/client'
 
-const ENDPOINT = '/v1/ad-packages'
+const ENDPOINT = '/api/v1/ad-packages'
 
 export const getPackages = () => client.get(ENDPOINT).then((res) => res.data)
 export const getPackage = (packageId) => client.get(`${ENDPOINT}/${packageId}`).then((res) => res.data)

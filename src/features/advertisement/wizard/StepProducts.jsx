@@ -3,6 +3,7 @@ import Input from '../../../components/ui/Input'
 import Button from '../../../components/ui/Button'
 import { getProducts } from '../../product/api/productApi'
 import { getErrorMessage } from '../../../api/client'
+import { buildImageUrl } from '../../../utils/cloudinary'
 
 function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
@@ -23,7 +24,15 @@ function normalizeProduct(p) {
     name: p.productName ?? p.ProductName ?? p.name ?? `Sản phẩm #${id}`,
     sku: p.sku ?? p.SKU ?? '',
     price: Number(p.unitPrice ?? p.UnitPrice ?? 0),
-    imageUrl: p.imageUrl ?? p.ImageUrl ?? null,
+    // buildImageUrl: handles Cloudinary URLs, legacy wwwroot/localhost (warns +
+    // returns placeholder), and any other external URL (returns as-is).
+    imageUrl: buildImageUrl(p.imageUrl ?? p.ImageUrl ?? null, {
+      width: 96,
+      height: 96,
+      crop: 'fill',
+      quality: 'auto',
+      format: 'auto',
+    }),
     status: p.status ?? p.Status ?? null,
   }
 }
@@ -155,6 +164,15 @@ export function StepProducts({ state, onChange, hasProducts, onBack, onNext }) {
                         src={p.imageUrl}
                         alt={p.name}
                         className="size-8 min-w-8 rounded object-cover"
+                        onError={(e) => {
+                          if (!e.currentTarget.dataset.retried) {
+                            e.currentTarget.dataset.retried = '1'
+                            setTimeout(() => { e.currentTarget.src = p.imageUrl }, 2000)
+                            return
+                          }
+                          e.currentTarget.onerror = null
+                          e.currentTarget.src = '/placeholder-needs-reupload.png'
+                        }}
                       />
                     ) : (
                       <div className="flex size-8 min-w-8 items-center justify-center rounded bg-smb-primary-container/10 text-smb-primary-container">

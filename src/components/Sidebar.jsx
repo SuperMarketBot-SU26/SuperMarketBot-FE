@@ -9,6 +9,7 @@ const navItems = [
   { icon: 'sell', label: 'Gói Quảng Cáo', path: '/ad-packages' },
   { icon: 'account_balance_wallet', label: 'Quản Lý Nhãn Hàng', path: '/brand-dashboard' },
   { icon: 'inventory_2', label: 'Quản Lý Sản Phẩm', path: '/products' },
+  // { icon: 'layers', label: 'Quản Lý Tầng', path: '/floors' },
 ]
 
 function Icon({ name, className = '' }) {

@@ -1,61 +1,34 @@
 /**
  * Robot API — /api/Robots
  *
- * Backend endpoints (RobotsController.cs):
- *   GET    /api/Robots                            → IReadOnlyList<RobotDto>
- *   GET    /api/Robots/status-values              → ["Power_Off", "Idle", "Moving", "Interacting", "Offline_Charging"]
- *   POST   /api/Robots/command                    → publish MQTT command
- *   POST   /api/Robots/navigate                   → Dijkstra + publish navigate
- *   GET    /api/Robots/{robotCode}/pose           → current pose (x, y, heading)
- *   POST   /api/Robots/{robotCode}/status         → update robot status
+ * NOTE: All robot HTTP calls are now centralised in:
+ *   ../navigation/api/navigationApi.js
  *
- * RobotDto:
- *   { robotId, robotName, robotCode, batteryPct, mode, status, lastSeenAt, ipAddress }
- * RobotPoseDto:
- *   { robotCode, x, y, headingRad, headingDeg, timestampUtc }
+ * This file re-exports the most commonly used helpers so existing consumers
+ * (e.g. useRobotFleet, RobotAssignmentPanel) don't need to update their imports.
+ * Import directly from navigationApi.js for new code.
  */
 
-import client from '../../../api/client'
-
-const ENDPOINT = '/Robots'
-
-export const getRobots = async () => {
-  const res = await client.get(ENDPOINT)
-  return res.data
-}
-
-export const getRobotStatusValues = async () => {
-  const res = await client.get(`${ENDPOINT}/status-values`)
-  return res.data
-}
-
-export const getRobotPose = async (robotCode) => {
-  const res = await client.get(`${ENDPOINT}/${encodeURIComponent(robotCode)}/pose`)
-  return res.data
-}
-
-export const publishRobotCommand = async (payload) => {
-  const res = await client.post(`${ENDPOINT}/command`, payload)
-  return res.data
-}
-
-export const navigateRobot = async (payload) => {
-  const res = await client.post(`${ENDPOINT}/navigate`, payload)
-  return res.data
-}
-
-export const updateRobotStatus = async (robotCode, payload) => {
-  const res = await client.post(
-    `${ENDPOINT}/${encodeURIComponent(robotCode)}/status`,
-    payload
-  )
-  return res.data
-}
+export {
+  getRobots,
+  getRobotStatusValues,
+  getRobotPose,
+  publishRobotCommand,
+  navigateRobot as navigateRobotViaApi,
+  updateRobotStatus,
+  cancelRobotNavigation,
+  dispatchAutonomous,
+  planRoute,
+  getPolylineRoute,
+  setNodeBlocked,
+} from './navigationApi'
 
 /**
- * Fetch a single robot by code.
- * The BE has no `GET /Robots/{code}` endpoint, so we fetch the full list
- * and find the match.  Returns null if the robot is not found.
+ * getRobot — fetch a single robot by code.
+ * The BE has no GET /Robots/{code} so we fetch the full list and find the match.
+ *
+ * @param {string} robotCode
+ * @returns {Promise<object|null>}
  */
 export const getRobot = async (robotCode) => {
   const robots = await getRobots()

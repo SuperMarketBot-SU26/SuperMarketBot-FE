@@ -17,7 +17,7 @@
 
 import client from '../../../api/client'
 
-const ENDPOINT = '/v1/routes'
+const ENDPOINT = '/api/v1/routes'
 
 export const getRoutes = async ({ mapId, zoneId, routeType } = {}) => {
   const res = await client.get(ENDPOINT, {

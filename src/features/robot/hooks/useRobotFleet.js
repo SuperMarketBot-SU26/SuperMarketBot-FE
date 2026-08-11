@@ -1,12 +1,17 @@
 import { useEffect, useState, useCallback } from 'react'
-import { getRobots, getRobotPose } from '../api/robotApi'
+import { getRobots, getRobotPose } from '../api/navigationApi'
 
 /**
  * useRobotFleet
- * - Loads /api/Robots on mount.
- * - Polls /api/Robots/{code}/pose every `pollMs` so the map markers stay fresh.
- *   When the SignalR / MQTT bridge is wired up, replace the polling with a
- *   subscription; everything downstream reads `robots`, `poses`, and `refresh()`.
+ *
+ * Loads /api/Robots on mount and polls /api/Robots/{code}/pose every `pollMs`
+ * to keep robot markers fresh on the map.
+ *
+ * When the SignalR / MQTT bridge is wired up, replace the polling with a
+ * subscription — everything downstream reads `robots`, `poses`, and `refresh()`.
+ *
+ * RobotPoseDto shape (from BE):
+ *   { robotCode, xCoord, yCoord, headingYawDeg, lastUpdatedAt }
  *
  * Returns: { robots, poses, loading, error, refresh, tick }
  */
@@ -20,21 +25,21 @@ export function useRobotFleet({ pollMs = 5000 } = {}) {
   const loadAll = useCallback(async () => {
     try {
       const list = await getRobots()
-      setRobots(list ?? [])
+      setRobots(Array.isArray(list) ? list : [])
 
-      const posePairs = await Promise.all(
+      // Fetch pose for each robot in parallel; gracefully skip failures.
+      const posePairs = await Promise.allSettled(
         (list ?? []).map(async (r) => {
-          try {
-            const pose = await getRobotPose(r.robotCode)
-            return [r.robotCode, pose]
-          } catch {
-            return [r.robotCode, null]
-          }
+          const pose = await getRobotPose(r.robotCode)
+          return [r.robotCode, pose]
         })
       )
       const poseMap = {}
-      for (const [code, pose] of posePairs) {
-        if (pose) poseMap[code] = pose
+      for (const result of posePairs) {
+        if (result.status === 'fulfilled') {
+          const [code, pose] = result.value
+          if (pose) poseMap[code] = pose
+        }
       }
       setPoses(poseMap)
       setError(null)
@@ -53,33 +58,30 @@ export function useRobotFleet({ pollMs = 5000 } = {}) {
   // Periodic pose refresh
   useEffect(() => {
     if (pollMs <= 0) return undefined
-    const id = setInterval(() => {
-      setPoses((prev) => {
-        const codes = Object.keys(prev)
-        if (codes.length === 0) return prev
-        // Re-fetch asynchronously; we set state once results arrive.
-        Promise.all(
-          codes.map(async (c) => {
-            try {
-              const p = await getRobotPose(c)
-              return [c, p]
-            } catch {
-              return [c, prev[c]]
-            }
-          })
-        ).then((entries) => {
-          setPoses((current) => {
-            const next = { ...current }
-            for (const [c, p] of entries) if (p) next[c] = p
-            return next
-          })
-          setTick((n) => n + 1)
+    const id = setInterval(async () => {
+      const codes = Object.keys(poses)
+      if (codes.length === 0) return
+
+      const results = await Promise.allSettled(
+        codes.map(async (c) => {
+          const pose = await getRobotPose(c)
+          return [c, pose]
         })
-        return prev
+      )
+      setPoses((prev) => {
+        const next = { ...prev }
+        for (const result of results) {
+          if (result.status === 'fulfilled') {
+            const [code, pose] = result.value
+            if (pose) next[code] = pose
+          }
+        }
+        return next
       })
+      setTick((n) => n + 1)
     }, pollMs)
     return () => clearInterval(id)
-  }, [pollMs])
+  }, [pollMs, poses])
 
   return { robots, poses, loading, error, refresh: loadAll, tick }
 }

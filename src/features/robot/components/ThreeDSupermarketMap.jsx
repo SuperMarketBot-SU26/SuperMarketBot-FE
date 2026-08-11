@@ -157,10 +157,23 @@ export function ThreeDSupermarketMap({
       mesh.position.set(x + w / 2, 0.02, z + h / 2)
       scene.add(mesh)
     }
-    createZoneTile(minX, minY, halfW - 0.2, halfH - 0.2, 0xf59e0b) // Zone 1
-    createZoneTile(minX + halfW + 0.2, minY, halfW - 0.2, halfH - 0.2, 0x0284c7) // Zone 2
-    createZoneTile(minX, minY + halfH + 0.2, halfW - 0.2, halfH - 0.2, 0x16a34a) // Zone 3
-    createZoneTile(minX + halfW + 0.2, minY + halfH + 0.2, halfW - 0.2, halfH - 0.2, 0xe11d48) // Zone 4
+    // 7. Dynamic Zone Tiles from backend (zones from hierarchy API)
+    const ZONE_COLORS = [0xf59e0b, 0x0284c7, 0x16a34a, 0xe11d48]
+    if (map?.zones && map.zones.length > 0) {
+      map.zones.forEach((zone, idx) => {
+        if (zone.xMin != null && zone.yMin != null && zone.xMax != null && zone.yMax != null) {
+          const zw = zone.xMax - zone.xMin
+          const zh = zone.yMax - zone.yMin
+          createZoneTile(zone.xMin, zone.yMin, zw, zh, ZONE_COLORS[idx % ZONE_COLORS.length])
+        }
+      })
+    } else {
+      // Fallback: divide map into 4 equal quadrants only when no zone data from BE
+      createZoneTile(minX, minY, halfW - 0.2, halfH - 0.2, 0xf59e0b)
+      createZoneTile(minX + halfW + 0.2, minY, halfW - 0.2, halfH - 0.2, 0x0284c7)
+      createZoneTile(minX, minY + halfH + 0.2, halfW - 0.2, halfH - 0.2, 0x16a34a)
+      createZoneTile(minX + halfW + 0.2, minY + halfH + 0.2, halfW - 0.2, halfH - 0.2, 0xe11d48)
+    }
 
     // 8. 3D Shelves & Semantic Objects from Database
     const shelfGroup = new THREE.Group()

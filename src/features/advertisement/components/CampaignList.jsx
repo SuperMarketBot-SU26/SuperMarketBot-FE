@@ -5,7 +5,7 @@ import { TableActions } from '../../../components/TableActions'
 import { Button } from '../../../components/ui/Button'
 import { ConfirmModal } from '../../../components/ConfirmModal'
 import { getErrorMessage } from '../../../api/client'
-import { getCampaigns, cancelCampaign, deleteCampaign } from '../api/adCampaignApi'
+import { getCampaigns, cancelCampaign, completeCampaign, deleteCampaign, getCompletionStatus } from '../api/adCampaignApi'
 
 const STATUS_ICONS = {
   Active: 'check_circle',
@@ -50,6 +50,8 @@ const normalizeCampaign = (item) => ({
   totalSpent: item.totalSpent,
   sponsoredProductCount: item.sponsoredProductCount ?? 0,
   sponsoredProducts: item.sponsoredProducts ?? [],
+  isExpired: item.isExpired ?? false,
+  isCompleted: item.isCompleted ?? false,
 })
 
 export function CampaignList({ onCreateNew, search = '', status = 'all' }) {
@@ -64,6 +66,7 @@ export function CampaignList({ onCreateNew, search = '', status = 'all' }) {
   const [pageNumber, setPageNumber] = useState(1)
   const [cancellingId, setCancellingId] = useState(null)
   const [deletingId, setDeletingId]   = useState(null)
+  const [completingId, setCompletingId] = useState(null)
 
   const fetchCampaigns = useCallback(async (currentStatus, page = 1) => {
     setLoading(true)
@@ -102,6 +105,21 @@ export function CampaignList({ onCreateNew, search = '', status = 'all' }) {
       setConfirmError(getErrorMessage(err, 'Hủy chiến dịch thất bại'))
     } finally {
       setCancellingId(null)
+    }
+  }
+
+  const handleConfirmComplete = async () => {
+    if (!confirmTarget) return
+    setCompletingId(confirmTarget.id)
+    setConfirmError(null)
+    try {
+      await completeCampaign(confirmTarget.id)
+      setConfirmTarget(null)
+      fetchCampaigns(status, pageNumber)
+    } catch (err) {
+      setConfirmError(getErrorMessage(err, 'Hoàn thành chiến dịch thất bại'))
+    } finally {
+      setCompletingId(null)
     }
   }
 
@@ -151,10 +169,14 @@ export function CampaignList({ onCreateNew, search = '', status = 'all' }) {
       key: 'name',
       label: 'Chiến Dịch',
       render: (val, row) => (
-        <div>
+        <button
+          type="button"
+          onClick={() => navigate(`/advertisement/detail/${row.id}`)}
+          className="text-left hover:text-smb-primary-container"
+        >
           <p className="font-medium text-smb-on-surface">{val}</p>
           <p className="text-xs text-smb-on-surface-variant">{row.brand}</p>
-        </div>
+        </button>
       ),
     },
     {
@@ -171,11 +193,14 @@ export function CampaignList({ onCreateNew, search = '', status = 'all' }) {
       key: 'status',
       label: 'Trạng Thái',
       align: 'center',
-      render: (val) => (
-        <Badge variant={statusVariant(val)} icon={STATUS_ICONS[val]}>
-          {statusLabel(val)}
-        </Badge>
-      ),
+      render: (val, row) => {
+        const isEnded = row.isExpired || row.isCompleted
+        return (
+          <Badge variant={statusVariant(val)} icon={STATUS_ICONS[val]}>
+            {isEnded ? 'Đã kết thúc' : statusLabel(val)}
+          </Badge>
+        )
+      },
     },
     {
       key: 'startDate',
@@ -214,9 +239,16 @@ export function CampaignList({ onCreateNew, search = '', status = 'all' }) {
         // Không cho xóa khi campaign đang chạy/chưa kết thúc — phải Hủy hoặc đợi Hoàn Thành.
         // Mọi trạng thái khác (Canceled, Completed, hoặc bất kỳ status mới nào) đều được xóa.
         const isDeletable = !['Active', 'Paused', 'Inactive'].includes(row.status)
+        const isCompletable = row.status === 'Active' && !row.isExpired && !row.isCompleted
+        const isEnded = row.isExpired || row.isCompleted
         return (
           <TableActions
             actions={[
+              {
+                label: 'Chi tiết / Resources',
+                icon: 'open_in_new',
+                onClick: () => navigate(`/advertisement/detail/${row.id}`),
+              },
               {
                 label: 'Cập Nhật',
                 icon: 'edit',
@@ -226,6 +258,17 @@ export function CampaignList({ onCreateNew, search = '', status = 'all' }) {
                 label: 'Xem Nhật Ký',
                 icon: 'history',
                 onClick: () => navigate(`/advertisement/logs/${row.id}`),
+              },
+              {
+                label: 'Hoàn Thành',
+                icon: 'task_alt',
+                disabled: completingId === row.id || !isCompletable,
+                reason: !isCompletable ? (isEnded ? 'Chiến dịch đã kết thúc' : 'Chỉ hoàn thành được khi đang Hoạt động') : undefined,
+                onClick: () => {
+                  setConfirmMode('complete')
+                  setConfirmTarget(row)
+                  setConfirmError(null)
+                },
               },
               {
                 label: 'Hủy Chiến Dịch',
@@ -292,16 +335,19 @@ export function CampaignList({ onCreateNew, search = '', status = 'all' }) {
           message={
             confirmMode === 'delete'
               ? `Bạn có chắc muốn XÓA VĨNH VIỄN chiến dịch "${confirmTarget.name}" không? Hành động này không thể hoàn tác.`
+              : confirmMode === 'complete'
+              ? `Bạn có chắc muốn đánh dấu chiến dịch "${confirmTarget.name}" là hoàn thành?`
               : `Bạn có chắc muốn hủy chiến dịch "${confirmTarget.name}" không?`
           }
           error={confirmError}
           loading={
             (confirmMode === 'delete' && deletingId === confirmTarget.id) ||
-            (confirmMode === 'cancel' && cancellingId === confirmTarget.id)
+            (confirmMode === 'cancel' && cancellingId === confirmTarget.id) ||
+            (confirmMode === 'complete' && completingId === confirmTarget.id)
           }
           confirmVariant={confirmMode === 'delete' ? 'danger' : 'primary'}
-          confirmText={confirmMode === 'delete' ? 'Xóa Vĩnh Viễn' : 'Hủy Chiến Dịch'}
-          onConfirm={confirmMode === 'delete' ? handleConfirmDelete : handleConfirmCancel}
+          confirmText={confirmMode === 'delete' ? 'Xóa Vĩnh Viễn' : confirmMode === 'complete' ? 'Hoàn Thành' : 'Hủy Chiến Dịch'}
+          onConfirm={confirmMode === 'delete' ? handleConfirmDelete : confirmMode === 'complete' ? handleConfirmComplete : handleConfirmCancel}
           onCancel={handleCancelAction}
         />
       )}

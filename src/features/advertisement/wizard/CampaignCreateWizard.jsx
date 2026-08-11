@@ -11,6 +11,8 @@ import { getErrorMessage } from '../../../api/client'
 import { getPackages } from '../api/adPackageApi'
 import { getBrands } from '../../brand/api/brandApi'
 import { createCampaign, createCampaignWithProducts } from '../api/adCampaignApi'
+import { uploadResource } from '../api/adResourcesApi'
+import { toast } from 'react-toastify'
 
 function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
@@ -89,7 +91,7 @@ export function CampaignCreateWizard() {
   }
 
   // ── Submit ──
-  const handleSubmit = async () => {
+  const handleSubmit = async (pendingFiles = []) => {
     wizard.setSubmitting(true)
     wizard.setServerError(null)
     try {
@@ -104,8 +106,6 @@ export function CampaignCreateWizard() {
         semanticObjectId: state.targeting.semanticObjectId,
       }
       const productIds = state.products.productIds
-      // Luôn dùng endpoint /with-products — BE sẽ xử lý productIds = [] (cho phép) hoặc throw
-      // nếu business rule yêu cầu ≥ 1. Nếu BE /with-products 404 (chưa implement) thì fallback /ad-campaigns.
       let res
       try {
         res = await createCampaignWithProducts({ ...basePayload, productIds })
@@ -118,8 +118,29 @@ export function CampaignCreateWizard() {
       }
       const newId = res?.adCampaignId ?? res?.id
       wizard.setCreatedId(newId)
-      wizard.reset()
-      navigate('/advertisement')
+
+      // Upload pending resources sau khi tạo campaign thành công
+      if (pendingFiles.length > 0) {
+        toast.info(`Đang upload ${pendingFiles.length} resource...`)
+        for (const f of pendingFiles) {
+          try {
+            const resourceType = f.type === 'Video' ? 'video' : 'banner'
+            // Dùng tên file làm caption
+            const caption = f.name.replace(/\.[^.]+$/, '')
+            await uploadResource({
+              campaignId: newId,
+              resourceType,
+              file: f.file,
+              contentText: caption,
+            })
+          } catch (uploadErr) {
+            console.warn('Upload resource thất bại:', f.name, uploadErr)
+          }
+        }
+        toast.success(`Đã upload ${pendingFiles.length} resource!`)
+      }
+
+      navigate(`/advertisement/detail/${newId}`)
     } catch (err) {
       const msg = getErrorMessage(err, 'Tạo chiến dịch thất bại. Vui lòng thử lại.')
       wizard.setServerError(msg)
