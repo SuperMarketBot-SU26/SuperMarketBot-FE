@@ -109,7 +109,16 @@
                                 <i data-lucide="cloud-upload" class="w-3.5 h-3.5"></i> Lưu lên Server
                             </button>
                         </div>
-                        <div class="flex justify-between items-center text-[10px] text-slate-500">
+                        <div class="mt-2">
+                            <label class="block w-full cursor-pointer bg-amber-600/20 hover:bg-amber-600/30 border border-amber-600/50 rounded-lg p-2.5 transition-colors text-center">
+                                <input type="file" id="slamBundleUpload" accept=".yaml,.pgm,.png,.jpg,.jpeg,.posegraph,.data" multiple class="hidden">
+                                <div class="flex items-center justify-center gap-2 text-amber-300">
+                                    <i data-lucide="package" class="w-4 h-4"></i>
+                                    <span class="text-[11px] font-semibold">Tải SLAM Bundle (5 files ROS)</span>
+                                </div>
+                            </label>
+                        </div>
+                        <div class="flex justify-between items-center text-[10px] text-slate-500 mt-2">
                             <span>Tỷ lệ: 1px = 0.6cm (1 ô = 30cm)</span>
                         </div>
                     </div>
@@ -142,6 +151,19 @@
                                 <i data-lucide="circle" class="w-4 h-4 mb-1"></i>
                                 <span class="text-[11px]">Tròn</span>
                             </button>
+                        </div>
+
+                        <!-- Load DB Nodes Button -->
+                        <div class="mt-3">
+                            <button id="btnLoadNodes" class="w-full py-2 bg-purple-600/25 text-purple-400 hover:bg-purple-600 hover:text-white border border-purple-600/30 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1">
+                                <i data-lucide="download-cloud" class="w-3.5 h-3.5"></i> Tải Node từ DB
+                            </button>
+                            
+                            <!-- Map Flip Toggle -->
+                            <div class="flex items-center gap-2 mt-2">
+                                <input type="checkbox" id="flipMapY" class="w-3 h-3 rounded border-slate-700 bg-slate-950 checked:bg-blue-500 cursor-pointer" checked>
+                                <label for="flipMapY" class="text-[11px] text-slate-400 cursor-pointer select-none">Lật bản đồ (Trục Y) - Fix lệch RVIZ</label>
+                            </div>
                         </div>
 
                         <!-- Properties -->
@@ -460,7 +482,70 @@
         planRoute: (payload) => apiFetch('/Navigation/route', { method: 'POST', body: JSON.stringify(toPascal(payload)) }),
     };
 
-    // ── Logging ───────────────────────────────────────────────────
+    // ── Load Nodes from DB ─────────────────────────────────────────
+    document.getElementById('flipMapY').addEventListener('change', () => {
+        // If nodes exist, we need to recalculate their canvas positions
+        if (nodes.length > 0) {
+            nodes = nodes.map(n => {
+                const metersX = n.xCoord ?? n.XCoord ?? n.x ?? n.X ?? 0;
+                const metersY = n.yCoord ?? n.YCoord ?? n.y ?? n.Y ?? 0;
+                const pos = rosToCanvas(metersX, metersY);
+                return { ...n, x: pos.x, y: pos.y };
+            });
+            render();
+        }
+    });
+
+    document.getElementById('btnLoadNodes').addEventListener('click', () => {
+        if (!window.serverMapData) {
+            log('Chưa tải được thông tin Map từ Server!', 'error');
+            return;
+        }
+        const data = window.serverMapData;
+        const rawNodes = data?.nodes || [];
+        nodes = rawNodes.map((n) => {
+            const nodeId = n.nodeId ?? n.NodeId;
+            const metersX = n.xCoord ?? n.XCoord ?? n.x ?? n.X ?? 0;
+            const metersY = n.yCoord ?? n.YCoord ?? n.y ?? n.Y ?? 0;
+            const canvasPos = rosToCanvas(metersX, metersY);
+            if (rawNodes.indexOf(n) === 0) {
+                console.log('[DEBUG Node 0]', {
+                    metersX, metersY,
+                    originX: getOriginX(), originY: getOriginY(), res: getRes(),
+                    heightPx: getMapHeightPx(),
+                    canvasX: canvasPos.x, canvasY: canvasPos.y
+                });
+            }
+            return {
+                ...n,
+                nodeId,
+                x: canvasPos.x,
+                y: canvasPos.y,
+                nodeName: n.nodeName ?? n.NodeName ?? n.label ?? `N-${String(nodeId).padStart(3, '0')}`,
+                nodeType: n.nodeType ?? n.NodeType ?? 'landmark',
+            };
+        });
+        
+        const edgesRaw =
+            data?.edges ?? data?.Edges ??
+            data?.map?.edges ?? data?.Map?.Edges ??
+            data?.graph?.edges ?? data?.Graph?.Edges ??
+            data?.navigationEdges ?? data?.NavigationEdges ??
+            [];
+            
+        edges = edgesRaw.map((e) => ({
+            ...e,
+            sourceNodeId: e.sourceNodeId ?? e.SourceNodeId ?? e.sourceNode ?? e.SourceNode ?? e.sourceNodeId ?? e.fromNodeId ?? e.FromNodeId,
+            targetNodeId: e.targetNodeId ?? e.TargetNodeId ?? e.targetNode ?? e.TargetNode ?? e.toNodeId ?? e.ToNodeId,
+            edgeId: e.edgeId ?? e.EdgeId ?? e.id ?? e.Id,
+        }));
+        
+        if (nodes.length) nextNodeId = Math.max(...nodes.map(n => n.nodeId || 0)) + 1;
+        log(`Đã nạp ${nodes.length} nodes và ${edges.length} edges từ DB.`, 'success');
+        render();
+    });
+
+    // ── Auto-load ───────────────────────────────────────────────────
     const logEl = document.getElementById('serialLogsContainer');
     function log(msg, type = 'info') {
         const now = new Date();
@@ -475,14 +560,20 @@
 
     // ── State ─────────────────────────────────────────────────────
     // ── ROS2 Coordinate Conversions ─────────────────────────────────
-    function getRes() { return (currentMap && currentMap.resolution) || 0.05; }
-    function getOriginX() { return (currentMap && currentMap.originX) || 0.0; }
-    function getOriginY() { return (currentMap && currentMap.originY) || 0.0; }
+    function getOriginX() { return currentMap ? (currentMap.originX ?? currentMap.OriginX ?? 0.0) : 0.0; }
+    function getOriginY() { return currentMap ? (currentMap.originY ?? currentMap.OriginY ?? 0.0) : 0.0; }
+    function getRes() { return currentMap ? (currentMap.resolution ?? currentMap.Resolution ?? 0.05) : 0.05; }
     function getMapWidthPx() {
-        return bgImg ? bgImg.width : (currentMap && currentMap.widthMeters ? currentMap.widthMeters / getRes() : 400);
+        if (bgImg) return bgImg.width;
+        if (!currentMap) return 400;
+        const wM = currentMap.widthMeters ?? currentMap.WidthMeters;
+        return wM ? wM / getRes() : 400;
     }
     function getMapHeightPx() {
-        return bgImg ? bgImg.height : (currentMap && currentMap.heightMeters ? currentMap.heightMeters / getRes() : 300);
+        if (bgImg) return bgImg.height;
+        if (!currentMap) return 300;
+        const hM = currentMap.heightMeters ?? currentMap.HeightMeters;
+        return hM ? hM / getRes() : 300;
     }
 
     function rosToCanvas(metersX, metersY) {
@@ -914,9 +1005,10 @@
     document.getElementById('btnResetView').addEventListener('click', () => {
         if (!currentMap) return;
         const rect = container.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
         const mapW = getMapWidthPx();
         const mapH = getMapHeightPx();
-        zoom = Math.min((rect.width - 40) / mapW, (rect.height - 40) / mapH, MAX_ZOOM);
+        zoom = Math.max(MIN_ZOOM, Math.min((rect.width - 40) / mapW, (rect.height - 40) / mapH, MAX_ZOOM));
         // Origin (0,0) is the floorplan's top-left.
         panX = (rect.width - mapW * zoom) / 2;
         panY = (rect.height - mapH * zoom) / 2;
@@ -967,54 +1059,19 @@
             const data = await API.getMap(1);
             console.log('[loadMapFromServer] raw data:', data);
             currentMap = data;
-            const rawNodes = data?.nodes || [];
-            nodes = rawNodes.map((n) => {
-                // Defensive: handle either camelCase or PascalCase from BE.
-                const nodeId = n.nodeId ?? n.NodeId;
-                // Backend stores X/Y in meters (XCoord/YCoord or x/y). The editor's
-                // render loop draws at pixel scale, so convert meters → pixels here.
-                const metersX = n.xCoord ?? n.XCoord ?? n.x ?? n.X ?? 0;
-                const metersY = n.yCoord ?? n.YCoord ?? n.y ?? n.Y ?? 0;
-                const canvasPos = rosToCanvas(metersX, metersY);
-                return {
-                    ...n,
-                    nodeId,
-                    x: canvasPos.x,
-                    y: canvasPos.y,
-                    nodeName: n.nodeName ?? n.NodeName ?? n.label ?? `N-${String(nodeId).padStart(3, '0')}`,
-                    nodeType: n.nodeType ?? n.NodeType ?? 'landmark',
-                };
-            });
-            // Find edges: sometimes BE wraps them under .map.edges / .graph.edges
-            const edgesRaw =
-                data?.edges ?? data?.Edges ??
-                data?.map?.edges ?? data?.Map?.Edges ??
-                data?.graph?.edges ?? data?.Graph?.Edges ??
-                data?.navigationEdges ?? data?.NavigationEdges ??
-                [];
-            edges = edgesRaw.map((e) => ({
-                ...e,
-                sourceNodeId: e.sourceNodeId ?? e.SourceNodeId ?? e.sourceNode ?? e.SourceNode ?? e.sourceNodeId ?? e.fromNodeId ?? e.FromNodeId,
-                targetNodeId: e.targetNodeId ?? e.TargetNodeId ?? e.targetNode ?? e.TargetNode ?? e.toNodeId ?? e.ToNodeId,
-                edgeId: e.edgeId ?? e.EdgeId ?? e.id ?? e.Id,
-            }));
-            // Diagnostics: report how many edges reference known nodes.
-            const knownIds = new Set(nodes.map(n => n.nodeId));
-            const edgeDiag = edges.map((e) => ({
-                edgeId: e.edgeId,
-                sourceNodeId: e.sourceNodeId,
-                targetNodeId: e.targetNodeId,
-                sourceKnown: knownIds.has(Number(e.sourceNodeId)),
-                targetKnown: knownIds.has(Number(e.targetNodeId)),
-            }));
-            console.log('[loadMapFromServer] parsed nodes:', nodes, 'edges:', edges, 'edgeDiag:', edgeDiag);
+            // Do not load nodes/edges automatically as per user request
+            // We store the raw data so they can be loaded later via the "Tải Node từ DB" button
+            window.serverMapData = data;
+            nodes = [];
+            edges = [];
+            console.log('[loadMapFromServer] Nodes delayed. Map Data saved in memory.');
             log(`Tải: ${nodes.length} nodes, ${edges.length} edges, ${semanticObjects.length} objects`);
             if (nodes.length) nextNodeId = Math.max(...nodes.map(n => n.nodeId || 0)) + 1;
             if (data.floorplanImageUrl) {
                 const base = CONFIG.apiBase.replace('/api', '');
                 const imgUrl = data.floorplanImageUrl.startsWith('http')
                     ? data.floorplanImageUrl
-                    : base + data.floorplanImageUrl;
+                    : base + (data.floorplanImageUrl.startsWith('/') ? '' : '/') + data.floorplanImageUrl;
                 const img = new Image();
                 img.crossOrigin = 'anonymous';
                 img.onload = () => { bgImg = img; render(); };
@@ -1035,6 +1092,70 @@
     document.getElementById('btnLoadMapFromServer2')?.addEventListener('click', () => loadMapFromServer());
     // Auto-load on page open so the canvas reflects server state
     loadMapFromServer();
+
+    // ── SLAM BUNDLE UPLOAD ─────────────────────────────────────────
+    document.getElementById('slamBundleUpload').addEventListener('change', async (e) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        
+        const files = Array.from(e.target.files);
+        const formData = new FormData();
+        
+        let hasYaml = false;
+        let hasImage = false;
+        
+        for (const file of files) {
+            const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+            const name = file.name.toLowerCase();
+            
+            if (ext === '.yaml') {
+                if (name.includes('waypoints')) {
+                    formData.append('waypoints', file);
+                } else {
+                    formData.append('mapYaml', file);
+                    hasYaml = true;
+                }
+            } else if (['.pgm', '.png', '.jpg', '.jpeg'].includes(ext)) {
+                formData.append('mapImage', file);
+                hasImage = true;
+            } else if (ext === '.posegraph') {
+                formData.append('posegraph', file);
+            } else if (ext === '.data') {
+                formData.append('mapData', file);
+            }
+        }
+        
+        if (!hasYaml || !hasImage) {
+            log('Vui lòng chọn ít nhất 2 file: map.yaml và map.pgm (hoặc png/jpg) để upload!', 'error');
+            return;
+        }
+        
+        showLoading('Đang tải SLAM Bundle lên Server...');
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${CONFIG.apiBase}/v1/maps/upload-slam-bundle?floorId=1&mapName=ROS2_SLAM_Test`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+            
+            const data = await res.json();
+            hideLoading();
+            
+            if (!res.ok) {
+                log('Lỗi: ' + (data.message || 'Không thể upload bundle.'), 'error');
+            } else {
+                log(`Upload SLAM Bundle thành công. Đã tạo Map ID: ${data.mapId}`, 'success');
+                log('Upload thành công! Đang tải lại Map...', 'success');
+                loadMapFromServer();
+            }
+        } catch (err) {
+            console.error(err);
+            hideLoading();
+            log('Lỗi kết nối tới Server!', 'error');
+        }
+    });
 
     // ── Save map to server ─────────────────────────────────────────
     document.getElementById('btnSaveMap').addEventListener('click', async () => {
@@ -1094,9 +1215,10 @@
     function fitToView() {
         if (!currentMap) return;
         const rect = container.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
         const mapW = getMapWidthPx();
         const mapH = getMapHeightPx();
-        zoom = Math.min((rect.width - 40) / mapW, (rect.height - 40) / mapH, MAX_ZOOM);
+        zoom = Math.max(MIN_ZOOM, Math.min((rect.width - 40) / mapW, (rect.height - 40) / mapH, MAX_ZOOM));
         // Origin (0,0) is the floorplan's top-left, so the floorplan top-left
         // is the canvas point we offset from.
         panX = (rect.width - mapW * zoom) / 2;

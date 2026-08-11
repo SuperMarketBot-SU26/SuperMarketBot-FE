@@ -45,6 +45,7 @@ export default defineConfig(({ mode }) => {
       },
       proxy: {
         '/api': proxyConfig,
+        '/storage': proxyConfig,
         '/hubs': {
           ...proxyConfig,
           ws: true,
