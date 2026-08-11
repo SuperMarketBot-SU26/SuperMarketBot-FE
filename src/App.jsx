@@ -19,7 +19,7 @@ import ProductDetail from './pages/ProductDetail'
 import AccountManagement from './pages/AccountManagement'
 import Register from './pages/Register'
 import RobotMonitoring from './pages/RobotMonitoring'
-import RobotMapEditor from './pages/RobotMapEditor'
+
 import { AuthProvider } from './features/auth/AuthContext'
 import ProtectedRoute from './features/auth/ProtectedRoute'
 import { ThemeProvider } from './context/ThemeContext'
@@ -173,14 +173,7 @@ function App() {
               }
             />
 
-            <Route
-              path="/robot-monitoring/map-editor"
-              element={
-                <ProtectedRoute>
-                  <RobotMapEditor />
-                </ProtectedRoute>
-              }
-            />
+            
 
             {/* Catch-all */}
             <Route path="*" element={<Navigate to="/" replace />} />
