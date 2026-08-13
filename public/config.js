@@ -1,3 +1,3 @@
 window.SMB_ENV = {
-    BE_URL: 'http://localhost:5000'
+    BE_URL: 'https://interiorly-pinnatisect-adalyn.ngrok-free.dev'
 };

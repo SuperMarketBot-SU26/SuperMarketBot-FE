@@ -169,17 +169,15 @@ export function RobotMonitoring() {
           </div>
 
           <div className="flex justify-end">
-            <button
-              onClick={() => setIsEditingMap(!isEditingMap)}
-              className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold shadow-xs transition-all active:scale-95 ${
-                isEditingMap 
-                  ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500' 
-                  : 'border-smb-outline-variant/60 bg-smb-surface-container-lowest text-smb-on-surface hover:border-smb-primary hover:text-smb-primary'
-              }`}
+            <a
+              href="/ros-map-tool.html?edit=true"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold shadow-xs transition-all active:scale-95 border-smb-outline-variant/60 bg-smb-surface-container-lowest text-smb-on-surface hover:border-smb-primary hover:text-smb-primary"
             >
               <span className="material-symbols-outlined text-[18px]">edit_square</span>
-              {isEditingMap ? 'Tat Che Do Chinh Sua Ban Do' : 'Bat Che Do Chinh Sua Ban Do'}
-            </button>
+              Mở Công Cụ Chỉnh Sửa Bản Đồ
+            </a>
           </div>
         </main>
       </div>

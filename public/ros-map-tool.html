@@ -228,8 +228,11 @@
             z-index: 100;
             pointer-events: none;
         }
-        
         .toast.show { bottom: 30px; }
+
+        /* Edit mode classes */
+        body:not(.edit-mode) .sidebar { display: none; }
+        body.edit-mode .sidebar { display: flex; }
     </style>
     <script src="/config.js"></script>
 </head>
@@ -392,8 +395,27 @@
     <!-- Nạp thư viện roslibjs -->
     <script src="https://cdn.jsdelivr.net/npm/eventemitter2@6.4.9/lib/eventemitter2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
-
     <script>
+        // Edit mode flag (can be enabled via ?edit=true URL param or postMessage)
+        const urlParams = new URLSearchParams(window.location.search);
+        window.isEditMode = urlParams.get('edit') === 'true';
+        
+        if (window.isEditMode) {
+            document.body.classList.add('edit-mode');
+        }
+
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'SET_EDIT_MODE') {
+                window.isEditMode = event.data.isEditing;
+                if (window.isEditMode) {
+                    document.body.classList.add('edit-mode');
+                } else {
+                    document.body.classList.remove('edit-mode');
+                }
+            }
+        });
+
+        // Config & State
         let RESOLUTION = 0.05;         
         let ORIGIN_X = -10.0;          
         let ORIGIN_Y = -10.0;          
@@ -523,6 +545,16 @@
 
         container.addEventListener('mousedown', (e) => {
             if (e.button === 0) { // Chuột trái
+                // Nếu không ở edit mode, chỉ cho phép kéo (pan) bản đồ
+                if (!window.isEditMode) {
+                    isDragging = true;
+                    startClientX = e.clientX;
+                    startClientY = e.clientY;
+                    startTranslateX = translateX;
+                    startTranslateY = translateY;
+                    return;
+                }
+                
                 // Kiểm tra click vào Waypoint cũ
                 const containerRect = container.getBoundingClientRect();
                 const mouseX = e.clientX - containerRect.left;
