@@ -1107,29 +1107,40 @@
             btn.disabled = true;
             try {
                 const nodes = waypoints.map((wp, i) => ({
-                    nodeId: wp.id || `node_${Date.now()}_${i}`,
+                    nodeId: (wp.id && typeof wp.id === 'number') ? wp.id : null,
                     xCoord: wp.x,
                     yCoord: wp.y,
-                    nodeName: wp.name || `Node ${i}`,
-                    nodeRole: wp.role || 'ad'
+                    nodeName: wp.name || `Node ${i + 1}`,
+                    nodeType: 'Waypoint',
+                    nodeRole: wp.role || 'ad',
+                    isBlocked: false
                 }));
-                const payload = {
-                    mapId: window.currentMapId,
-                    floorId: 1,
-                    nodes: nodes,
-                    edges: [] // Simplified for now
-                };
-                const url = (window.SMB_ENV?.BE_URL || 'http://localhost:5000') + '/api/v1/maps/sync';
+                
+                const baseUrl = window.SMB_ENV?.BE_URL !== undefined ? window.SMB_ENV.BE_URL : 'http://localhost:5000';
+                const url = baseUrl + `/api/v1/maps/${window.currentMapId}/waypoints`;
+                
+                const headers = getFetchHeaders();
+                headers['Content-Type'] = 'application/json';
+
                 const response = await fetch(url, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    headers: headers,
+                    body: JSON.stringify(nodes)
                 });
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                if (!response.ok) {
+                    let errText = response.statusText;
+                    try {
+                        const errData = await response.json();
+                        errText = errData.message || errData.error || errText;
+                        if (errData.errors) errText += ' ' + JSON.stringify(errData.errors);
+                    } catch(e) {}
+                    throw new Error(`HTTP ${response.status} - ${errText}`);
+                }
                 const result = await response.json();
                 
+                const totalSaved = (result.nodesCreated || 0) + (result.nodesUpdated || 0);
                 const toast = document.getElementById('toast');
-                toast.innerText = `✅ Sync thành công! Đã lưu ${result.nodesCreated || 0 + result.nodesUpdated || 0} nodes.`;
+                toast.innerText = `✅ Sync thành công! Đã lưu ${totalSaved} nodes.`;
                 toast.style.background = '#10b981';
                 toast.classList.add('show');
                 setTimeout(() => toast.classList.remove('show'), 3000);
@@ -1169,12 +1180,23 @@
             formData.append('mapImage', pgmFile);
             
             try {
-                const url = (window.SMB_ENV?.BE_URL || 'http://localhost:5000') + '/api/v1/maps/upload-slam-bundle';
+                const baseUrl = window.SMB_ENV?.BE_URL !== undefined ? window.SMB_ENV.BE_URL : 'http://localhost:5000';
+                // Add ?floorId=1 for upload-slam-bundle
+                const url = baseUrl + '/api/v1/maps/upload-slam-bundle?floorId=1';
                 const response = await fetch(url, {
                     method: 'POST',
+                    headers: getFetchHeaders(),
                     body: formData
                 });
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                if (!response.ok) {
+                    let errText = response.statusText;
+                    try {
+                        const errData = await response.json();
+                        errText = errData.message || errData.error || errText;
+                        if (errData.errors) errText += ' ' + JSON.stringify(errData.errors);
+                    } catch(e) {}
+                    throw new Error(`HTTP ${response.status} - ${errText}`);
+                }
                 const result = await response.json();
                 
                 window.currentMapId = result.mapId;
@@ -1194,6 +1216,22 @@
         }
 
         window.currentMapId = null;
+        window.currentMapName = "Supermarket Map";
+        window.currentMapWidth = 0;
+        window.currentMapHeight = 0;
+        window.currentMapEdges = [];
+        window.currentMapSemanticObjects = [];
+
+        function getFetchHeaders() {
+            const token = localStorage.getItem('accessToken');
+            const headers = {
+                'ngrok-skip-browser-warning': 'true'
+            };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            return headers;
+        }
 
         async function fetchActiveMapFromBE() {
             const btn = document.querySelector('button[onclick="fetchActiveMapFromBE()"]');
@@ -1202,14 +1240,24 @@
             btn.disabled = true;
 
             try {
-                const url = (window.SMB_ENV?.BE_URL || 'http://localhost:5000') + '/api/v1/maps/active?floorId=1';
-                const response = await fetch(url);
+                // If using Vite dev server, empty BE_URL uses proxy. Otherwise hits BE directly.
+                const baseUrl = window.SMB_ENV?.BE_URL !== undefined ? window.SMB_ENV.BE_URL : 'http://localhost:5000';
+                const url = baseUrl + '/api/v1/maps/active?floorId=1';
+                
+                const response = await fetch(url, {
+                    headers: getFetchHeaders()
+                });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 
                 const data = await response.json();
                 console.log("Map Data from BE:", data);
                 
                 window.currentMapId = data.mapId;
+                window.currentMapName = data.mapName || "Supermarket Map";
+                window.currentMapWidth = data.widthMeters || 0;
+                window.currentMapHeight = data.heightMeters || 0;
+                window.currentMapEdges = data.edges || [];
+                window.currentMapSemanticObjects = data.semanticObjects || [];
 
                 RESOLUTION = data.resolution || 0.05;
                 ORIGIN_X = data.originX || 0;
@@ -1225,7 +1273,7 @@
                         id: n.nodeId,
                         x: n.xCoord,
                         y: n.yCoord,
-                        heading: 0, // default
+                        heading: n.headingYaw || 0, // load heading if exists
                         name: n.nodeName || `Node ${n.nodeId}`,
                         role: n.nodeRole || 'ad',
                         dwellTimeSeconds: 30
@@ -1236,7 +1284,7 @@
                 if (data.floorplanImageUrl) {
                     let imgUrl = data.floorplanImageUrl;
                     if (imgUrl.startsWith('/')) {
-                        imgUrl = (window.SMB_ENV?.BE_URL || 'http://localhost:5000') + imgUrl;
+                        imgUrl = baseUrl + imgUrl;
                     }
                     
                     const img = new Image();
