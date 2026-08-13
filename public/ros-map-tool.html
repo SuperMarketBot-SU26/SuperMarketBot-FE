@@ -400,9 +400,35 @@
             </select>
         </div>
         
-        <div style="margin-bottom: 24px;">
+        <div style="margin-bottom: 16px;">
+            <label style="display: block; color: #cbd5e1; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">Type (Phân loại Node):</label>
+            <select id="wp-edit-type" style="width: 100%; background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; outline: none; cursor: pointer;">
+                <option value="Waypoint">📍 Waypoint (Điểm dừng)</option>
+                <option value="Charger">⚡ Charger (Sạc)</option>
+                <option value="Intersection">🛣️ Intersection (Ngã tư)</option>
+                <option value="Shelf">🛍️ Shelf (Quầy kệ)</option>
+            </select>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+            <div style="flex: 1;">
+                <label style="display: block; color: #cbd5e1; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">Tọa độ X:</label>
+                <input type="number" id="wp-edit-x" step="0.01" style="width: 100%; background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; outline: none;">
+            </div>
+            <div style="flex: 1;">
+                <label style="display: block; color: #cbd5e1; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">Tọa độ Y:</label>
+                <input type="number" id="wp-edit-y" step="0.01" style="width: 100%; background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; outline: none;">
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 16px;">
             <label style="display: block; color: #cbd5e1; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">Dwell Time (Thời gian chờ - Giây):</label>
             <input type="number" id="wp-edit-dwell" style="width: 100%; background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; outline: none; transition: border-color 0.2s;" min="0" onfocus="this.style.borderColor='#38bdf8'" onblur="this.style.borderColor='#475569'">
+        </div>
+
+        <div style="margin-bottom: 24px; display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="wp-edit-blocked" style="width: 16px; height: 16px; cursor: pointer;">
+            <label for="wp-edit-blocked" style="color: #ef4444; font-size: 0.9rem; font-weight: 500; cursor: pointer;">Bị chặn (Is Blocked)</label>
         </div>
         
         <div style="display: flex; justify-content: flex-end; gap: 12px;">
@@ -511,7 +537,11 @@
             document.getElementById('wp-edit-index').value = index;
             document.getElementById('wp-edit-name').value = wp.name || `Waypoint ${index + 1}`;
             document.getElementById('wp-edit-role').value = wp.role || 'ad';
+            document.getElementById('wp-edit-type').value = wp.nodeType || 'Waypoint';
+            document.getElementById('wp-edit-x').value = wp.x;
+            document.getElementById('wp-edit-y').value = wp.y;
             document.getElementById('wp-edit-dwell').value = wp.dwellTimeSeconds !== undefined ? wp.dwellTimeSeconds : 30;
+            document.getElementById('wp-edit-blocked').checked = wp.isBlocked || false;
             
             document.getElementById('wp-modal-overlay').style.display = 'block';
             document.getElementById('wp-modal').style.display = 'block';
@@ -527,10 +557,14 @@
             if (index >= 0 && index < waypoints.length) {
                 waypoints[index].name = document.getElementById('wp-edit-name').value;
                 waypoints[index].role = document.getElementById('wp-edit-role').value;
+                waypoints[index].nodeType = document.getElementById('wp-edit-type').value;
+                waypoints[index].x = parseFloat(document.getElementById('wp-edit-x').value) || waypoints[index].x;
+                waypoints[index].y = parseFloat(document.getElementById('wp-edit-y').value) || waypoints[index].y;
                 waypoints[index].dwellTimeSeconds = parseInt(document.getElementById('wp-edit-dwell').value) || 0;
+                waypoints[index].isBlocked = document.getElementById('wp-edit-blocked').checked;
                 
                 closeWpModal();
-                renderUI(); // Render lại tên
+                renderUI(); // Render lại tên và vị trí
                 
                 const toast = document.getElementById('toast');
                 toast.innerText = '✅ Cập nhật Config thành công!';
@@ -777,6 +811,8 @@
                             heading: draftWaypoint.heading,
                             name: `Waypoint ${waypoints.length + 1}`,
                             role: 'ad',
+                            nodeType: 'Waypoint',
+                            isBlocked: false,
                             dwellTimeSeconds: 30
                         });
                         toast.innerText = '✅ Đã lưu Waypoint vào file YAML!';
@@ -1111,9 +1147,9 @@
                     xCoord: wp.x,
                     yCoord: wp.y,
                     nodeName: wp.name || `Node ${i + 1}`,
-                    nodeType: 'Waypoint',
+                    nodeType: wp.nodeType || 'Waypoint',
                     nodeRole: wp.role || 'ad',
-                    isBlocked: false
+                    isBlocked: wp.isBlocked || false
                 }));
                 
                 const baseUrl = window.SMB_ENV?.BE_URL !== undefined ? window.SMB_ENV.BE_URL : 'http://localhost:5000';
@@ -1276,6 +1312,8 @@
                         heading: n.headingYaw || 0, // load heading if exists
                         name: n.nodeName || `Node ${n.nodeId}`,
                         role: n.nodeRole || 'ad',
+                        nodeType: n.nodeType || 'Waypoint',
+                        isBlocked: n.isBlocked || false,
                         dwellTimeSeconds: 30
                     }));
                 }
