@@ -58,24 +58,6 @@ export const getActiveMap = async ({ floorId } = {}) => {
   return res.data
 }
 
-export const syncMap = async (payload) => {
-  const res = await client.post(`${ENDPOINT}/sync`, payload)
-  return res.data
-}
-
-export const uploadSlamBundle = async (formData) => {
-  const res = await client.post(`${ENDPOINT}/upload-slam-bundle`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
-  return res.data
-}
-
-export const uploadFloorplanImage = async (mapId, formData) => {
-  const res = await client.post(`${ENDPOINT}/${mapId}/upload-image`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
-  return res.data
-}
 
 /**
  * List all map versions for a floor (useful for the version-selector dropdown).
@@ -111,7 +93,7 @@ export const setActiveMap = async (mapId) => {
  * @param {File} file
  * @returns {Promise<{ mapId, imageUrl, message }>}
  */
-export const uploadMapFloorplanImage = async (mapId, file) => {
+export const uploadFloorplanImage = async (mapId, file) => {
   const form = new FormData()
   form.append('file', file)
   // Override the axios instance's `application/json` default so ASP.NET

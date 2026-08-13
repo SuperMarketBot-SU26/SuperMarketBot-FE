@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuperMarketBot - Map Mockup</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --panel-bg: rgba(30, 41, 59, 0.7);
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --grid-color: rgba(255, 255, 255, 0.05);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            /* Disable text selection while dragging */
+            user-select: none; 
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 350px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            z-index: 10;
+            box-shadow: 4px 0 24px rgba(0,0,0,0.2);
+            overflow-y: auto;
+        }
+
+        .header {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-icon {
+            width: 12px;
+            height: 12px;
+            background: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 12px #10b981;
+            animation: pulse 2s infinite;
+        }
+        
+        .global-status {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .global-status.connected {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            border-color: rgba(16, 185, 129, 0.4);
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 16px;
+            transition: transform 0.2s ease;
+        }
+
+        .card-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            font-weight: 500;
+        }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+
+        .value {
+            font-family: monospace;
+            color: #38bdf8;
+            font-weight: 600;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        input[type="number"], input[type="text"] {
+            width: 100%;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-family: monospace;
+            outline: none;
+        }
+
+        input[type="file"] {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+            padding: 10px;
+        }
+
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover { background: var(--accent-hover); }
+
+        /* Mode Switcher */
+        .mode-switcher {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .mode-label {
+            flex: 1;
+            text-align: center;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .mode-label input { display: none; }
+        
+        .mode-label:has(input:checked) {
+            background: var(--accent);
+            border-color: var(--accent-hover);
+            font-weight: bold;
+        }
+
+        /* Map Container */
+        .map-container {
+            flex: 1;
+            position: relative;
+            background: radial-gradient(circle at center, #1e293b 0%, var(--bg-dark) 100%);
+            overflow: hidden;
+            cursor: grab;
+        }
+        
+        .map-container.draw-mode {
+            cursor: crosshair;
+        }
+
+        .map-container:active:not(.draw-mode) {
+            cursor: grabbing;
+        }
+
+        canvas {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            transform-origin: top left; 
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        .toast {
+            position: fixed;
+            bottom: -100px;
+            left: calc(50% + 170px);
+            transform: translateX(-50%);
+            background: rgba(16, 185, 129, 0.9);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-weight: 500;
+            box-shadow: 0 10px 25px rgba(16,185,129,0.3);
+            transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 100;
+            pointer-events: none;
+        }
+        
+        .toast.show { bottom: 30px; }
+    </style>
+    <script src="/config.js"></script>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="header">
+            <div class="header-title">
+                <div class="header-icon"></div>
+                SMB Fleet
+            </div>
+            <div class="global-status" id="global-ros-status">
+                <span style="font-size: 10px;">🔴</span> OFFLINE
+            </div>
+        </div>
+
+        <div class="card" style="border-color: #f59e0b;">
+            <div class="card-title" style="color: #f59e0b;">1. Tải Bản Đồ & Waypoint</div>
+            <div style="font-size: 0.8rem; color: #fff; margin-bottom: 12px;">
+                Tải bản đồ từ Backend hoặc Upload thủ công (.pgm + .yaml).
+            </div>
+            <button onclick="fetchActiveMapFromBE()" style="width: 100%; background: #38bdf8; margin-bottom: 12px; color: #0f172a;">🌐 Tải từ Backend C#</button>
+            <div style="font-size: 0.75rem; text-align: center; margin-bottom: 8px; color: var(--text-muted);">Hoặc upload thủ công</div>
+            <input type="file" id="mapFiles" multiple accept=".pgm,.yaml" style="width: 100%; box-sizing: border-box;" />
+        </div>
+
+        <div class="card">
+            <div class="card-title">Map Parameters</div>
+            <div class="data-row"><span>Resolution</span><span class="value" id="val-res">0.05</span></div>
+            <div class="data-row"><span>Origin X</span><span class="value" id="val-ox">-10.00</span></div>
+            <div class="data-row"><span>Origin Y</span><span class="value" id="val-oy">-10.00</span></div>
+            <div class="data-row"><span>Image Size</span><span class="value" id="val-size">800x600</span></div>
+            <div class="data-row"><span>Zoom Level</span><span class="value" id="val-zoom">100%</span></div>
+        </div>
+
+        <div class="card" style="border-color: var(--accent);">
+            <div class="card-title" style="color: var(--accent);">2. Navigation Control</div>
+            
+            <!-- Chuyển đổi Mode công cụ -->
+            <div class="mode-switcher" style="flex-wrap: wrap;">
+                <label class="mode-label" style="flex-basis: 45%;">
+                    <input type="radio" name="toolMode" value="pan" checked> 🖐️ Pan Map
+                </label>
+                <label class="mode-label" style="flex-basis: 45%; background-color: rgba(244, 63, 94, 0.2); border-color: rgba(244, 63, 94, 0.5);">
+                    <input type="radio" name="toolMode" value="draw"> 🎯 Tạo WP
+                </label>
+                <label class="mode-label" style="flex-basis: 45%; background-color: rgba(16, 185, 129, 0.2); border-color: rgba(16, 185, 129, 0.5);">
+                    <input type="radio" name="toolMode" value="initialpose"> 📍 Initial Pose
+                </label>
+                <label class="mode-label" style="flex-basis: 45%; background-color: rgba(245, 158, 11, 0.2); border-color: rgba(245, 158, 11, 0.5);">
+                    <input type="radio" name="toolMode" value="navgoal"> 🚀 Nav Goal
+                </label>
+            </div>
+
+            <div style="font-size: 0.85rem; color: #fff; margin-bottom: 12px; line-height: 1.4;">
+                <span id="instruction-pan">
+                    🖱️ <b>Kéo thả chuột (Drag):</b> Di chuyển bản đồ<br>
+                    🔍 <b>Lăn chuột (Scroll):</b> Phóng to / Thu nhỏ<br>
+                    ❌ <b>Click chuột phải (Right Click):</b> Xóa Waypoint
+                </span>
+                <span id="instruction-draw" style="display:none; color: #fecdd3;">
+                    🎯 <b>Giữ chuột trái & Kéo (Click & Drag):</b> Đặt Waypoint lưu vào bộ nhớ để xuất file YAML.<br>
+                    ❌ <b>Click chuột phải (Right Click):</b> Xóa Waypoint
+                </span>
+                <span id="instruction-initialpose" style="display:none; color: #d1fae5;">
+                    📍 <b>Giữ chuột trái & Kéo:</b> Cập nhật vị trí bắt đầu (Initial Pose) cho AMCL trên ROS 2.
+                </span>
+                <span id="instruction-navgoal" style="display:none; color: #fef3c7;">
+                    🚀 <b>Giữ chuột trái & Kéo:</b> Ra lệnh cho Robot tự động chạy tới điểm này (Gửi /goal_pose).
+                </span>
+            </div>
+            <div class="data-row"><span>👉 ROS Map X:</span><span class="value" style="color: #f43f5e;" id="val-wx">-</span></div>
+            <div class="data-row"><span>👉 ROS Map Y:</span><span class="value" style="color: #f43f5e;" id="val-wy">-</span></div>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">3. Connect to Robot (ROS 2)</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">
+                Kết nối Web UI trực tiếp với Robot qua Rosbridge WebSocket.
+            </div>
+            <div class="input-group">
+                <input type="text" id="ros-ws-url" value="ws://192.168.1.100:9090" placeholder="ws://IP:9090">
+                <button id="btn-ros-connect" onclick="connectROS()" style="background: #10b981;">Connect</button>
+            </div>
+            <div class="data-row" style="margin-top: 8px;">
+                <span>Status:</span><span class="value" id="val-ros-status" style="color: #ef4444;">Disconnected</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">4. ROBOT TELEMETRY (ROS 2)</div>
+            <div style="font-size: 0.8rem; color: #a1a1aa; margin-bottom: 8px;">
+                Tự động cập nhật vị trí xe theo thời gian thực (1-2 Hz).
+            </div>
+            
+            <div class="data-row">
+                <span style="font-size: 0.85rem;">Pose Topic:</span>
+                <input type="text" id="ros-pose-topic" value="/pose" style="width: 100px; padding: 4px; font-size: 0.8rem; background: #1f2937; color: #fff; border: 1px solid #374151; border-radius: 4px;">
+            </div>
+            
+            <div class="data-row" style="margin-top: 10px;">
+                <span>Live X:</span><span class="value" id="live-rx" style="color: #38bdf8;">0.000</span>
+            </div>
+            <div class="data-row">
+                <span>Live Y:</span><span class="value" id="live-ry" style="color: #38bdf8;">0.000</span>
+            </div>
+        </div>
+
+        <div class="card" style="border-color: #f59e0b;">
+            <div class="card-title" style="color: #f59e0b;">5. Export Mission</div>
+            <button style="width: 100%; background: #f59e0b; margin-top: 8px;" onclick="exportWaypointsYAML()">⬇️ Tải xuống YAML</button>
+        </div>
+    </div>
+
+    <div class="map-container" id="mapContainer">
+        <!-- Layer 1: Bản đồ gốc (sẽ bị scale mờ/pixelate) -->
+        <canvas id="mapCanvas" width="800" height="600"></canvas>
+        <!-- Layer 2: Vector UI (Luôn sắc nét, kích thước 1:1 với màn hình) -->
+        <canvas id="uiCanvas" style="position: absolute; top: 0; left: 0; pointer-events: none;"></canvas>
+    </div>
+
+    <div class="toast" id="toast">✅ Đã lưu Waypoint!</div>
+
+    <!-- Waypoint Edit Modal -->
+    <div id="wp-modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 999; transition: all 0.3s ease;" onclick="closeWpModal()"></div>
+    <div id="wp-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1e293b; padding: 28px; border-radius: 12px; border: 1px solid #334155; z-index: 1000; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); min-width: 380px; font-family: 'Inter', sans-serif;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: #38bdf8; font-size: 1.2rem; font-weight: 600;">⚙️ Config Waypoint</h3>
+            <button onclick="closeWpModal()" style="background: transparent; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer; padding: 0;">&times;</button>
+        </div>
+        
+        <input type="hidden" id="wp-edit-index">
+        
+        <div style="margin-bottom: 16px;">
+            <label style="display: block; color: #cbd5e1; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">Name (Hiển thị trên bản đồ):</label>
+            <input type="text" id="wp-edit-name" style="width: 100%; background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='#38bdf8'" onblur="this.style.borderColor='#475569'">
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+            <label style="display: block; color: #cbd5e1; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">Role (Nhiệm vụ):</label>
+            <select id="wp-edit-role" style="width: 100%; background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; outline: none; cursor: pointer;">
+                <option value="ad">📺 ad (Quảng cáo)</option>
+                <option value="pickup">📦 pickup (Lấy hàng)</option>
+                <option value="dropoff">🚚 dropoff (Giao hàng)</option>
+                <option value="nav">➡️ nav (Đi ngang qua)</option>
+            </select>
+        </div>
+        
+        <div style="margin-bottom: 24px;">
+            <label style="display: block; color: #cbd5e1; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">Dwell Time (Thời gian chờ - Giây):</label>
+            <input type="number" id="wp-edit-dwell" style="width: 100%; background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; outline: none; transition: border-color 0.2s;" min="0" onfocus="this.style.borderColor='#38bdf8'" onblur="this.style.borderColor='#475569'">
+        </div>
+        
+        <div style="display: flex; justify-content: flex-end; gap: 12px;">
+            <button class="btn" style="background: transparent; border: 1px solid #475569; color: #cbd5e1; padding: 8px 20px; font-weight: 500; font-size: 0.95rem;" onclick="closeWpModal()">Hủy</button>
+            <button class="btn" style="background: #38bdf8; color: #0f172a; padding: 8px 24px; font-weight: 600; font-size: 0.95rem; border: none; box-shadow: 0 4px 6px -1px rgba(56, 189, 248, 0.3);" onclick="saveWpModal()">Lưu Thay Đổi</button>
+        </div>
+    </div>
+
+    <!-- Nạp thư viện roslibjs -->
+    <script src="https://cdn.jsdelivr.net/npm/eventemitter2@6.4.9/lib/eventemitter2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
+
+    <script>
+        let RESOLUTION = 0.05;         
+        let ORIGIN_X = -10.0;          
+        let ORIGIN_Y = -10.0;          
+        
+        const mapCanvas = document.getElementById('mapCanvas');
+        const uiCanvas = document.getElementById('uiCanvas');
+        const container = document.getElementById('mapContainer');
+        const ctxMap = mapCanvas.getContext('2d');
+        const ctxUI = uiCanvas.getContext('2d');
+        
+        let IMAGE_HEIGHT = mapCanvas.height;
+        let IMAGE_WIDTH = mapCanvas.width;
+
+        let robotMapX = 0.0;
+        let robotMapY = 0.0;
+        let waypoints = [];
+        let draftWaypoint = null; // Biến lưu tạm waypoint đang kéo hướng
+        let pgmImageData = null; 
+
+        // --- CSS Transform Variables cho PAN & ZOOM ---
+        let scale = 1.0;
+        let translateX = (container.clientWidth - IMAGE_WIDTH) / 2;
+        let translateY = (container.clientHeight - IMAGE_HEIGHT) / 2;
+        let currentMode = 'pan';
+
+        // Xử lý đổi Mode
+        document.querySelectorAll('input[name="toolMode"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                currentMode = e.target.value;
+                document.getElementById('instruction-pan').style.display = 'none';
+                document.getElementById('instruction-draw').style.display = 'none';
+                document.getElementById('instruction-initialpose').style.display = 'none';
+                document.getElementById('instruction-navgoal').style.display = 'none';
+                
+                if(currentMode === 'pan') {
+                    container.classList.remove('draw-mode');
+                    document.getElementById('instruction-pan').style.display = 'block';
+                } else {
+                    container.classList.add('draw-mode');
+                    if(currentMode === 'draw') document.getElementById('instruction-draw').style.display = 'block';
+                    if(currentMode === 'initialpose') document.getElementById('instruction-initialpose').style.display = 'block';
+                    if(currentMode === 'navgoal') document.getElementById('instruction-navgoal').style.display = 'block';
+                }
+            });
+        });
+
+        /** ==========================================
+         * TÍNH TOÁN TỌA ĐỘ
+         * ========================================== */
+        function pixelToMap(pixelX, pixelY) {
+            const mapX = ORIGIN_X + (pixelX * RESOLUTION);
+            const mapY = ORIGIN_Y + ((IMAGE_HEIGHT - 1 - pixelY) * RESOLUTION);
+            return { x: mapX, y: mapY };
+        }
+
+        function mapToPixel(mapX, mapY) {
+            const pixelX = (mapX - ORIGIN_X) / RESOLUTION;
+            const pixelY = IMAGE_HEIGHT - 1 - ((mapY - ORIGIN_Y) / RESOLUTION);
+            return { x: pixelX, y: pixelY };
+        }
+
+        function pixelToScreen(px, py) {
+            return {
+                x: translateX + (px * scale),
+                y: translateY + (py * scale)
+            };
+        }
+
+        // --- JS Logic cho Waypoint Config Modal ---
+        function openWpModal(index) {
+            const wp = waypoints[index];
+            if (!wp) return;
+            
+            document.getElementById('wp-edit-index').value = index;
+            document.getElementById('wp-edit-name').value = wp.name || `Waypoint ${index + 1}`;
+            document.getElementById('wp-edit-role').value = wp.role || 'ad';
+            document.getElementById('wp-edit-dwell').value = wp.dwellTimeSeconds !== undefined ? wp.dwellTimeSeconds : 30;
+            
+            document.getElementById('wp-modal-overlay').style.display = 'block';
+            document.getElementById('wp-modal').style.display = 'block';
+        }
+
+        function closeWpModal() {
+            document.getElementById('wp-modal-overlay').style.display = 'none';
+            document.getElementById('wp-modal').style.display = 'none';
+        }
+
+        function saveWpModal() {
+            const index = parseInt(document.getElementById('wp-edit-index').value);
+            if (index >= 0 && index < waypoints.length) {
+                waypoints[index].name = document.getElementById('wp-edit-name').value;
+                waypoints[index].role = document.getElementById('wp-edit-role').value;
+                waypoints[index].dwellTimeSeconds = parseInt(document.getElementById('wp-edit-dwell').value) || 0;
+                
+                closeWpModal();
+                renderUI(); // Render lại tên
+                
+                const toast = document.getElementById('toast');
+                toast.innerText = '✅ Cập nhật Config thành công!';
+                toast.style.background = '#3b82f6';
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 2000);
+            }
+        }
+
+        /** ==========================================
+         * XỬ LÝ SỰ KIỆN CHUỘT (PAN / DRAW)
+         * ========================================== */
+        function applyTransform() {
+            mapCanvas.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+            document.getElementById('val-zoom').innerText = Math.round(scale * 100) + '%';
+            renderUI(); 
+        }
+
+        function resizeUICanvas() {
+            uiCanvas.width = container.clientWidth;
+            uiCanvas.height = container.clientHeight;
+            renderUI();
+        }
+        window.addEventListener('resize', resizeUICanvas);
+        resizeUICanvas();
+        applyTransform();
+
+        let isDragging = false;
+        let startClientX, startClientY;
+        let startTranslateX, startTranslateY;
+
+        container.addEventListener('mousedown', (e) => {
+            if (e.button === 0) { // Chuột trái
+                // Kiểm tra click vào Waypoint cũ
+                const containerRect = container.getBoundingClientRect();
+                const mouseX = e.clientX - containerRect.left;
+                const mouseY = e.clientY - containerRect.top;
+
+                let clickedWpIndex = -1;
+                for (let i = waypoints.length - 1; i >= 0; i--) {
+                    const wp = waypoints[i];
+                    const px = mapToPixel(wp.x, wp.y);
+                    const screenPx = pixelToScreen(px.x, px.y);
+                    if (Math.hypot(mouseX - screenPx.x, mouseY - screenPx.y) <= 15) {
+                        clickedWpIndex = i;
+                        break;
+                    }
+                }
+
+                if (clickedWpIndex !== -1) {
+                    openWpModal(clickedWpIndex);
+                    return; // Dừng lại, không kéo thả map hay tạo WP mới
+                }
+
+                if (currentMode === 'pan') {
+                    isDragging = true;
+                    startClientX = e.clientX;
+                    startClientY = e.clientY;
+                    startTranslateX = translateX;
+                    startTranslateY = translateY;
+                } else if (currentMode === 'draw' || currentMode === 'initialpose' || currentMode === 'navgoal') {
+                    // Logic tạo Draft Waypoint ngay tại điểm nhấn chuột
+                    const rect = mapCanvas.getBoundingClientRect();
+                    const scaleX = mapCanvas.width / rect.width;
+                    const scaleY = mapCanvas.height / rect.height;
+                    
+                    const pixelX = (e.clientX - rect.left) * scaleX;
+                    const pixelY = (e.clientY - rect.top) * scaleY;
+                    const mapCoords = pixelToMap(pixelX, pixelY);
+
+                    document.getElementById('val-wx').innerText = mapCoords.x.toFixed(4);
+                    document.getElementById('val-wy').innerText = mapCoords.y.toFixed(4);
+
+                    draftWaypoint = {
+                        x: mapCoords.x,
+                        y: mapCoords.y,
+                        heading: 0,
+                        startX: e.clientX, // Tọa độ chuột gốc để tính góc
+                        startY: e.clientY
+                    };
+                    renderUI();
+                }
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (currentMode === 'pan' && isDragging) {
+                const dx = e.clientX - startClientX;
+                const dy = e.clientY - startClientY;
+                translateX = startTranslateX + dx;
+                translateY = startTranslateY + dy;
+                applyTransform();
+            } else if (draftWaypoint && (currentMode === 'draw' || currentMode === 'initialpose' || currentMode === 'navgoal')) {
+                // Tính toán hướng góc quay
+                const dx = e.clientX - draftWaypoint.startX;
+                const dy = e.clientY - draftWaypoint.startY; // Lưu ý: Canvas Y ngược hướng
+                
+                // Tránh tình trạng click nhấp nhả bị quay vòng vòng
+                if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+                    // Trục Y của ROS hướng LÊN, Canvas hướng XUỐNG. Nên dy của ROS = -dy của Canvas
+                    draftWaypoint.heading = Math.atan2(-dy, dx); 
+                }
+                renderUI();
+            }
+        });
+
+        /** ==========================================
+         * TÍCH HỢP ROS 2 (ROSLIBJS)
+         * ========================================== */
+        let ros = null;
+        let initialPoseTopic = null;
+        let goalPoseTopic = null;
+
+        function connectROS() {
+            const wsUrl = document.getElementById('ros-ws-url').value;
+            const statusEl = document.getElementById('val-ros-status');
+            const btn = document.getElementById('btn-ros-connect');
+            const globalStatus = document.getElementById('global-ros-status');
+
+            if (ros) {
+                ros.close();
+                return;
+            }
+
+            statusEl.innerText = 'Connecting...';
+            statusEl.style.color = '#f59e0b';
+            globalStatus.innerHTML = '<span style="font-size: 10px;">🟡</span> CONNECTING';
+
+            ros = new ROSLIB.Ros({
+                url: wsUrl
+            });
+
+            ros.on('connection', function() {
+                statusEl.innerText = 'Connected';
+                statusEl.style.color = '#10b981';
+                btn.innerText = 'Disconnect';
+                btn.style.background = '#ef4444';
+                
+                globalStatus.classList.add('connected');
+                globalStatus.innerHTML = '<span style="font-size: 10px;">🟢</span> ROS 2 ONLINE';
+                
+                initialPoseTopic = new ROSLIB.Topic({
+                    ros: ros,
+                    name: '/initialpose',
+                    messageType: 'geometry_msgs/PoseWithCovarianceStamped'
+                });
+
+                goalPoseTopic = new ROSLIB.Topic({
+                    ros: ros,
+                    name: '/goal_pose',
+                    messageType: 'geometry_msgs/PoseStamped'
+                });
+                
+                subscribeToRobotPose();
+                
+                alert('✅ Kết nối ROS 2 thành công! Bạn có thể dùng chế độ Initial Pose hoặc Nav Goal.');
+            });
+
+            ros.on('error', function(error) {
+                statusEl.innerText = 'Error';
+                statusEl.style.color = '#ef4444';
+                globalStatus.classList.remove('connected');
+                globalStatus.innerHTML = '<span style="font-size: 10px;">🔴</span> ERROR';
+                console.error('Lỗi kết nối ROS:', error);
+            });
+
+            ros.on('close', function() {
+                statusEl.innerText = 'Disconnected';
+                statusEl.style.color = '#ef4444';
+                btn.innerText = 'Connect';
+                btn.style.background = '#10b981';
+                globalStatus.classList.remove('connected');
+                globalStatus.innerHTML = '<span style="font-size: 10px;">🔴</span> OFFLINE';
+                ros = null;
+                initialPoseTopic = null;
+                goalPoseTopic = null;
+            });
+        }
+
+        // --- Hàm gửi Pose chung cho ROS ---
+        function sendRosPose(topic, x, y, yaw) {
+            if (!ros || !topic) return false;
+            
+            const qz = Math.sin(yaw / 2.0);
+            const qw = Math.cos(yaw / 2.0);
+            
+            // Nếu là initialpose thì dùng PoseWithCovarianceStamped
+            if (topic.name === '/initialpose') {
+                const poseMsg = new ROSLIB.Message({
+                    header: { frame_id: 'map' },
+                    pose: {
+                        pose: {
+                            position: { x: x, y: y, z: 0.0 },
+                            orientation: { x: 0.0, y: 0.0, z: qz, w: qw }
+                        },
+                        covariance: [
+                            0.25, 0.0, 0.0, 0.0, 0.0, 0.0,
+                            0.0, 0.25, 0.0, 0.0, 0.0, 0.0,
+                            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                            0.0, 0.0, 0.0, 0.0, 0.0, 0.068
+                        ]
+                    }
+                });
+                topic.publish(poseMsg);
+            } else {
+                // Goal Pose dùng PoseStamped
+                const poseMsg = new ROSLIB.Message({
+                    header: { frame_id: 'map' },
+                    pose: {
+                        position: { x: x, y: y, z: 0.0 },
+                        orientation: { x: 0.0, y: 0.0, z: qz, w: qw }
+                    }
+                });
+                topic.publish(poseMsg);
+            }
+            return true;
+        }
+
+        // --- Xử lý sự kiện thả chuột ---
+        window.addEventListener('mouseup', (e) => {
+            if (e.button === 0) {
+                if (currentMode === 'pan') {
+                    isDragging = false;
+                } else if (draftWaypoint && (currentMode === 'draw' || currentMode === 'initialpose' || currentMode === 'navgoal')) {
+                    
+                    const toast = document.getElementById('toast');
+                    
+                    if (currentMode === 'draw') {
+                        waypoints.push({
+                            x: draftWaypoint.x, 
+                            y: draftWaypoint.y, 
+                            heading: draftWaypoint.heading,
+                            name: `Waypoint ${waypoints.length + 1}`,
+                            role: 'ad',
+                            dwellTimeSeconds: 30
+                        });
+                        toast.innerText = '✅ Đã lưu Waypoint vào file YAML!';
+                        toast.style.background = '#10b981';
+                        toast.classList.add('show');
+                        
+                    } else if (currentMode === 'initialpose') {
+                        if (sendRosPose(initialPoseTopic, draftWaypoint.x, draftWaypoint.y, draftWaypoint.heading)) {
+                            toast.innerText = '📍 Đã cài đặt Initial Pose!';
+                            toast.style.background = 'rgba(16, 185, 129, 0.9)';
+                            toast.classList.add('show');
+                        } else {
+                            alert("Vui lòng kết nối ROS 2 trước!");
+                        }
+                    } else if (currentMode === 'navgoal') {
+                        if (sendRosPose(goalPoseTopic, draftWaypoint.x, draftWaypoint.y, draftWaypoint.heading)) {
+                            toast.innerText = '🚀 Đã gửi Nav Goal! Robot đang di chuyển...';
+                            toast.style.background = 'rgba(245, 158, 11, 0.9)'; // Màu cam
+                            toast.classList.add('show');
+                        } else {
+                            alert("Vui lòng kết nối ROS 2 trước!");
+                        }
+                    }
+
+                    setTimeout(() => toast.classList.remove('show'), 2500);
+                    draftWaypoint = null;
+                    renderUI();
+                }
+            }
+        });
+
+        // Xử lý lăn chuột (Zoom)
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const rect = container.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const zoomSensitivity = 0.0015;
+            const delta = -e.deltaY * zoomSensitivity;
+            let newScale = scale * Math.exp(delta);
+            newScale = Math.max(0.2, Math.min(newScale, 40.0));
+
+            const factor = newScale / scale;
+            translateX = mouseX - (mouseX - translateX) * factor;
+            translateY = mouseY - (mouseY - translateY) * factor;
+            scale = newScale;
+
+            applyTransform();
+        }, { passive: false });
+
+        /** ==========================================
+         * XÓA WAYPOINT BẰNG CLICK CHUỘT PHẢI
+         * ========================================== */
+        container.addEventListener('contextmenu', (e) => {
+            e.preventDefault(); 
+            const rect = container.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            for (let i = waypoints.length - 1; i >= 0; i--) {
+                const wp = waypoints[i];
+                const px = mapToPixel(wp.x, wp.y);
+                const screenPx = pixelToScreen(px.x, px.y);
+                
+                const dist = Math.hypot(mouseX - screenPx.x, mouseY - screenPx.y);
+                
+                if (dist <= 15) { 
+                    waypoints.splice(i, 1);
+                    renderUI();
+                    
+                    const toast = document.getElementById('toast');
+                    toast.innerText = '🗑️ Đã xóa Waypoint!';
+                    toast.style.background = '#ef4444';
+                    toast.classList.add('show');
+                    setTimeout(() => toast.classList.remove('show'), 2000);
+                    return; 
+                }
+            }
+        });
+
+        /** ==========================================
+         * ĐỌC FILE MAPPING (.YAML & .PGM)
+         * ========================================== */
+        document.getElementById('mapFiles').addEventListener('change', async (e) => {
+            const files = e.target.files;
+            let yamlFile = null;
+            let pgmFile = null;
+
+            for(let f of files) {
+                if(f.name.endsWith('.yaml')) yamlFile = f;
+                if(f.name.endsWith('.pgm')) pgmFile = f;
+            }
+
+            if(yamlFile) await parseYAML(yamlFile);
+            if(pgmFile) await parsePGM(pgmFile);
+            
+            const scaleFitX = container.clientWidth / IMAGE_WIDTH;
+            const scaleFitY = container.clientHeight / IMAGE_HEIGHT;
+            scale = Math.min(scaleFitX, scaleFitY) * 0.9;
+            translateX = (container.clientWidth - IMAGE_WIDTH * scale) / 2;
+            translateY = (container.clientHeight - IMAGE_HEIGHT * scale) / 2;
+            applyTransform();
+        });
+
+        async function parseYAML(file) {
+            const text = await file.text();
+            const resMatch = text.match(/resolution:\s*([\d\.]+)/);
+            if (resMatch) RESOLUTION = parseFloat(resMatch[1]);
+            
+            const origMatch = text.match(/origin:\s*\[([\-\d\.]+),\s*([\-\d\.]+)/);
+            if (origMatch) {
+                ORIGIN_X = parseFloat(origMatch[1]);
+                ORIGIN_Y = parseFloat(origMatch[2]);
+            }
+            
+            document.getElementById('val-res').innerText = RESOLUTION;
+            document.getElementById('val-ox').innerText = ORIGIN_X;
+            document.getElementById('val-oy').innerText = ORIGIN_Y;
+        }
+
+        async function parsePGM(file) {
+            const buffer = await file.arrayBuffer();
+            const data = new Uint8Array(buffer);
+            let offset = 0;
+            
+            function readWord() {
+                while (offset < data.length && (data[offset] <= 32 || data[offset] === 35)) {
+                    if (data[offset] === 35) {
+                        while (offset < data.length && data[offset] !== 10) offset++;
+                    } else {
+                        offset++;
+                    }
+                }
+                if (offset >= data.length) return null;
+                let start = offset;
+                while (offset < data.length && data[offset] > 32) offset++;
+                return String.fromCharCode.apply(null, data.subarray(start, offset));
+            }
+            
+            const magic = readWord();
+            if (magic !== 'P5') { alert("Chỉ hỗ trợ PGM Binary (P5)"); return; }
+            
+            IMAGE_WIDTH = parseInt(readWord());
+            IMAGE_HEIGHT = parseInt(readWord());
+            const maxVal = parseInt(readWord());
+            offset++; 
+            
+            mapCanvas.width = IMAGE_WIDTH;
+            mapCanvas.height = IMAGE_HEIGHT;
+            document.getElementById('val-size').innerText = `${IMAGE_WIDTH}x${IMAGE_HEIGHT}`;
+
+            pgmImageData = ctxMap.createImageData(IMAGE_WIDTH, IMAGE_HEIGHT);
+            const pixels = pgmImageData.data;
+            const pgmData = data.subarray(offset);
+
+            for (let i = 0; i < IMAGE_WIDTH * IMAGE_HEIGHT; i++) {
+                let val = pgmData[i];
+                pixels[i*4] = val;     
+                pixels[i*4+1] = val;   
+                pixels[i*4+2] = val;   
+                pixels[i*4+3] = (val > 250) ? 0 : 255; 
+            }
+            
+            ctxMap.putImageData(pgmImageData, 0, 0);
+            renderUI();
+        }
+
+        /** ==========================================
+         * HÀM VẼ WAYPOINT CHUNG (Dùng cho cả lúc Nháp & Hoàn thiện)
+         * ========================================== */
+        function drawWaypoint(ctx, screenPx, heading, labelText, isDraft = false) {
+            // Vẽ tia chỉ hướng (Heading Line)
+            if (heading !== undefined) {
+                const arrowLen = 30; // Mũi tên dài ra cho dễ nhìn
+                const endX = screenPx.x + Math.cos(heading) * arrowLen;
+                const endY = screenPx.y - Math.sin(heading) * arrowLen; // Trừ sin() vì Y ngược
+                
+                ctx.beginPath();
+                ctx.moveTo(screenPx.x, screenPx.y);
+                ctx.lineTo(endX, endY);
+                ctx.strokeStyle = '#f59e0b'; // Màu cam
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                
+                // Mũi tên nhọn
+                const arrowSize = 6;
+                const angle1 = heading + Math.PI/4;
+                const angle2 = heading - Math.PI/4;
+                ctx.beginPath();
+                ctx.moveTo(endX, endY);
+                ctx.lineTo(endX - Math.cos(angle1)*arrowSize, endY + Math.sin(angle1)*arrowSize);
+                ctx.lineTo(endX - Math.cos(angle2)*arrowSize, endY + Math.sin(angle2)*arrowSize);
+                ctx.closePath();
+                ctx.fillStyle = '#f59e0b';
+                ctx.fill();
+            }
+
+            // Cục node màu đỏ (Nổi bật hơn nếu đang nháp)
+            ctx.beginPath(); ctx.arc(screenPx.x, screenPx.y, isDraft ? 9 : 7, 0, Math.PI * 2);
+            ctx.fillStyle = '#f43f5e'; ctx.fill();
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = isDraft ? 3 : 2; ctx.stroke();
+            
+            // Tên WP
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 12px sans-serif';
+            ctx.fillText(labelText, screenPx.x - 14, screenPx.y - 15);
+        }
+
+        /** ==========================================
+         * HIỂN THỊ UI VECTOR (Luôn sắc nét)
+         * ========================================== */
+        function renderUI() {
+            ctxUI.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
+            
+            // Vẽ Gốc tọa độ
+            const originPx = mapToPixel(0, 0);
+            const originScreen = pixelToScreen(originPx.x, originPx.y);
+            ctxUI.beginPath(); ctxUI.arc(originScreen.x, originScreen.y, 5, 0, Math.PI * 2);
+            ctxUI.fillStyle = '#10b981'; ctxUI.fill();
+            ctxUI.font = 'bold 12px sans-serif';
+            ctxUI.fillText('ROS Origin (0,0)', originScreen.x + 8, originScreen.y - 8);
+
+            // Vẽ Waypoints đã lưu
+            waypoints.forEach((wp, index) => {
+                const px = mapToPixel(wp.x, wp.y);
+                const screenPx = pixelToScreen(px.x, px.y);
+                drawWaypoint(ctxUI, screenPx, wp.heading, wp.name || `WP ${index+1}`, false);
+            });
+
+            // Vẽ Waypoint ĐANG KÉO NHÁP (Draft)
+            if (draftWaypoint) {
+                const px = mapToPixel(draftWaypoint.x, draftWaypoint.y);
+                const screenPx = pixelToScreen(px.x, px.y);
+                // Vẽ tia đứt quãng cho sinh động khi kéo
+                ctxUI.setLineDash([5, 5]);
+                drawWaypoint(ctxUI, screenPx, draftWaypoint.heading, `New WP`, true);
+                ctxUI.setLineDash([]); // Reset
+            }
+
+            // Vẽ Robot
+            const rPx = mapToPixel(robotMapX, robotMapY);
+            const rScreen = pixelToScreen(rPx.x, rPx.y);
+            
+            ctxUI.beginPath(); ctxUI.arc(rScreen.x, rScreen.y, 16, 0, Math.PI * 2);
+            ctxUI.fillStyle = 'rgba(56, 189, 248, 0.2)'; ctxUI.fill();
+            ctxUI.beginPath(); ctxUI.arc(rScreen.x, rScreen.y, 8, 0, Math.PI * 2);
+            ctxUI.fillStyle = '#38bdf8'; ctxUI.fill();
+            ctxUI.strokeStyle = '#fff'; ctxUI.lineWidth = 2; ctxUI.stroke();
+        }
+
+        let lastDrawTime = 0;
+        let poseSubscriber = null;
+
+        function subscribeToRobotPose() {
+            if (!ros) return;
+            if (poseSubscriber) {
+                poseSubscriber.unsubscribe();
+            }
+
+            const topicName = document.getElementById('ros-pose-topic').value;
+            // SLAM Toolbox dùng PoseWithCovarianceStamped, AMCL cũng dùng PoseWithCovarianceStamped
+            // Một số hệ thống dùng Odometry. Để an toàn, ở mức Mockup ta giả định là PoseWithCovarianceStamped
+            poseSubscriber = new ROSLIB.Topic({
+                ros: ros,
+                name: topicName,
+                messageType: 'geometry_msgs/PoseWithCovarianceStamped',
+                throttle_rate: 500 // Giảm tần suất gửi từ Pi xuống còn 2Hz
+            });
+
+            poseSubscriber.subscribe(function(message) {
+                const now = Date.now();
+                // Giới hạn tần số vẽ (Throttle) 500ms = 2Hz để mượt và không lag
+                if (now - lastDrawTime > 500) {
+                    robotMapX = message.pose.pose.position.x;
+                    robotMapY = message.pose.pose.position.y;
+                    
+                    document.getElementById('live-rx').innerText = robotMapX.toFixed(3);
+                    document.getElementById('live-ry').innerText = robotMapY.toFixed(3);
+                    
+                    renderUI();
+                    lastDrawTime = now;
+                }
+            });
+        }
+
+        document.getElementById('ros-pose-topic').addEventListener('change', subscribeToRobotPose);
+
+        /** ==========================================
+         * XUẤT FILE YAML (EXPORT MISSION)
+         * ========================================== */
+        function exportWaypointsYAML() {
+            if (waypoints.length === 0) {
+                alert("Bạn chưa đặt Waypoint nào trên bản đồ!");
+                return;
+            }
+
+            let yamlContent = "waypoints:\n";
+            waypoints.forEach((wp, idx) => {
+                yamlContent += `  - id: ${idx}\n`;
+                yamlContent += `    name: "${wp.name || 'Waypoint ' + (idx + 1)}"\n`;
+                yamlContent += `    role: "${wp.role || 'ad'}"\n`;
+                yamlContent += `    dwellTimeSeconds: ${wp.dwellTimeSeconds !== undefined ? wp.dwellTimeSeconds : 30}\n`;
+                yamlContent += `    x: ${wp.x.toFixed(4)}\n`;
+                yamlContent += `    y: ${wp.y.toFixed(4)}\n`;
+                yamlContent += `    heading: ${(wp.heading || 0).toFixed(4)}\n`;
+            });
+
+            const blob = new Blob([yamlContent], { type: 'text/yaml' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'mission_waypoints.yaml';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        async function fetchActiveMapFromBE() {
+            const btn = document.querySelector('button[onclick="fetchActiveMapFromBE()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ Đang tải...';
+            btn.disabled = true;
+
+            try {
+                const url = (window.SMB_ENV?.BE_URL || 'http://localhost:5000') + '/api/v1/maps/active?floorId=1';
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                console.log("Map Data from BE:", data);
+
+                RESOLUTION = data.resolution || 0.05;
+                ORIGIN_X = data.originX || 0;
+                ORIGIN_Y = data.originY || 0;
+
+                document.getElementById('val-res').innerText = RESOLUTION;
+                document.getElementById('val-ox').innerText = ORIGIN_X;
+                document.getElementById('val-oy').innerText = ORIGIN_Y;
+
+                // Load Waypoints
+                if (data.nodes && Array.isArray(data.nodes)) {
+                    waypoints = data.nodes.map(n => ({
+                        x: n.xCoord,
+                        y: n.yCoord,
+                        heading: 0, // default
+                        name: n.nodeName || `Node ${n.nodeId}`,
+                        role: n.nodeRole || 'ad',
+                        dwellTimeSeconds: 30
+                    }));
+                }
+
+                // Load Image
+                if (data.floorplanImageUrl) {
+                    let imgUrl = data.floorplanImageUrl;
+                    if (imgUrl.startsWith('/')) {
+                        imgUrl = (window.SMB_ENV?.BE_URL || 'http://localhost:5000') + imgUrl;
+                    }
+                    
+                    const img = new Image();
+                    img.onload = () => {
+                        IMAGE_WIDTH = img.width;
+                        IMAGE_HEIGHT = img.height;
+                        mapCanvas.width = IMAGE_WIDTH;
+                        mapCanvas.height = IMAGE_HEIGHT;
+                        
+                        document.getElementById('val-size').innerText = `${IMAGE_WIDTH}x${IMAGE_HEIGHT}`;
+                        ctxMap.clearRect(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
+                        ctxMap.drawImage(img, 0, 0);
+                        
+                        translateX = (container.clientWidth - IMAGE_WIDTH) / 2;
+                        translateY = (container.clientHeight - IMAGE_HEIGHT) / 2;
+                        applyTransform();
+                        
+                        const toast = document.getElementById('toast');
+                        toast.innerText = '✅ Đã tải bản đồ từ BE!';
+                        toast.style.background = '#10b981';
+                        toast.classList.add('show');
+                        setTimeout(() => toast.classList.remove('show'), 3000);
+                    };
+                    img.src = imgUrl;
+                } else {
+                    applyTransform();
+                }
+
+            } catch (err) {
+                console.error("Fetch BE error:", err);
+                alert("Lỗi khi tải Map từ BE: " + err.message);
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+    </script>
+</body>
+</html>
