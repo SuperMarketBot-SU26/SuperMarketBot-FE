@@ -30,11 +30,10 @@
         }
 
         /* Sidebar */
-        .sidebar {
+        .sidebar, .right-sidebar {
             width: 350px;
             background: var(--panel-bg);
             backdrop-filter: blur(12px);
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
             padding: 24px;
             display: flex;
             flex-direction: column;
@@ -42,6 +41,15 @@
             z-index: 10;
             box-shadow: 4px 0 24px rgba(0,0,0,0.2);
             overflow-y: auto;
+        }
+
+        .sidebar {
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .right-sidebar {
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: -4px 0 24px rgba(0,0,0,0.2);
         }
 
         .header {
@@ -231,8 +239,8 @@
         .toast.show { bottom: 30px; }
 
         /* Edit mode classes */
-        body:not(.edit-mode) .sidebar { display: none; }
-        body.edit-mode .sidebar { display: flex; }
+        body:not(.edit-mode) .sidebar, body:not(.edit-mode) .right-sidebar { display: none; }
+        body.edit-mode .sidebar, body.edit-mode .right-sidebar { display: flex; }
     </style>
     <script src="/config.js"></script>
 </head>
@@ -249,8 +257,22 @@
             </div>
         </div>
 
+        <div class="card">
+            <div class="card-title">1. Connect to Robot (ROS 2)</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">
+                Kết nối Web UI trực tiếp với Robot qua Rosbridge WebSocket.
+            </div>
+            <div class="input-group">
+                <input type="text" id="ros-ws-url" value="ws://192.168.1.100:9090" placeholder="ws://IP:9090">
+                <button id="btn-ros-connect" onclick="connectROS()" style="background: #10b981;">Connect</button>
+            </div>
+            <div class="data-row" style="margin-top: 8px;">
+                <span>Status:</span><span class="value" id="val-ros-status" style="color: #ef4444;">Disconnected</span>
+            </div>
+        </div>
+
         <div class="card" style="border-color: #f59e0b;">
-            <div class="card-title" style="color: #f59e0b;">1. Tải Bản Đồ & Waypoint</div>
+            <div class="card-title" style="color: #f59e0b;">2. Tải Bản Đồ & Waypoint</div>
             <div style="font-size: 0.8rem; color: #fff; margin-bottom: 12px;">
                 Tải bản đồ từ Backend hoặc Upload thủ công (.pgm + .yaml).
             </div>
@@ -259,17 +281,8 @@
             <input type="file" id="mapFiles" multiple accept=".pgm,.yaml" style="width: 100%; box-sizing: border-box;" />
         </div>
 
-        <div class="card">
-            <div class="card-title">Map Parameters</div>
-            <div class="data-row"><span>Resolution</span><span class="value" id="val-res">0.05</span></div>
-            <div class="data-row"><span>Origin X</span><span class="value" id="val-ox">-10.00</span></div>
-            <div class="data-row"><span>Origin Y</span><span class="value" id="val-oy">-10.00</span></div>
-            <div class="data-row"><span>Image Size</span><span class="value" id="val-size">800x600</span></div>
-            <div class="data-row"><span>Zoom Level</span><span class="value" id="val-zoom">100%</span></div>
-        </div>
-
         <div class="card" style="border-color: var(--accent);">
-            <div class="card-title" style="color: var(--accent);">2. Navigation Control</div>
+            <div class="card-title" style="color: var(--accent);">3. Navigation Control</div>
             
             <!-- Chuyển đổi Mode công cụ -->
             <div class="mode-switcher" style="flex-wrap: wrap;">
@@ -308,20 +321,38 @@
             <div class="data-row"><span>👉 ROS Map Y:</span><span class="value" style="color: #f43f5e;" id="val-wy">-</span></div>
         </div>
         
-        <div class="card">
-            <div class="card-title">3. Connect to Robot (ROS 2)</div>
-            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">
-                Kết nối Web UI trực tiếp với Robot qua Rosbridge WebSocket.
+        <div class="card" style="border-color: #10b981;">
+            <div class="card-title" style="color: #10b981;">5. Cloud Sync (Backend)</div>
+            <div style="font-size: 0.8rem; color: #fff; margin-bottom: 12px;">
+                Đồng bộ dữ liệu trực tiếp lên Database.
             </div>
-            <div class="input-group">
-                <input type="text" id="ros-ws-url" value="ws://192.168.1.100:9090" placeholder="ws://IP:9090">
-                <button id="btn-ros-connect" onclick="connectROS()" style="background: #10b981;">Connect</button>
-            </div>
-            <div class="data-row" style="margin-top: 8px;">
-                <span>Status:</span><span class="value" id="val-ros-status" style="color: #ef4444;">Disconnected</span>
-            </div>
+            <button onclick="syncMapFilesToBE()" style="width: 100%; background: #10b981; margin-bottom: 8px;">☁️ Lưu Bản Đồ Lên Server</button>
+            <button onclick="syncWaypointsToBE()" style="width: 100%; background: #0ea5e9;">☁️ Lưu Waypoint Lên Server</button>
         </div>
-        
+
+        <div class="card" style="border-color: #f59e0b;">
+            <div class="card-title" style="color: #f59e0b;">6. Export Mission</div>
+            <button style="width: 100%; background: #f59e0b; margin-top: 8px;" onclick="exportWaypointsYAML()">⬇️ Tải xuống YAML (Local)</button>
+        </div>
+    </div>
+
+    <div class="map-container" id="mapContainer">
+        <!-- Layer 1: Bản đồ gốc (sẽ bị scale mờ/pixelate) -->
+        <canvas id="mapCanvas" width="800" height="600"></canvas>
+        <!-- Layer 2: Vector UI (Luôn sắc nét, kích thước 1:1 với màn hình) -->
+        <canvas id="uiCanvas" style="position: absolute; top: 0; left: 0; pointer-events: none;"></canvas>
+    </div>
+
+    <div class="right-sidebar">
+        <div class="card">
+            <div class="card-title">Map Parameters</div>
+            <div class="data-row"><span>Resolution</span><span class="value" id="val-res">0.05</span></div>
+            <div class="data-row"><span>Origin X</span><span class="value" id="val-ox">-10.00</span></div>
+            <div class="data-row"><span>Origin Y</span><span class="value" id="val-oy">-10.00</span></div>
+            <div class="data-row"><span>Image Size</span><span class="value" id="val-size">800x600</span></div>
+            <div class="data-row"><span>Zoom Level</span><span class="value" id="val-zoom">100%</span></div>
+        </div>
+
         <div class="card">
             <div class="card-title">4. ROBOT TELEMETRY (ROS 2)</div>
             <div style="font-size: 0.8rem; color: #a1a1aa; margin-bottom: 8px;">
@@ -340,18 +371,6 @@
                 <span>Live Y:</span><span class="value" id="live-ry" style="color: #38bdf8;">0.000</span>
             </div>
         </div>
-
-        <div class="card" style="border-color: #f59e0b;">
-            <div class="card-title" style="color: #f59e0b;">5. Export Mission</div>
-            <button style="width: 100%; background: #f59e0b; margin-top: 8px;" onclick="exportWaypointsYAML()">⬇️ Tải xuống YAML</button>
-        </div>
-    </div>
-
-    <div class="map-container" id="mapContainer">
-        <!-- Layer 1: Bản đồ gốc (sẽ bị scale mờ/pixelate) -->
-        <canvas id="mapCanvas" width="800" height="600"></canvas>
-        <!-- Layer 2: Vector UI (Luôn sắc nét, kích thước 1:1 với màn hình) -->
-        <canvas id="uiCanvas" style="position: absolute; top: 0; left: 0; pointer-events: none;"></canvas>
     </div>
 
     <div class="toast" id="toast">✅ Đã lưu Waypoint!</div>
@@ -1077,6 +1096,105 @@
             URL.revokeObjectURL(url);
         }
 
+        async function syncWaypointsToBE() {
+            if (!window.currentMapId) {
+                alert("Không xác định được Map ID (Chưa tải từ BE).");
+                return;
+            }
+            const btn = document.querySelector('button[onclick="syncWaypointsToBE()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ Đang lưu...';
+            btn.disabled = true;
+            try {
+                const nodes = waypoints.map((wp, i) => ({
+                    nodeId: wp.id || `node_${Date.now()}_${i}`,
+                    xCoord: wp.x,
+                    yCoord: wp.y,
+                    nodeName: wp.name || `Node ${i}`,
+                    nodeRole: wp.role || 'ad'
+                }));
+                const payload = {
+                    mapId: window.currentMapId,
+                    floorId: 1,
+                    nodes: nodes,
+                    edges: [] // Simplified for now
+                };
+                const url = (window.SMB_ENV?.BE_URL || 'http://localhost:5000') + '/api/v1/maps/sync';
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const result = await response.json();
+                
+                const toast = document.getElementById('toast');
+                toast.innerText = `✅ Sync thành công! Đã lưu ${result.nodesCreated || 0 + result.nodesUpdated || 0} nodes.`;
+                toast.style.background = '#10b981';
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 3000);
+            } catch (err) {
+                console.error(err);
+                alert("❌ Lỗi khi sync waypoints: " + err.message);
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        async function syncMapFilesToBE() {
+            const files = document.getElementById('mapFiles').files;
+            if (!files || files.length === 0) {
+                alert("Vui lòng chọn file .pgm và .yaml trước.");
+                return;
+            }
+            let yamlFile = null;
+            let pgmFile = null;
+            for(let f of files) {
+                if(f.name.endsWith('.yaml')) yamlFile = f;
+                if(f.name.endsWith('.pgm')) pgmFile = f;
+            }
+            if (!yamlFile || !pgmFile) {
+                alert("Cần đủ cả 2 file: .yaml và .pgm");
+                return;
+            }
+            
+            const btn = document.querySelector('button[onclick="syncMapFilesToBE()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ Đang upload...';
+            btn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('mapYaml', yamlFile);
+            formData.append('mapImage', pgmFile);
+            
+            try {
+                const url = (window.SMB_ENV?.BE_URL || 'http://localhost:5000') + '/api/v1/maps/upload-slam-bundle';
+                const response = await fetch(url, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const result = await response.json();
+                
+                window.currentMapId = result.mapId;
+                
+                const toast = document.getElementById('toast');
+                toast.innerText = `✅ Upload bản đồ mới thành công! (Map ID: ${result.mapId})`;
+                toast.style.background = '#10b981';
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 3000);
+            } catch (err) {
+                console.error(err);
+                alert("❌ Lỗi khi upload bản đồ: " + err.message);
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        window.currentMapId = null;
+
         async function fetchActiveMapFromBE() {
             const btn = document.querySelector('button[onclick="fetchActiveMapFromBE()"]');
             const originalText = btn.innerHTML;
@@ -1090,6 +1208,8 @@
                 
                 const data = await response.json();
                 console.log("Map Data from BE:", data);
+                
+                window.currentMapId = data.mapId;
 
                 RESOLUTION = data.resolution || 0.05;
                 ORIGIN_X = data.originX || 0;
@@ -1102,6 +1222,7 @@
                 // Load Waypoints
                 if (data.nodes && Array.isArray(data.nodes)) {
                     waypoints = data.nodes.map(n => ({
+                        id: n.nodeId,
                         x: n.xCoord,
                         y: n.yCoord,
                         heading: 0, // default
