@@ -11,6 +11,7 @@ import { ThreeDSupermarketMap } from './ThreeDSupermarketMap'
 import { SlamCanvas, SlamMinimap } from './SlamCanvas'
 import { statusPalette, clampZoom } from '../utils/robotHelpers'
 import { useRosConnection } from '../hooks/useRosConnection'
+import { useRosSimulator } from '../hooks/useRosSimulator'
 import { ROUTE_TYPE_META } from './RobotAssignmentPanel'
 import logoUrl from '../../../assets/logo.png'
 import { syncMap, uploadFloorplanImage } from '../api/mapsApi'
@@ -64,7 +65,9 @@ export function FleetMap({
   const isDragging = useRef(false)
   const lastPos = useRef({ x: 0, y: 0 })
 
-  // ROS Bridge Connection State
+  // ROS Bridge Connection State - Use real ROS or simulator
+  const useRealRos = enableRosBridge;
+  
   const {
     isConnected: rosConnected,
     connectionState: rosConnectionState,
@@ -72,12 +75,17 @@ export function FleetMap({
     robotPose: rosRobotPose,
     laserScan,
     reconnect: rosReconnect,
-  } = useRosConnection({
-    robotIp,
-    port: foxglovePort,
-    autoConnect: enableRosBridge && viewMode === 'slam',
-    subscribeTopics: ['/map', '/odom', '/scan', '/tf'],
-  })
+  } = useRealRos 
+    ? useRosConnection({
+        robotIp,
+        port: foxglovePort,
+        autoConnect: viewMode === 'slam',
+        subscribeTopics: ['/map', '/odom', '/scan', '/tf'],
+      })
+    : useRosSimulator({
+        enabled: viewMode === 'slam',
+        robotIp,
+      });
 
   // Update ROS auto-connect when SLAM mode changes
   useEffect(() => {
@@ -626,7 +634,7 @@ export function FleetMap({
               )}
             </span>
             <span className="text-xs font-semibold text-white">
-              {rosConnected ? 'ROS Bridge Connected' : rosConnectionState === 'reconnecting' ? 'Reconnecting...' : 'ROS Bridge Offline'}
+              {rosConnected ? (rosConnectionState === 'simulator' ? 'SIMULATOR' : 'ROS Bridge Connected') : rosConnectionState === 'reconnecting' ? 'Reconnecting...' : 'ROS Bridge Offline'}
             </span>
             <span className="text-[10px] text-emerald-300/70">
               ws://{robotIp}:{foxglovePort}
