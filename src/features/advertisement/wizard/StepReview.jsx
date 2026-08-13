@@ -1,8 +1,5 @@
-import React, { useMemo, useRef, useState } from 'react'
+import React, { useMemo } from 'react'
 import Button from '../../../components/ui/Button'
-import { getErrorMessage } from '../../../api/client'
-import { uploadResource } from '../api/adResourcesApi'
-import { toast } from 'react-toastify'
 
 function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
@@ -43,55 +40,23 @@ function PricingRow({ icon, label, count, pricePerItem }) {
   )
 }
 
-export function StepReview({ state, brandOptions, selectedPackage, onBack, onSubmit, submitting, serverError }) {
+export function StepReview({ state, brandOptions, selectedPackage, effectiveTargeting, onBack, onSubmit, submitting, serverError }) {
   const brandName = useMemo(
     () => brandOptions.find((b) => String(b.value) === String(state.basics.brandId))?.label ?? '—',
     [brandOptions, state.basics.brandId]
   )
 
   const pkg = selectedPackage
-  const routeCount = state.targeting.routeIds.length
-  const zoneCount  = state.targeting.zoneIds.length
-  const shelfCount = state.targeting.semanticObjectId !== null ? 1 : 0
+  // Dùng effectiveTargeting để đảm bảo chỉ tính phí những mục đang được phép theo deliveryMode.
+  const target = effectiveTargeting ?? state.targeting
+  const routeCount = target.routeIds?.length ?? 0
+  const zoneCount  = target.zoneIds?.length  ?? 0
+  const shelfCount = target.shelfIds?.length ?? 0
 
   const totalTargetingFee =
     routeCount * (pkg?.priceRoute ?? 0) +
     zoneCount  * (pkg?.priceZone  ?? 0) +
     shelfCount * (pkg?.priceShelf ?? 0)
-
-  // ── Resource upload state ──
-  const [pendingFiles, setPendingFiles] = useState([])
-  const [uploading, setUploading] = useState(false)
-  const fileInputRef = useRef(null)
-
-  const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files || [])
-    if (!files.length) return
-    const previews = files.map(file => ({
-      file,
-      id: `temp-${Date.now()}-${Math.random()}`,
-      name: file.name,
-      size: file.size,
-      type: file.type.startsWith('video') ? 'Video' : 'Image',
-      previewUrl: URL.createObjectURL(file),
-    }))
-    setPendingFiles(prev => [...prev, ...previews])
-    if (fileInputRef.current) fileInputRef.current.value = ''
-  }
-
-  const removePending = (id) => {
-    setPendingFiles(prev => {
-      const item = prev.find(f => f.id === id)
-      if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl)
-      return prev.filter(f => f.id !== id)
-    })
-  }
-
-  const formatBytes = (bytes) => {
-    if (!bytes) return ''
-    const mb = bytes / 1024 / 1024
-    return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`
-  }
 
   return (
     <section className="space-y-6">
@@ -120,6 +85,14 @@ export function StepReview({ state, brandOptions, selectedPackage, onBack, onSub
             }
           />
           <Row label="Thời gian" value={`${formatDate(state.basics.startDate)} → ${formatDate(state.basics.endDate)}`} />
+          <Row
+            label="Hình thức phát"
+            value={
+              state.basics.deliveryMode === 'Route' ? 'Tuyến đường (robot đi, phát khi di chuyển)' :
+              state.basics.deliveryMode === 'Both'  ? 'Cả hai (lộ trình + dừng ở zone)' :
+              'Khu vực / Kệ (robot dừng để phát)'
+            }
+          />
         </div>
 
         {/* Targeting summary */}
@@ -128,9 +101,23 @@ export function StepReview({ state, brandOptions, selectedPackage, onBack, onSub
             <Icon name="my_location" className="text-[20px] text-smb-primary-container" />
             <h3 className="font-semibold text-smb-on-surface">Targeting</h3>
           </div>
-          <PricingRow icon="route"       label="Tuyến đường" count={routeCount} pricePerItem={pkg?.priceRoute ?? 0} />
-          <PricingRow icon="grid_view"   label="Khu vực"    count={zoneCount}  pricePerItem={pkg?.priceZone  ?? 0} />
-          <PricingRow icon="inventory_2" label="Kệ hàng"    count={shelfCount} pricePerItem={pkg?.priceShelf ?? 0} />
+          {(() => {
+            const deliveryMode = state.basics.deliveryMode ?? 'Zone'
+            const showRoute = deliveryMode !== 'Zone' && routeCount > 0
+            const showZone  = deliveryMode !== 'Route' && zoneCount > 0
+            const showShelf = deliveryMode !== 'Route' && shelfCount > 0
+            const hasAny = showRoute || showZone || showShelf
+            if (!hasAny) {
+              return <p className="text-sm text-smb-on-surface-variant">Chưa chọn targeting nào.</p>
+            }
+            return (
+              <>
+                {showRoute && <PricingRow icon="route"       label="Tuyến đường" count={routeCount} pricePerItem={pkg?.priceRoute ?? 0} />}
+                {showZone  && <PricingRow icon="grid_view"   label="Khu vực"    count={zoneCount}  pricePerItem={pkg?.priceZone  ?? 0} />}
+                {showShelf && <PricingRow icon="inventory_2" label="Kệ hàng"    count={shelfCount} pricePerItem={pkg?.priceShelf ?? 0} />}
+              </>
+            )
+          })()}
           <div className="mt-2 flex items-center justify-between border-t border-smb-outline-variant pt-2 text-sm">
             <span className="font-medium text-smb-on-surface">Tổng phí targeting</span>
             <strong className="text-smb-primary-container">{formatVND(totalTargetingFee)} đ</strong>
@@ -181,89 +168,6 @@ export function StepReview({ state, brandOptions, selectedPackage, onBack, onSub
         </div>
       )}
 
-      {/* Resource Upload Section */}
-      <div className="rounded-2xl border border-dashed border-smb-outline-variant bg-smb-surface-container-lowest p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Icon name="perm_media" className="text-[20px] text-smb-primary-container" />
-            <h3 className="font-semibold text-smb-on-surface">
-              Upload Resources
-              {pendingFiles.length > 0 && (
-                <span className="ml-2 rounded-full bg-smb-primary/10 px-2 py-0.5 text-xs font-bold text-smb-primary">
-                  {pendingFiles.length}
-                </span>
-              )}
-            </h3>
-          </div>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 rounded-xl bg-linear-to-r from-smb-primary to-smb-primary-container px-4 py-2 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
-          >
-            <Icon name="cloud_upload" />
-            Chọn file
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,video/*"
-            multiple
-            hidden
-            onChange={handleFileSelect}
-          />
-        </div>
-
-        <p className="mb-4 text-sm text-smb-on-surface-variant">
-          Upload ảnh/video cho chiến dịch. Bạn có thể bổ sung thêm sau khi tạo.
-        </p>
-
-        {/* Pending files list */}
-        {pendingFiles.length > 0 ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {pendingFiles.map((f) => (
-              <div key={f.id} className="group relative rounded-xl border border-smb-outline-variant bg-smb-surface-container overflow-hidden">
-                <div className="relative h-28 flex items-center justify-center bg-black/5">
-                  {f.type === 'Video' ? (
-                    <video src={f.previewUrl} className="h-full w-full object-contain" />
-                  ) : (
-                    <img
-                      src={f.previewUrl}
-                      alt={f.name}
-                      className="h-full w-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.onerror = null
-                        e.currentTarget.src = '/placeholder.png'
-                      }}
-                    />
-                  )}
-                  <span className="absolute top-2 left-2 rounded-lg bg-black/70 px-2 py-0.5 text-[10px] font-bold text-white uppercase">
-                    {f.type}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => removePending(f.id)}
-                    className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-all"
-                  >
-                    <Icon name="close" className="text-sm" />
-                  </button>
-                </div>
-                <div className="p-2">
-                  <p className="truncate text-xs font-medium text-smb-on-surface">{f.name}</p>
-                  <p className="text-[10px] text-smb-on-surface-variant">{formatBytes(f.size)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-smb-outline-variant py-10 gap-3">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-smb-surface-container-high">
-              <Icon name="add_photo_alternate" className="text-2xl text-smb-on-surface-variant" />
-            </div>
-            <p className="text-sm text-smb-on-surface-variant">Kéo thả hoặc click để chọn file</p>
-          </div>
-        )}
-      </div>
-
       <div className="flex items-center justify-between">
         <Button variant="secondary" icon="arrow_back" onClick={onBack} disabled={submitting}>
           ← Quay Lại
@@ -271,7 +175,7 @@ export function StepReview({ state, brandOptions, selectedPackage, onBack, onSub
         <Button
           variant="primary"
           icon="add"
-          onClick={() => onSubmit(pendingFiles)}
+          onClick={onSubmit}
           loading={submitting}
           disabled={submitting}
         >

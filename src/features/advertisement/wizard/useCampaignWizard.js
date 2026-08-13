@@ -1,7 +1,22 @@
 import { useCallback, useEffect, useMemo, useReducer } from 'react'
 
-const STORAGE_KEY = 'campaignWizardState'
+const STORAGE_KEY = 'campaignWizardState_v2'
 const FLOOR_ID_DEFAULT = 1
+
+/**
+ * Step 2 Targeting — 3 loại hình quảng cáo ĐỘC LẬP:
+ *   - Route: ad phát khi robot đi theo tuyến.
+ *   - Zone:  ad phát khi robot dừng ở khu vực.
+ *   - Shelf: ad phát khi robot ghé kệ cụ thể.
+ *
+ * `deliveryMode` quyết định cho phép loại nào (Route | Zone | Both):
+ *   - 'Route' → chỉ routeIds
+ *   - 'Zone'  → zoneIds + shelfIds
+ *   - 'Both'  → cả 3
+ *
+ * KHÔNG có khái niệm "Route bao trùm Zone" hay "Zone bao trùm Shelf".
+ * Route, Zone, Shelf là 3 lựa chọn quảng cáo độc lập — kết hợp tuỳ `deliveryMode`.
+ */
 
 const initialState = {
   step: 1,
@@ -11,10 +26,12 @@ const initialState = {
     packageId: null,
     startDate: '',
     endDate: '',
+    deliveryMode: 'Zone', // 'Route' | 'Zone' | 'Both'
   },
   targeting: {
     routeIds: [],
     zoneIds: [],
+    shelfIds: [],
     semanticObjectId: null,
   },
   products: {
@@ -41,6 +58,38 @@ function hydrateFromStorage() {
     }
   } catch {
     return initialState
+  }
+}
+
+/**
+ * Lọc target theo deliveryMode (chỉ áp dụng khi build payload gửi BE).
+ * - 'Route' → chỉ giữ routeIds.
+ * - 'Zone'  → chỉ giữ zoneIds + shelfIds (không gồm routeIds).
+ * - 'Both'  → giữ nguyên.
+ */
+function filterTargetingByDeliveryMode(targeting, deliveryMode) {
+  if (deliveryMode === 'Route') {
+    return {
+      routeIds: targeting.routeIds ?? [],
+      zoneIds: [],
+      shelfIds: [],
+      semanticObjectId: null,
+    }
+  }
+  if (deliveryMode === 'Zone') {
+    return {
+      routeIds: [],
+      zoneIds: targeting.zoneIds ?? [],
+      shelfIds: targeting.shelfIds ?? [],
+      semanticObjectId: targeting.shelfIds?.[0] ?? null,
+    }
+  }
+  // 'Both' (hoặc fallback)
+  return {
+    routeIds: targeting.routeIds ?? [],
+    zoneIds: targeting.zoneIds ?? [],
+    shelfIds: targeting.shelfIds ?? [],
+    semanticObjectId: targeting.semanticObjectId ?? null,
   }
 }
 
@@ -96,7 +145,7 @@ function reducer(state, action) {
 export function useCampaignWizard() {
   const [state, dispatch] = useReducer(reducer, undefined, hydrateFromStorage)
 
-  // ── Persist (chỉ phần user data, không persist submitting/errors) ──
+  // ── Persist ──
   useEffect(() => {
     try {
       const { step, basics, targeting, products, errors } = state
@@ -109,14 +158,28 @@ export function useCampaignWizard() {
     }
   }, [state.step, state.basics, state.targeting, state.products, state.errors])
 
-  // ── Derived selectors ──
-  const hasAnyTargeting = useMemo(
-    () =>
-      state.targeting.routeIds.length > 0 ||
-      state.targeting.zoneIds.length > 0 ||
-      state.targeting.semanticObjectId !== null,
-    [state.targeting]
+  // ── Effective targeting (filter theo deliveryMode để build payload) ──
+  const deliveryMode = state.basics.deliveryMode ?? 'Zone'
+  const effectiveTargeting = useMemo(
+    () => filterTargetingByDeliveryMode(state.targeting, deliveryMode),
+    [state.targeting, deliveryMode]
   )
+
+  // ── Allowed targeting theo deliveryMode (cho UI enable/disable tab) ──
+  const allowedTargets = useMemo(() => {
+    if (deliveryMode === 'Route') return { route: true, zone: false, shelf: false }
+    if (deliveryMode === 'Zone') return { route: false, zone: true, shelf: true }
+    return { route: true, zone: true, shelf: true } // 'Both'
+  }, [deliveryMode])
+
+  // ── Derived selectors ──
+  const hasAnyTargeting = useMemo(() => {
+    return (
+      effectiveTargeting.routeIds.length > 0 ||
+      effectiveTargeting.zoneIds.length > 0 ||
+      effectiveTargeting.shelfIds.length > 0
+    )
+  }, [effectiveTargeting])
 
   const hasProducts = useMemo(
     () => state.products.productIds.length > 0,
@@ -135,17 +198,33 @@ export function useCampaignWizard() {
     )
   }, [state.basics])
 
+  // ── Validation realtime (cho Step 1 UX) ──
+  const basicsErrors = useMemo(() => {
+    const b = state.basics
+    const errs = {}
+    if (!b.campaignName.trim()) errs.campaignName = 'Vui lòng nhập tên chiến dịch.'
+    if (!b.brandId) errs.brandId = 'Vui lòng chọn thương hiệu.'
+    if (!b.packageId) errs.packageId = 'Vui lòng chọn gói quảng cáo.'
+    if (!b.startDate) errs.startDate = 'Vui lòng chọn ngày bắt đầu.'
+    if (!b.endDate) errs.endDate = 'Vui lòng chọn ngày kết thúc.'
+    if (b.startDate && b.endDate && new Date(b.endDate) <= new Date(b.startDate)) {
+      errs.endDate = 'Ngày kết thúc phải sau ngày bắt đầu.'
+    }
+    return errs
+  }, [state.basics])
+  const hasBasicsErrors = useMemo(() => Object.keys(basicsErrors).length > 0, [basicsErrors])
+
   // ── Actions ──
-  const setStep       = useCallback((step) => dispatch({ type: 'SET_STEP', step }), [])
-  const setBasics     = useCallback((patch, errors) => dispatch({ type: 'PATCH_BASICS', patch, errors }), [])
-  const setTargeting  = useCallback((patch, errors) => dispatch({ type: 'PATCH_TARGETING', patch, errors }), [])
-  const setProducts   = useCallback((patch, errors) => dispatch({ type: 'PATCH_PRODUCTS', patch, errors }), [])
-  const setErrors     = useCallback((errors) => dispatch({ type: 'SET_ERRORS', errors }), [])
-  const clearErrors   = useCallback(() => dispatch({ type: 'CLEAR_ERRORS' }), [])
+  const setStep = useCallback((step) => dispatch({ type: 'SET_STEP', step }), [])
+  const setBasics = useCallback((patch, errors) => dispatch({ type: 'PATCH_BASICS', patch, errors }), [])
+  const setTargeting = useCallback((patch, errors) => dispatch({ type: 'PATCH_TARGETING', patch, errors }), [])
+  const setProducts = useCallback((patch, errors) => dispatch({ type: 'PATCH_PRODUCTS', patch, errors }), [])
+  const setErrors = useCallback((errors) => dispatch({ type: 'SET_ERRORS', errors }), [])
+  const clearErrors = useCallback(() => dispatch({ type: 'CLEAR_ERRORS' }), [])
   const setSubmitting = useCallback((value) => dispatch({ type: 'SET_SUBMITTING', value }), [])
-  const setServerError= useCallback((error) => dispatch({ type: 'SET_SERVER_ERROR', error }), [])
-  const setCreatedId  = useCallback((id) => dispatch({ type: 'SET_CREATED_ID', id }), [])
-  const reset         = useCallback(() => {
+  const setServerError = useCallback((error) => dispatch({ type: 'SET_SERVER_ERROR', error }), [])
+  const setCreatedId = useCallback((id) => dispatch({ type: 'SET_CREATED_ID', id }), [])
+  const reset = useCallback(() => {
     try { localStorage.removeItem(STORAGE_KEY) } catch {}
     dispatch({ type: 'RESET' })
   }, [])
@@ -153,9 +232,14 @@ export function useCampaignWizard() {
   return {
     state,
     floorId: FLOOR_ID_DEFAULT,
+    deliveryMode,
+    effectiveTargeting,
+    allowedTargets,
     hasAnyTargeting,
     hasProducts,
     basicsValid,
+    basicsErrors,
+    hasBasicsErrors,
     setStep,
     setBasics,
     setTargeting,
@@ -170,8 +254,8 @@ export function useCampaignWizard() {
 }
 
 export const WIZARD_STEPS = [
-  { key: 1, label: 'Cơ Bản',   icon: 'info',           desc: 'Tên, Brand, Package, Ngày' },
-  { key: 2, label: 'Targeting', icon: 'my_location',   desc: 'Chọn Route / Zone / Shelf' },
-  { key: 3, label: 'Sản Phẩm', icon: 'inventory_2',   desc: 'Chọn ≥1 sản phẩm tài trợ' },
+  { key: 1, label: 'Cơ Bản',       icon: 'info',         desc: 'Tên, Brand, Package, Ngày' },
+  { key: 2, label: 'Targeting',    icon: 'my_location',  desc: 'Chọn Route / Zone / Shelf' },
+  { key: 3, label: 'Sản Phẩm',     icon: 'inventory_2',  desc: 'Chọn ≥1 sản phẩm tài trợ' },
   { key: 4, label: 'Review & Tạo', icon: 'check_circle', desc: 'Xác nhận và tạo chiến dịch' },
 ]

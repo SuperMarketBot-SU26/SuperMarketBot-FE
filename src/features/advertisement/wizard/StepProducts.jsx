@@ -1,9 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react'
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable react-hooks/exhaustive-deps */
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Input from '../../../components/ui/Input'
 import Button from '../../../components/ui/Button'
 import { getProducts } from '../../product/api/productApi'
 import { getErrorMessage } from '../../../api/client'
 import { buildImageUrl } from '../../../utils/cloudinary'
+import { uploadResource } from '../api/adResourcesApi'
+import { toast } from 'react-toastify'
 
 function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
@@ -37,14 +41,14 @@ function normalizeProduct(p) {
   }
 }
 
-export function StepProducts({ state, onChange, hasProducts, onBack, onNext }) {
+export function StepProducts({ state, onChange, hasProducts, onBack, onNext, onUploadFiles }) {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [query, setQuery] = useState('')
 
-  // Load products (hiện tại lấy toàn bộ; khi BE có filter theo brand sẽ truyền brandId)
-  useEffect(() => {
+  // Load products (hiện tại lấy toàn bộ; BE chưa hỗ trợ filter theo brandId).
+useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError(null)
@@ -61,7 +65,7 @@ export function StepProducts({ state, onChange, hasProducts, onBack, onNext }) {
       })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [state.basics.brandId])
+  }, [])
 
   const selectedIds = state.products?.productIds ?? []
 
@@ -87,6 +91,48 @@ export function StepProducts({ state, onChange, hasProducts, onBack, onNext }) {
 
   const clearAll = () => onChange({ productIds: [] })
 
+  // ── Banner/Video upload (tuỳ chọn) ────────────────────────────────
+  // Lưu file vào pendingFiles; upload thực sự diễn ra SAU khi tạo campaign (cần campaignId).
+  const [pendingFiles, setPendingFiles] = useState([])
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef(null)
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    const previews = files.map((file) => ({
+      file,
+      id: `temp-${Date.now()}-${Math.random()}`,
+      name: file.name,
+      size: file.size,
+      type: file.type.startsWith('video') ? 'Video' : 'Image',
+      previewUrl: URL.createObjectURL(file),
+    }))
+    setPendingFiles((prev) => [...prev, ...previews])
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const removePending = (id) => {
+    setPendingFiles((prev) => {
+      const item = prev.find((f) => f.id === id)
+      if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl)
+      return prev.filter((f) => f.id !== id)
+    })
+  }
+
+  const formatBytes = (bytes) => {
+    if (!bytes) return ''
+    const mb = bytes / 1024 / 1024
+    return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`
+  }
+
+  // Đẩy pending files ra wrapper để wrapper quyết định khi nào upload (sau khi tạo campaign).
+  useEffect(() => {
+    onUploadFiles?.(pendingFiles, setUploading)
+    return () => onUploadFiles?.([], setUploading)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingFiles])
+
   const totalValue = useMemo(
     () => selectedItems.reduce((sum, p) => sum + p.price, 0),
     [selectedItems]
@@ -101,6 +147,16 @@ export function StepProducts({ state, onChange, hasProducts, onBack, onNext }) {
           ưu tiên hiển thị khi khách hàng tương tác với các khu vực/tuyến đường đã chọn.
         </p>
       </header>
+
+      {/* Banner: BE chưa filter theo brand */}
+      <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+        <Icon name="info" className="mt-0.5 text-[16px]" />
+        <span>
+          Hệ thống hiện hiển thị <strong>tất cả</strong> sản phẩm. Lọc theo brand sẽ được bật khi BE bổ sung query
+          <code className="mx-1 rounded bg-blue-100 px-1 py-0.5 text-[11px]">brandId</code> cho
+          <code className="mx-1 rounded bg-blue-100 px-1 py-0.5 text-[11px]">GET /api/products</code>.
+        </span>
+      </div>
 
       {error && (
         <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -165,11 +221,6 @@ export function StepProducts({ state, onChange, hasProducts, onBack, onNext }) {
                         alt={p.name}
                         className="size-8 min-w-8 rounded object-cover"
                         onError={(e) => {
-                          if (!e.currentTarget.dataset.retried) {
-                            e.currentTarget.dataset.retried = '1'
-                            setTimeout(() => { e.currentTarget.src = p.imageUrl }, 2000)
-                            return
-                          }
                           e.currentTarget.onerror = null
                           e.currentTarget.src = '/placeholder-needs-reupload.png'
                         }}
@@ -256,6 +307,85 @@ export function StepProducts({ state, onChange, hasProducts, onBack, onNext }) {
           </span>
         </div>
       )}
+
+      {/* Upload Resources (tuỳ chọn, upload sau khi tạo campaign) */}
+      <div className="rounded-2xl border border-dashed border-smb-outline-variant bg-smb-surface-container-lowest p-5">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Icon name="perm_media" className="text-[20px] text-smb-primary-container" />
+            <h3 className="font-semibold text-smb-on-surface">
+              Banner / Video cho chiến dịch
+              {pendingFiles.length > 0 && (
+                <span className="ml-2 rounded-full bg-smb-primary/10 px-2 py-0.5 text-xs font-bold text-smb-primary">
+                  {pendingFiles.length}
+                </span>
+              )}
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 rounded-lg border border-smb-primary-container bg-smb-primary-container/5 px-3 py-1.5 text-sm font-medium text-smb-primary-container hover:bg-smb-primary-container/10"
+          >
+            <Icon name="cloud_upload" className="text-[16px]" />
+            Chọn file
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,video/*"
+            multiple
+            hidden
+            onChange={handleFileSelect}
+          />
+        </div>
+        <p className="mb-3 text-xs text-smb-on-surface-variant">
+          Tuỳ chọn. File sẽ được upload ngay sau khi campaign được tạo thành công.
+        </p>
+
+        {pendingFiles.length > 0 ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {pendingFiles.map((f) => (
+              <div key={f.id} className="group relative rounded-xl border border-smb-outline-variant bg-smb-surface-container overflow-hidden">
+                <div className="relative h-24 flex items-center justify-center bg-black/5">
+                  {f.type === 'Video' ? (
+                    <video src={f.previewUrl} className="h-full w-full object-contain" />
+                  ) : (
+                    <img
+                      src={f.previewUrl}
+                      alt={f.name}
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null
+                        e.currentTarget.src = '/placeholder.png'
+                      }}
+                    />
+                  )}
+                  <span className="absolute top-1.5 left-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white uppercase">
+                    {f.type}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removePending(f.id)}
+                    className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-all"
+                  >
+                    <Icon name="close" className="text-sm" />
+                  </button>
+                </div>
+                <div className="p-1.5">
+                  <p className="truncate text-[11px] font-medium text-smb-on-surface">{f.name}</p>
+                  <p className="text-[10px] text-smb-on-surface-variant">{formatBytes(f.size)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 rounded-lg border border-smb-outline-variant bg-smb-surface-container-low px-3 py-2 text-xs text-smb-on-surface-variant">
+            <Icon name="info" className="text-[14px]" />
+            Chưa có file nào. Có thể upload sau khi tạo campaign.
+          </div>
+        )}
+      </div>
 
       <div className="flex items-center justify-between">
         <Button variant="secondary" icon="arrow_back" onClick={onBack}>

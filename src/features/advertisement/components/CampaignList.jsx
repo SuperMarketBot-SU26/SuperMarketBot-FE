@@ -245,14 +245,9 @@ export function CampaignList({ onCreateNew, search = '', status = 'all' }) {
           <TableActions
             actions={[
               {
-                label: 'Chi tiết / Resources',
+                label: 'Chi tiết',
                 icon: 'open_in_new',
                 onClick: () => navigate(`/advertisement/detail/${row.id}`),
-              },
-              {
-                label: 'Cập Nhật',
-                icon: 'edit',
-                onClick: () => navigate(`/advertisement/update/${row.id}`),
               },
               {
                 label: 'Xem Nhật Ký',

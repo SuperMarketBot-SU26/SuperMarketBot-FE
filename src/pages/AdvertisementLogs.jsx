@@ -315,9 +315,9 @@ export function AdvertisementLogs() {
                 variant="outline"
                 icon="arrow_back"
                 size="sm"
-                onClick={() => navigate(`/advertisement/update/${id}`)}
+                onClick={() => navigate(`/advertisement/detail/${id}`)}
               >
-                Quay lại chỉnh sửa
+                Quay lại chi tiết
               </Button>
             </div>
 

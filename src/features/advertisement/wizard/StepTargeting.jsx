@@ -12,9 +12,9 @@ import {
 } from '../api/targetingApi'
 
 const TABS = [
-  { key: 'route',  label: 'Tuyến Đường', icon: 'route',        multi: true  },
-  { key: 'zone',   label: 'Khu Vực',     icon: 'grid_view',    multi: true  },
-  { key: 'shelf',  label: 'Kệ Hàng',     icon: 'inventory_2',  multi: false },
+  { key: 'route', label: 'Tuyến Đường', icon: 'route' },
+  { key: 'zone',  label: 'Khu Vực',     icon: 'grid_view' },
+  { key: 'shelf', label: 'Kệ Hàng',     icon: 'inventory_2' },
 ]
 
 function Icon({ name, className = '' }) {
@@ -42,9 +42,9 @@ function useTargetingLookups(floorId) {
       getShelvesByFloor(floorId),
     ]).then(([routesRes, zonesRes, shelvesRes]) => {
       if (cancelled) return
-      const routeList  = routesRes.status  === 'fulfilled' ? routesRes.value.map(normalizeRoute)  : []
-      const zoneList   = zonesRes.status   === 'fulfilled' ? zonesRes.value.map(normalizeZone)    : []
-      const shelfList  = shelvesRes.status === 'fulfilled' ? shelvesRes.value.map(normalizeShelf)  : []
+      const routeList = routesRes.status === 'fulfilled' ? routesRes.value.map(normalizeRoute) : []
+      const zoneList  = zonesRes.status  === 'fulfilled' ? zonesRes.value.map(normalizeZone)   : []
+      const shelfList = shelvesRes.status === 'fulfilled' ? shelvesRes.value.map(normalizeShelf) : []
       setRoutes(routeList)
       setZones(zoneList)
       setShelves(shelfList)
@@ -67,13 +67,13 @@ function useTargetingLookups(floorId) {
   return { routes, zones, shelves, loading, error }
 }
 
-// ─── Multi-select panel (Route + Zone) ────────────────────────────────
+// ─── Multi-select panel (Route / Zone / Shelf — 3 loại độc lập) ──────
 function MultiPanel({ title, icon, items, selectedIds, onToggle, searchPlaceholder, pricePerItem }) {
   const [query, setQuery] = useState('')
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return items
-    return items.filter((it) => (it.name || '').toLowerCase().includes(q))
+    return items.filter((it) => (it.name || it.label || '').toLowerCase().includes(q))
   }, [items, query])
 
   const selectedItems = items.filter((it) => selectedIds.includes(it.id))
@@ -99,6 +99,7 @@ function MultiPanel({ title, icon, items, selectedIds, onToggle, searchPlacehold
           )}
           {filtered.map((item) => {
             const picked = selectedIds.includes(item.id)
+            const label = item.label ?? item.name
             return (
               <button
                 key={item.id}
@@ -121,7 +122,7 @@ function MultiPanel({ title, icon, items, selectedIds, onToggle, searchPlacehold
                 >
                   {picked && '✓'}
                 </span>
-                <span className="flex-1 truncate">{item.name}</span>
+                <span className="flex-1 truncate">{label}</span>
                 {item.zoneName && (
                   <span className="text-xs text-smb-on-surface-variant">· {item.zoneName}</span>
                 )}
@@ -130,6 +131,9 @@ function MultiPanel({ title, icon, items, selectedIds, onToggle, searchPlacehold
                 )}
                 {item.floorNumber !== undefined && (
                   <span className="text-xs text-smb-on-surface-variant">· T{item.floorNumber}</span>
+                )}
+                {item.x !== undefined && item.y !== undefined && (
+                  <span className="text-xs text-smb-on-surface-variant">· ({item.x},{item.y})</span>
                 )}
               </button>
             )
@@ -153,12 +157,12 @@ function MultiPanel({ title, icon, items, selectedIds, onToggle, searchPlacehold
               className="flex items-center gap-2 rounded-md border border-smb-outline-variant bg-smb-surface-container-low px-3 py-2 text-sm"
             >
               <Icon name={icon} className="text-[16px] text-smb-primary-container" />
-              <span className="flex-1 truncate text-smb-on-surface">{item.name}</span>
+              <span className="flex-1 truncate text-smb-on-surface">{item.label ?? item.name}</span>
               <button
                 type="button"
                 onClick={() => onToggle(item.id)}
                 className="text-smb-on-surface-variant hover:text-smb-error"
-                aria-label={`Bỏ chọn ${item.name}`}
+                aria-label={`Bỏ chọn ${item.label ?? item.name}`}
               >
                 <Icon name="close" className="text-[16px]" />
               </button>
@@ -177,106 +181,28 @@ function MultiPanel({ title, icon, items, selectedIds, onToggle, searchPlacehold
   )
 }
 
-// ─── Single-select panel (Shelf) ──────────────────────────────────────
-function ShelfPanel({ shelves, selectedId, onSelect, priceShelf }) {
-  const [query, setQuery] = useState('')
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return shelves
-    return shelves.filter((s) => (s.label || '').toLowerCase().includes(q))
-  }, [shelves, query])
-
-  const selected = shelves.find((s) => s.id === selectedId)
-
-  return (
-    <div className="space-y-4">
-      <Input
-        label="Chọn Kệ Hàng (chỉ 1)"
-        placeholder="Tìm kiếm kệ hàng theo tên..."
-        icon="search"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-smb-outline-variant bg-smb-surface-container-lowest p-4">
-          <h4 className="mb-2 text-sm font-semibold text-smb-on-surface">Danh sách kệ ({filtered.length})</h4>
-          <div className="max-h-72 space-y-1.5 overflow-y-auto pr-1">
-            {filtered.length === 0 && (
-              <p className="py-4 text-center text-xs text-smb-on-surface-variant">Không có kệ nào.</p>
-            )}
-            {filtered.map((s) => {
-              const picked = s.id === selectedId
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => onSelect(picked ? null : s.id)}
-                  className={`
-                    flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left text-sm transition-colors
-                    ${picked
-                      ? 'border-smb-primary-container bg-smb-primary-container/10 text-smb-on-primary-container'
-                      : 'border-smb-outline-variant bg-smb-surface-container-lowest text-smb-on-surface hover:border-smb-outline'}
-                  `}
-                >
-                  <Icon
-                    name={picked ? 'radio_button_checked' : 'radio_button_unchecked'}
-                    className="text-[18px] text-smb-primary-container"
-                  />
-                  <span className="flex-1 truncate">{s.label}</span>
-                  {s.floorNumber !== undefined && (
-                    <span className="text-xs text-smb-on-surface-variant">· T{s.floorNumber}</span>
-                  )}
-                  {s.x !== undefined && s.y !== undefined && (
-                    <span className="text-xs text-smb-on-surface-variant">· ({s.x},{s.y})</span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="flex flex-col rounded-xl border border-smb-outline-variant bg-smb-surface-container-lowest p-4">
-          <h4 className="mb-2 text-sm font-semibold text-smb-on-surface">Đã chọn</h4>
-          {selected ? (
-            <div className="rounded-lg border border-smb-primary-container/40 bg-smb-primary-container/5 p-4">
-              <div className="flex items-center gap-2">
-                <Icon name="inventory_2" className="text-[22px] text-smb-primary-container" />
-                <span className="font-semibold text-smb-on-surface">{selected.label}</span>
-              </div>
-              <p className="mt-2 text-xs text-smb-on-surface-variant">
-                Tầng {selected.floorNumber ?? '—'} · Vị trí ({selected.x ?? '—'}, {selected.y ?? '—'})
-              </p>
-              <button
-                type="button"
-                onClick={() => onSelect(null)}
-                className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-smb-error hover:underline"
-              >
-                <Icon name="close" className="text-[14px]" /> Bỏ chọn
-              </button>
-            </div>
-          ) : (
-            <p className="flex flex-1 items-center justify-center py-4 text-center text-xs text-smb-on-surface-variant">
-              Chưa chọn kệ nào.
-            </p>
-          )}
-          <div className="mt-3 rounded-md bg-smb-primary-container/5 px-3 py-2 text-xs text-smb-on-surface-variant">
-            {selected
-              ? <>Phí ước tính: 1 × <strong>{formatVND(priceShelf)} đ</strong> ={' '}
-                  <strong className="text-smb-primary-container">{formatVND(priceShelf)} đ</strong></>
-              : 'Không tính phí shelf vì chưa chọn.'}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ─── Main Step 2 ──────────────────────────────────────────────────────
-export function StepTargeting({ state, floorId, onChange, hasAnyTargeting, onBack, onNext }) {
+export function StepTargeting({
+  state,
+  floorId,
+  onChange,
+  hasAnyTargeting,
+  onBack,
+  onNext,
+  deliveryMode,
+  allowedTargets,
+}) {
   const [activeTab, setActiveTab] = useState('route')
   const [packages, setPackages] = useState([])
   const { routes, zones, shelves, loading, error } = useTargetingLookups(floorId)
+
+  // Auto-set active tab khi đổi deliveryMode
+  useEffect(() => {
+    if (allowedTargets[activeTab]) return // tab hiện tại còn hợp lệ
+    // Pick first allowed tab
+    const next = TABS.find((t) => allowedTargets[t.key])
+    if (next) setActiveTab(next.key)
+  }, [deliveryMode, allowedTargets, activeTab])
 
   // Lấy giá từ package đã chọn
   useEffect(() => {
@@ -298,28 +224,33 @@ export function StepTargeting({ state, floorId, onChange, hasAnyTargeting, onBac
   const priceZone  = selectedPkg?.priceZone  ?? 0
   const priceShelf = selectedPkg?.priceShelf ?? 0
 
-  // Toggle handlers
+  // Toggle handlers — Route/Zone/Shelf là 3 lựa chọn độc lập, không overlap.
   const toggleRoute = (id) => {
     const next = state.targeting.routeIds.includes(id)
       ? state.targeting.routeIds.filter((x) => x !== id)
       : [...state.targeting.routeIds, id]
-    onChange({ routeIds: next })
+    onChange({ routeIds: next, semanticObjectId: state.targeting.semanticObjectId })
   }
   const toggleZone = (id) => {
     const next = state.targeting.zoneIds.includes(id)
       ? state.targeting.zoneIds.filter((x) => x !== id)
       : [...state.targeting.zoneIds, id]
-    onChange({ zoneIds: next })
+    onChange({ zoneIds: next, semanticObjectId: state.targeting.semanticObjectId })
   }
-  // Shelf là SINGLE → chọn cái mới auto replace
-  const selectShelf = (id) => {
-    onChange({ semanticObjectId: id === state.targeting.semanticObjectId ? null : id })
+  const toggleShelf = (id) => {
+    const next = state.targeting.shelfIds.includes(id)
+      ? state.targeting.shelfIds.filter((x) => x !== id)
+      : [...state.targeting.shelfIds, id]
+    onChange({
+      shelfIds: next,
+      semanticObjectId: next[0] ?? null,
+    })
   }
 
   const counts = {
     route: state.targeting.routeIds.length,
     zone:  state.targeting.zoneIds.length,
-    shelf: state.targeting.semanticObjectId !== null ? 1 : 0,
+    shelf: state.targeting.shelfIds.length,
   }
 
   return (
@@ -327,7 +258,8 @@ export function StepTargeting({ state, floorId, onChange, hasAnyTargeting, onBac
       <header>
         <h2 className="text-xl font-semibold text-smb-on-surface">Bước 2 · Targeting</h2>
         <p className="mt-1 text-sm text-smb-on-surface-variant">
-          Chọn ít nhất <strong>1</strong> loại: tuyến đường, khu vực hoặc kệ hàng. Phí ước tính dựa trên gói đã chọn.
+          Chọn ít nhất <strong>1</strong> loại quảng cáo: tuyến đường, khu vực hoặc kệ hàng.
+          Các loại là <strong>độc lập</strong> — kết hợp tuỳ <em>deliveryMode</em> đã chọn ở Bước 1.
         </p>
       </header>
 
@@ -339,19 +271,38 @@ export function StepTargeting({ state, floorId, onChange, hasAnyTargeting, onBac
       )}
 
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-smb-outline-variant bg-smb-surface-container-lowest p-2">
+        {/* Mode chip */}
+        <div className="flex items-center gap-1 rounded-lg bg-smb-primary-container/10 px-3 py-1.5 text-xs font-medium text-smb-primary-container">
+          <Icon name={
+            deliveryMode === 'Route' ? 'route' :
+            deliveryMode === 'Zone'  ? 'grid_view' :
+            'sync'
+          } className="text-[14px]" />
+          <span>{
+            deliveryMode === 'Route' ? 'Chỉ Tuyến Đường' :
+            deliveryMode === 'Zone'  ? 'Chỉ Khu Vực / Kệ' :
+            'Cả Hai'
+          }</span>
+        </div>
+
         {TABS.map((tab) => {
           const isActive = activeTab === tab.key
+          const isAllowed = !!allowedTargets[tab.key]
           return (
             <button
               key={tab.key}
               type="button"
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => isAllowed && setActiveTab(tab.key)}
+              disabled={!isAllowed}
               className={`
                 flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors
                 ${isActive
                   ? 'bg-smb-primary-container text-smb-on-primary-container shadow-sm'
+                  : !isAllowed
+                  ? 'cursor-not-allowed text-smb-on-surface-variant/40'
                   : 'text-smb-on-surface-variant hover:bg-smb-surface-container'}
               `}
+              title={!isAllowed ? `Chế độ "${deliveryMode}" không cho phép ${tab.label.toLowerCase()}` : undefined}
             >
               <Icon name={tab.icon} className="text-[18px]" />
               {tab.label}
@@ -403,11 +354,14 @@ export function StepTargeting({ state, floorId, onChange, hasAnyTargeting, onBac
             />
           )}
           {activeTab === 'shelf' && (
-            <ShelfPanel
-              shelves={shelves}
-              selectedId={state.targeting.semanticObjectId}
-              onSelect={selectShelf}
-              priceShelf={priceShelf}
+            <MultiPanel
+              title="Chọn kệ hàng"
+              icon="inventory_2"
+              items={shelves}
+              selectedIds={state.targeting.shelfIds}
+              onToggle={toggleShelf}
+              searchPlaceholder="Tìm kệ theo tên..."
+              pricePerItem={priceShelf}
             />
           )}
         </>
@@ -417,7 +371,7 @@ export function StepTargeting({ state, floorId, onChange, hasAnyTargeting, onBac
         <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
           <Icon name="warning" className="mt-0.5 text-[16px]" />
           <span>
-            Vui lòng chọn ít nhất <strong>1 loại targeting</strong> (Route / Zone / Shelf) trước khi tiếp tục.
+            Vui lòng chọn ít nhất <strong>1 loại quảng cáo</strong> (Route / Zone / Shelf) trước khi tiếp tục.
           </span>
         </div>
       )}

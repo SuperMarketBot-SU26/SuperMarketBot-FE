@@ -4,7 +4,6 @@ import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import AdvertisementDashboard from './pages/AdvertisementDashboard'
 import AdvertisementCreation from './pages/AdvertisementCreation'
-import AdvertisementUpdate from './pages/AdvertisementUpdate'
 import AdvertisementLogs from './pages/AdvertisementLogs'
 import CampaignDetail from './pages/CampaignDetail'
 import AdPackageCreation from './pages/AdPackageCreation'
@@ -74,14 +73,6 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AdvertisementCreation />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/advertisement/update/:id"
-              element={
-                <ProtectedRoute>
-                  <AdvertisementUpdate />
                 </ProtectedRoute>
               }
             />

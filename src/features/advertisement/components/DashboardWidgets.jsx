@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { StatCard } from '../../../components/StatCard'
 import { ChartCard } from '../../../components/ChartCard'
 import { DonutChart, VerticalBarChart, HorizontalBarChart, SparklineChart } from '../../../components/Charts'
@@ -46,6 +47,7 @@ function TrendBadge({ value, unit = '' }) {
 }
 
 export function DashboardWidgets() {
+  const navigate = useNavigate()
   const [campaigns, setCampaigns] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -97,7 +99,15 @@ export function DashboardWidgets() {
     { label: STATUS_LABELS.Canceled,  value: canceled,   color: STATUS_COLORS.Canceled },
   ].filter(s => s.value > 0)
 
-  // ── Top 8 by cost (for bar chart) ───────────────────────────────────────
+  // ── Active campaigns recently started (for recent-activity widget) ───────
+  // Ưu tiên Active + sort theo startDate mới nhất; fallback các status khác
+  // nếu không có campaign Active nào.
+  const activeRecent = [...campaigns]
+    .filter((c) => c.status === 'Active' && c.startDate)
+    .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
+    .slice(0, 8)
+
+  // Top by cost dùng cho bar chart (bỏ qua filter status — biểu đồ tổng quan).
   const topByCost = [...campaigns]
     .sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0))
     .slice(0, 8)
@@ -250,7 +260,21 @@ export function DashboardWidgets() {
       )}
 
       {/* ── Campaign Table ── */}
-      <ChartCard title="Danh Sách Chiến Dịch" icon="list_alt">
+      <ChartCard
+        title="Hoạt Động Quảng Cáo Gần Đây"
+        subtitle="Các chiến dịch đang chạy, mới kích hoạt nhất"
+        icon="history"
+        actions={
+          <button
+            type="button"
+            onClick={() => navigate('/advertisement')}
+            className="inline-flex items-center gap-1 rounded-md bg-smb-primary-container/10 px-2 py-1 text-xs font-medium text-smb-primary-container hover:bg-smb-primary-container/20"
+          >
+            Xem tất cả
+            <Icon name="arrow_forward" className="text-[14px]" />
+          </button>
+        }
+      >
         <div className="mt-3 -mx-3 overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
@@ -264,14 +288,14 @@ export function DashboardWidgets() {
               </tr>
             </thead>
             <tbody>
-              {topByCost.length === 0 ? (
+              {activeRecent.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-3 py-10 text-center text-smb-on-surface-variant">
                     <span className="material-symbols-outlined mr-1 text-xl opacity-40">campaign</span>
-                    <br />Chưa có chiến dịch nào.
+                    <br />Chưa có chiến dịch nào đang chạy.
                   </td>
                 </tr>
-              ) : topByCost.map((row, idx) => (
+              ) : activeRecent.map((row, idx) => (
                 <tr key={row.adCampaignId}
                   className="border-b border-smb-outline-variant/30 last:border-0 transition-colors hover:bg-smb-surface-container-low/50"
                 >

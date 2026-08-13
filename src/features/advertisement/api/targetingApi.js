@@ -4,7 +4,7 @@
  *
  * Lookup wrappers:
  *   - GET /v1/zones?floorId=N                  → zone picker
- *   - GET /v1/semantic-objects?floorId=N&type=Shelf
+ *   - GET /v1/shelves                         → shelf picker (dùng Shelf entity, không SemanticObject)
  *   - GET /v1/robot-routes?floorId=N
  */
 
@@ -17,19 +17,26 @@ const unwrap = (res) => {
   const data = res?.data
   if (Array.isArray(data)) return data
   if (Array.isArray(data?.items)) return data.items
+  if (Array.isArray(data?.value)) return data.value
   return []
 }
 
 export const getZonesByFloor = (floorId) =>
   client.get('/api/v1/zones', { params: { floorId } }).then(unwrap)
 
-// ── Shelves (semantic objects of type Shelf) ──────────────────────────────
-// Endpoint: GET /v1/semantic-objects?floorId=N&type=Shelf
-// Response: [{ objectId, label/name, floorId, x, y, objectType }, ...]
-export const getShelvesByFloor = (floorId) =>
-  client
-    .get('/api/v1/semantic-objects', { params: { floorId, type: 'Shelf' } })
-    .then(unwrap)
+// ── Shelves (entity Shelf, không dùng SemanticObject) ───────────────────────
+// Endpoint: GET /v1/shelves
+// Response: [{ shelfId, aisleId, aisleCode, aisleName, levelNumber }, ...]
+export const getShelvesByFloor = async (floorId) => {
+  try {
+    const res = await client.get('/api/v1/shelves')
+    const shelves = unwrap(res)
+    // Map Shelf entity → wizard shape
+    return shelves.map(normalizeShelf)
+  } catch {
+    return []
+  }
+}
 
 // ── Robot routes ──────────────────────────────────────────────────────────
 // Endpoint: GET /v1/robot-routes?floorId=N
@@ -60,14 +67,17 @@ export const normalizeZone = (z) => ({
   floorNumber: z.floorNumber ?? z.floor,
 })
 
+// Shelf entity: { shelfId, aisleId, aisleCode, aisleName, levelNumber }
 export const normalizeShelf = (s) => ({
-  id: s.objectId ?? s.semanticObjectId ?? s.id,
-  label: s.label ?? s.objectName ?? s.name ?? `Kệ #${s.objectId ?? s.id}`,
+  id: s.shelfId ?? s.SemanticObjectId ?? s.objectId ?? s.id,
+  name: `${s.aisleCode ?? ''} - ${s.aisleName ?? ''} (Tầng ${s.levelNumber ?? 1})`,
+  label: `${s.aisleCode ?? ''} - ${s.aisleName ?? ''} (Tầng ${s.levelNumber ?? 1})`,
+  aisleId: s.aisleId,
+  aisleCode: s.aisleCode,
+  aisleName: s.aisleName,
+  levelNumber: s.levelNumber,
   floorId: s.floorId,
   floorNumber: s.floorNumber ?? s.floor,
-  x: s.x,
-  y: s.y,
-  objectType: s.objectType,
 })
 
 export const normalizeRoute = (r) => ({

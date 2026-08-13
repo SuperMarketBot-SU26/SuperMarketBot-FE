@@ -93,15 +93,23 @@ export const assignCampaignZones = (campaignId, zoneIds) =>
 export const getCampaignShelf = (campaignId) =>
   client.get(`${ENDPOINT}/${campaignId}/shelves`).then((res) => res.data)
 
-export const assignCampaignShelf = (campaignId, semanticObjectId) =>
-  client.post(`${ENDPOINT}/${campaignId}/shelves`, { semanticObjectIds: [semanticObjectId] }).then((res) => res.data)
+// ── Shelves (multi-select) ─────────────────────────────────────────────────
+export const getCampaignShelves = (campaignId) =>
+  client.get(`${ENDPOINT}/${campaignId}/shelves`).then((res) => res.data)
+
+export const assignCampaignShelves = (campaignId, shelfIds) =>
+  client.post(`${ENDPOINT}/${campaignId}/shelves`, { shelfIds }).then((res) => res.data)
+
+// Legacy: single shelf (kept for backward compat, redirects to multi)
+export const assignCampaignShelf = (campaignId, shelfId) =>
+  assignCampaignShelves(campaignId, [shelfId])
 
 // ── Targeting context (single-fetch cho UI) ───────────────────────────────
 // GET /api/v1/ad-campaigns/{id}/targeting-context?floorId=N
 // → { mapId, floorId, shelves[], routes[], assignedRouteIds[] }
 export const getTargetingContext = (campaignId, floorId) =>
   client
-    .get(`${ENDPOINT}/${campaignId}/targeting-context`, { params: { floorId } })
+    .get(`/api/v1/ad-campaign/${campaignId}/targeting-context`, { params: { floorId } })
     .then((res) => res.data)
 
 // ── Brand wallet ───────────────────────────────────────────────────────────

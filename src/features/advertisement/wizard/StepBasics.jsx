@@ -54,7 +54,7 @@ function PackageCard({ pkg, selected, onSelect }) {
   )
 }
 
-export function StepBasics({ state, onChange, brandOptions, onNext, errors }) {
+export function StepBasics({ state, onChange, brandOptions, onNext, errors, basicsErrors }) {
   const [packages, setPackages] = useState([])
   const [loadingPackages, setLoadingPackages] = useState(true)
   const [packagesError, setPackagesError] = useState(null)
@@ -77,14 +77,17 @@ export function StepBasics({ state, onChange, brandOptions, onNext, errors }) {
     onChange(next, {})
   }
 
-  const startDateError = errors?.startDate
+  // Realtime errors > click-time errors (ưu tiên realtime).
+  const mergedErrors = { ...(basicsErrors ?? {}), ...(errors ?? {}) }
+  const startDateError = mergedErrors.startDate
   const endDateError =
-    errors?.endDate ||
+    mergedErrors.endDate ??
     (state.basics.startDate &&
       state.basics.endDate &&
       new Date(state.basics.endDate) <= new Date(state.basics.startDate)
       ? 'Ngày kết thúc phải sau ngày bắt đầu.'
       : null)
+  const hasBasicsErrorsLocal = Object.keys(mergedErrors).length > 0
 
   return (
     <section className="space-y-6">
@@ -102,7 +105,7 @@ export function StepBasics({ state, onChange, brandOptions, onNext, errors }) {
           value={state.basics.campaignName}
           onChange={(e) => updateField('campaignName', e.target.value)}
           required
-          error={errors?.campaignName}
+          error={mergedErrors.campaignName}
           maxLength={200}
         />
         <Select
@@ -112,12 +115,13 @@ export function StepBasics({ state, onChange, brandOptions, onNext, errors }) {
           value={state.basics.brandId ?? ''}
           onChange={(v) => updateField('brandId', v ? Number(v) : null)}
           required
-          error={errors?.brandId}
+          error={mergedErrors.brandId}
         />
 
         <Input
           label="Ngày Bắt Đầu"
           type="date"
+          icon="calendar_month"
           value={state.basics.startDate}
           onChange={(e) => updateField('startDate', e.target.value)}
           required
@@ -126,6 +130,7 @@ export function StepBasics({ state, onChange, brandOptions, onNext, errors }) {
         <Input
           label="Ngày Kết Thúc (Dự Kiến)"
           type="date"
+          icon="calendar_month"
           value={state.basics.endDate}
           onChange={(e) => updateField('endDate', e.target.value)}
           required
@@ -134,7 +139,7 @@ export function StepBasics({ state, onChange, brandOptions, onNext, errors }) {
         />
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-base font-semibold text-smb-on-surface">Gói Quảng Cáo</h3>
@@ -174,11 +179,46 @@ export function StepBasics({ state, onChange, brandOptions, onNext, errors }) {
         )}
       </div>
 
+      {/* Delivery Mode */}
+      <div className="space-y-3">
+        <div>
+          <h3 className="text-base font-semibold text-smb-on-surface">Hình Thức Phát Quảng Cáo</h3>
+          <p className="text-xs text-smb-on-surface-variant">
+            Admin quyết định robot phát ad theo lộ trình hay dừng lại ở zone/kệ.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            { value: 'Route', label: 'Tuyến Đường', icon: 'route', desc: 'Robot đi theo lộ trình, phát ad khi di chuyển' },
+            { value: 'Zone', label: 'Khu Vực / Kệ', icon: 'grid_view', desc: 'Robot dừng lại ở zone/kệ để phát ad' },
+            { value: 'Both', label: 'Cả Hai', icon: 'sync', desc: 'Robot đi lộ trình và dừng ở zone để phát ad' },
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => updateField('deliveryMode', opt.value)}
+              className={`
+                flex flex-col items-start gap-2 rounded-xl border-2 p-4 text-left transition-all
+                ${state.basics.deliveryMode === opt.value
+                  ? 'border-smb-primary-container bg-smb-active-bg'
+                  : 'border-smb-outline-variant bg-smb-surface-container-lowest hover:border-smb-outline'}
+              `}
+            >
+              <div className="flex items-center gap-2">
+                <Icon name={opt.icon} className="text-lg text-smb-primary-container" />
+                <span className="font-semibold text-smb-on-surface">{opt.label}</span>
+                {state.basics.deliveryMode === opt.value && (
+                  <Icon name="check_circle" className="ml-auto text-sm text-smb-primary-container" />
+                )}
+              </div>
+              <span className="text-xs text-smb-on-surface-variant">{opt.desc}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="flex items-center justify-end gap-3">
-        <Button variant="secondary" onClick={onNext === undefined ? undefined : () => {}} disabled>
-          Hủy
-        </Button>
-        <Button variant="primary" icon="arrow_forward" onClick={onNext}>
+        <Button variant="primary" icon="arrow_forward" onClick={onNext} disabled={hasBasicsErrorsLocal}>
           Tiếp Tục →
         </Button>
       </div>

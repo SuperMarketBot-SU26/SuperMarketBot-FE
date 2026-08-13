@@ -2,7 +2,17 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import Navbar from '../components/Navbar'
-import { getCampaign, cancelCampaign, pauseCampaign, activateCampaign, completeCampaign } from '../features/advertisement/api/adCampaignApi'
+import {
+  getCampaign,
+  cancelCampaign,
+  pauseCampaign,
+  activateCampaign,
+  completeCampaign,
+  updateCampaign,
+  getCompletionStatus,
+} from '../features/advertisement/api/adCampaignApi'
+import Input from '../components/ui/Input'
+import Button from '../components/ui/Button'
 import { CampaignInfo } from '../features/advertisement/components/CampaignInfo'
 import CampaignProductsTab from '../features/advertisement/components/CampaignProductsTab'
 import { CampaignLogsTab } from '../features/advertisement/components/CampaignLogsTab'
@@ -15,12 +25,26 @@ function Icon({ name, className = '' }) {
 }
 
 const TABS = [
-  { id: 'overview',   label: 'Tổng quan',    icon: 'dashboard' },
-  { id: 'products',   label: 'Sản phẩm',    icon: 'inventory_2' },
-  { id: 'targeting',  label: 'Targeting',   icon: 'my_location' },
-  { id: 'resources',  label: 'Resources',   icon: 'perm_media' },
-  { id: 'logs',       label: 'Logs',        icon: 'history' },
+  { id: 'overview',   label: 'Tổng quan',  icon: 'dashboard' },
+  { id: 'products',   label: 'Sản phẩm',  icon: 'inventory_2' },
+  { id: 'targeting',  label: 'Targeting', icon: 'my_location' },
+  { id: 'resources',  label: 'Resources', icon: 'perm_media' },
+  { id: 'logs',       label: 'Logs',      icon: 'history' },
 ]
+
+const STATUS_LABELS = {
+  Inactive:  'Không Hoạt Động',
+  Active:    'Hoạt Động',
+  Paused:    'Tạm Dừng',
+  Canceled:  'Đã Hủy',
+  Completed: 'Hoàn Thành',
+}
+
+function toDateInput(val) {
+  if (!val) return ''
+  if (typeof val === 'string' && val.includes('T')) return val.split('T')[0]
+  return val
+}
 
 export function CampaignDetail() {
   const { id } = useParams()
@@ -31,79 +55,147 @@ export function CampaignDetail() {
   const [error, setError] = useState(null)
   const [activeTab, setActiveTab] = useState('overview')
   const [actionLoading, setActionLoading] = useState(false)
+  const [saveError, setSaveError] = useState(null)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [completionStatus, setCompletionStatus] = useState(null)
 
-  // Status action handlers
-  const handleActivate = async () => {
-    setActionLoading(true)
-    try { await activateCampaign(campaignId); await refreshData(); } catch (e) { alert(e?.response?.data?.message || 'Lỗi kích hoạt') }
-    finally { setActionLoading(false) }
-  }
-  const handlePause = async () => {
-    setActionLoading(true)
-    try { await pauseCampaign(campaignId); await refreshData(); } catch (e) { alert(e?.response?.data?.message || 'Lỗi tạm dừng') }
-    finally { setActionLoading(false) }
-  }
-  const handleCancel = async () => {
-    setActionLoading(true)
-    try { await cancelCampaign(campaignId); await refreshData(); } catch (e) { alert(e?.response?.data?.message || 'Lỗi hủy') }
-    finally { setActionLoading(false) }
-  }
-  const handleComplete = async () => {
-    setActionLoading(true)
-    try { await completeCampaign(campaignId); await refreshData(); } catch (e) { alert(e?.response?.data?.message || 'Lỗi hoàn thành') }
-    finally { setActionLoading(false) }
-  }
+  // Form edit state — chỉ khởi tạo 1 lần từ data đầu tiên
+  const [editForm, setEditForm] = useState({
+    campaignName: '',
+    startDate: '',
+    endDate: '',
+  })
+  const [editInitialized, setEditInitialized] = useState(false)
 
-  // Refresh campaign data - defined outside useEffect so it can be used as callback
-  const refreshData = React.useCallback(() => {
+  const refreshData = useCallback(() => {
     if (!Number.isFinite(campaignId)) return
     let cancelled = false
     setLoading(true)
     setError(null)
-    getCampaign(campaignId)
-      .then((result) => {
-        if (cancelled) return
-        setData(result)
-      })
-      .catch((err) => {
-        if (cancelled) return
-        setError(err?.response?.data?.message ?? 'Không thể tải chiến dịch.')
-      })
-      .finally(() => {
-        if (cancelled) return
-        setLoading(false)
-      })
-    return () => { cancelled = true }
-  }, [campaignId])
-
-  // Fetch campaign data - only when campaignId changes
-  useEffect(() => {
-    if (!Number.isFinite(campaignId)) {
-      setError('ID chiến dịch không hợp lệ.')
+    Promise.all([
+      getCampaign(campaignId),
+      getCompletionStatus(campaignId).catch(() => null),
+    ]).then(([result, completion]) => {
+      if (cancelled) return
+      setData(result)
+      setCompletionStatus(completion)
+      if (!editInitialized) {
+        setEditForm({
+          campaignName: result?.campaignName ?? '',
+          startDate: toDateInput(result?.startDate),
+          endDate: toDateInput(result?.endDate),
+        })
+        setEditInitialized(true)
+      }
+    }).catch((err) => {
+      if (cancelled) return
+      setError(err?.response?.data?.message ?? 'Không thể tải chiến dịch.')
+    }).finally(() => {
+      if (cancelled) return
       setLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [campaignId, editInitialized])
+
+  useEffect(() => {
+    refreshData()
+  }, [refreshData])
+
+  // Status action handlers — tách riêng để message lỗi action
+  // không bị "nuốt" bởi lỗi refresh, và ngược lại.
+  const runStatusAction = async (action, label) => {
+    setActionLoading(true)
+    let actionOk = false
+    try {
+      await action()
+      actionOk = true
+    } catch (e) {
+      const status = e?.response?.status
+      const msg = e?.response?.data?.message
+               ?? e?.response?.data?.error
+               ?? e?.message
+               ?? `Lỗi ${label}`
+      alert(`${status ? `[${status}] ` : ''}${msg}`)
+    }
+    // Refresh bất kể action thành công/thất bại — server là source of truth.
+    // Lỗi refresh KHÔNG được hiện alert (action alert đã rồi, hoặc server đã OK).
+    if (actionOk) {
+      try {
+        await refreshData()
+      } catch (refreshErr) {
+        console.warn('refresh failed after action', refreshErr)
+      }
+    } else {
+      // Action fail → vẫn thử refresh để UI khớp server (status có thể đã đổi 1 phần).
+      try { await refreshData() } catch { /* silent */ }
+    }
+    setActionLoading(false)
+  }
+  const handleActivate = () =>
+    runStatusAction(() => activateCampaign(campaignId), 'kích hoạt')
+  const handlePause = () =>
+    runStatusAction(() => pauseCampaign(campaignId), 'tạm dừng')
+  const handleCancel = () =>
+    runStatusAction(() => cancelCampaign(campaignId), 'hủy')
+  const handleComplete = () =>
+    runStatusAction(() => completeCampaign(campaignId), 'hoàn thành')
+
+  // Save edit form
+  const handleSaveEdit = async (e) => {
+    e?.preventDefault?.()
+    setSaveError(null)
+    setSaveSuccess(false)
+
+    if (!editForm.campaignName.trim()) {
+      setSaveError('Tên chiến dịch không được để trống.')
       return
     }
-    
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-    
-    getCampaign(campaignId)
-      .then((result) => {
-        if (cancelled) return
-        setData(result)
+    if (!editForm.startDate || !editForm.endDate) {
+      setSaveError('Ngày bắt đầu và kết thúc là bắt buộc.')
+      return
+    }
+    if (new Date(editForm.endDate) <= new Date(editForm.startDate)) {
+      setSaveError('Ngày kết thúc phải sau ngày bắt đầu.')
+      return
+    }
+
+    setSaving(true)
+    try {
+      await updateCampaign(campaignId, {
+        campaignName: editForm.campaignName.trim(),
+        startDate: new Date(editForm.startDate).toISOString(),
+        endDate: new Date(editForm.endDate).toISOString(),
+        // Giữ nguyên targeting — tab Targeting đã có UI riêng (TargetingManager)
+        routeIds: data?.routeIds ?? null,
+        zoneIds: data?.zoneIds ?? null,
+        semanticObjectId: data?.semanticObjectId ?? null,
       })
-      .catch((err) => {
-        if (cancelled) return
-        setError(err?.response?.data?.message ?? 'Không thể tải chiến dịch.')
-      })
-      .finally(() => {
-        if (cancelled) return
-        setLoading(false)
-      })
-    
-    return () => { cancelled = true }
-  }, [campaignId])
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 3000)
+      await refreshData()
+    } catch (err) {
+      const msg = err?.response?.data?.error
+               || err?.response?.data?.message
+               || err?.message
+               || 'Cập nhật chiến dịch thất bại.'
+      setSaveError(msg)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDiscardEdit = () => {
+    setEditForm({
+      campaignName: data?.campaignName ?? '',
+      startDate: toDateInput(data?.startDate),
+      endDate: toDateInput(data?.endDate),
+    })
+    setSaveError(null)
+    setSaveSuccess(false)
+  }
+
+  const isLocked = data?.status === 'Active' || data?.status === 'Canceled' || data?.status === 'Completed'
 
   return (
     <div className="min-h-screen bg-smb-surface">
@@ -112,7 +204,7 @@ export function CampaignDetail() {
       <div className="pl-[260px]">
         <Navbar
           title={data?.campaignName || `Chiến dịch #${campaignId}`}
-          subtitle="Quản lý chi tiết chiến dịch quảng cáo"
+          subtitle={`${STATUS_LABELS[data?.status] ?? data?.status ?? '—'} · Quản lý chi tiết chiến dịch quảng cáo`}
         />
 
         <main className="px-6 py-6">
@@ -147,7 +239,7 @@ export function CampaignDetail() {
                     <div className="flex items-center gap-2">
                       <h2 className="text-lg font-semibold text-smb-on-surface">{data.campaignName}</h2>
                       <span className="rounded-full bg-smb-surface-container-high px-2.5 py-0.5 text-xs font-medium text-smb-on-surface">
-                        {data.status ?? 'Inactive'}
+                        {STATUS_LABELS[data.status] ?? data.status ?? 'Inactive'}
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-smb-on-surface-variant">
@@ -161,6 +253,7 @@ export function CampaignDetail() {
                   </div>
                   <CampaignStatusActions
                     status={data.status}
+                    completionStatus={completionStatus}
                     onActivate={handleActivate}
                     onPause={handlePause}
                     onCancel={handleCancel}
@@ -191,7 +284,96 @@ export function CampaignDetail() {
 
                 {/* Tab content */}
                 <div>
-                  {activeTab === 'overview' && <CampaignInfo data={data} />}
+                  {activeTab === 'overview' && (
+                    <div className="space-y-6">
+                      <CampaignInfo data={data} />
+
+                      {/* Edit form */}
+                      <div className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest p-6">
+                        <div className="mb-4 flex items-center gap-3">
+                          <div className="flex size-10 items-center justify-center rounded-lg bg-smb-primary-container/10">
+                            <span className="material-symbols-outlined text-xl text-smb-primary-container">
+                              edit_note
+                            </span>
+                          </div>
+                          <div>
+                            <h3 className="text-base font-semibold text-smb-on-surface">Chỉnh Sửa Thông Tin</h3>
+                            <p className="text-sm text-smb-on-surface-variant">Cập nhật tên và thời gian chiến dịch</p>
+                          </div>
+                        </div>
+
+                        {saveError && (
+                          <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                            {saveError}
+                          </div>
+                        )}
+                        {saveSuccess && (
+                          <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+                            <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                            Cập nhật chiến dịch thành công!
+                          </div>
+                        )}
+
+                        <form onSubmit={handleSaveEdit} className="space-y-4">
+                          <Input
+                            label="Tên Chiến Dịch"
+                            placeholder="Nhập tên chiến dịch"
+                            value={editForm.campaignName}
+                            onChange={(e) => setEditForm((p) => ({ ...p, campaignName: e.target.value }))}
+                            disabled={isLocked}
+                          />
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <Input
+                              label="Ngày Bắt Đầu"
+                              type="date"
+                              value={editForm.startDate}
+                              onChange={(e) => setEditForm((p) => ({ ...p, startDate: e.target.value }))}
+                              disabled={isLocked}
+                            />
+                            <Input
+                              label="Ngày Kết Thúc"
+                              type="date"
+                              value={editForm.endDate}
+                              onChange={(e) => setEditForm((p) => ({ ...p, endDate: e.target.value }))}
+                              disabled={isLocked}
+                            />
+                          </div>
+
+                          {isLocked && (
+                            <div className="flex items-start gap-2 rounded-lg border border-smb-primary-container/30 bg-smb-primary-container/5 p-3">
+                              <span className="material-symbols-outlined mt-0.5 text-[16px] text-smb-primary-container">info</span>
+                              <p className="text-xs text-smb-on-surface-variant">
+                                Chiến dịch đang ở trạng thái <strong className="text-smb-primary-container">{STATUS_LABELS[data.status] ?? data.status}</strong> — không thể chỉnh sửa.
+                              </p>
+                            </div>
+                          )}
+
+                          <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              icon="close"
+                              size="sm"
+                              onClick={handleDiscardEdit}
+                              disabled={saving}
+                            >
+                              Hủy Thay Đổi
+                            </Button>
+                            <Button
+                              type="submit"
+                              variant="primary"
+                              icon="save"
+                              disabled={saving || isLocked}
+                            >
+                              {saving ? 'Đang Lưu...' : 'Lưu Cập Nhật'}
+                            </Button>
+                          </div>
+                        </form>
+                      </div>
+                    </div>
+                  )}
+
                   {activeTab === 'products' && (
                     <CampaignProductsTab
                       campaignId={campaignId}
@@ -205,9 +387,9 @@ export function CampaignDetail() {
                       campaign={data}
                       campaignId={campaignId}
                       status={data?.status}
-                      priceRoute={data?.routePrice}
-                      priceZone={data?.zonePrice}
-                      priceShelf={data?.shelfPrice}
+                      priceRoute={data?.priceRoute}
+                      priceZone={data?.priceZone}
+                      priceShelf={data?.priceShelf}
                       onChanged={refreshData}
                     />
                   )}

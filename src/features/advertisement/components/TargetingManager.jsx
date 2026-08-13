@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   getCampaignRoutes,
   getCampaignZones,
   getCampaignShelf,
   assignCampaignRoutes,
   assignCampaignZones,
-  assignCampaignShelf,
+  assignCampaignShelves,
   getTargetingContext,
 } from '../api/adCampaignApi'
 import { getZonesByFloor } from '../api/targetingApi'
@@ -18,10 +18,15 @@ function Icon({ name, className = '' }) {
 const formatVND = (val) => Number(val ?? 0).toLocaleString('vi-VN')
 
 /**
- * TargetingManager — Tab "Targeting" trong detail/update page.
+ * TargetingManager — Tab "Targeting" trong detail page.
  *
- * Hiển thị 3 card (Routes/Zones/Shelf) với danh sách đã gán + nút Mua thêm.
- * Mỗi card có modal chọn multi (route/zone) hoặc single (shelf).
+ * Hiển thị 3 card (Routes / Zones / Shelves) là 3 loại quảng cáo ĐỘC LẬP:
+ *   - Routes: ad phát khi robot đi theo tuyến.
+ *   - Zones:  ad phát khi robot dừng ở khu vực.
+ *   - Shelves: ad phát khi robot ghé kệ cụ thể.
+ *
+ * KHÔNG có khái niệm Route cover Zone hay Zone cover Shelf — 3 loại là 3
+ * lựa chọn quảng cáo độc lập, có thể chọn tự do tuỳ `deliveryMode`.
  *
  * Chỉ enable editing khi status IN ['Inactive', 'Paused'].
  */
@@ -30,11 +35,10 @@ export function TargetingManager({ campaignId, status, priceRoute, priceZone, pr
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // Server state
+  // Server state — 3 loại độc lập
   const [routes, setRoutes] = useState([])
   const [zones, setZones] = useState([])
-  const [shelf, setShelf] = useState(null)
-  // floorId for /targeting-context picker
+  const [shelves, setShelves] = useState([])
   const floorId = 1
 
   const fetchAll = async () => {
@@ -48,7 +52,7 @@ export function TargetingManager({ campaignId, status, priceRoute, priceZone, pr
       ])
       setRoutes(r?.routes ?? [])
       setZones(z?.zones ?? [])
-      setShelf(s?.shelves?.[0] ?? null)
+      setShelves(s?.shelves ?? [])
     } catch (err) {
       setError(getErrorMessage(err, 'Không thể tải targeting.'))
     } finally {
@@ -57,6 +61,12 @@ export function TargetingManager({ campaignId, status, priceRoute, priceZone, pr
   }
 
   useEffect(() => { fetchAll() }, [campaignId])
+
+  // Tính tổng tiền targeting
+  const totalRoute = routes.reduce((sum, r) => sum + (r.routePriceCharged ?? priceRoute), 0)
+  const totalZone = zones.reduce((sum, z) => sum + (z.zonePriceCharged ?? priceZone), 0)
+  const totalShelf = shelves.reduce((sum, s) => sum + (s.shelfPriceCharged ?? priceShelf), 0)
+  const grandTotal = totalRoute + totalZone + totalShelf
 
   return (
     <div className="space-y-4">
@@ -70,6 +80,11 @@ export function TargetingManager({ campaignId, status, priceRoute, priceZone, pr
           Campaign đang <strong>{status}</strong>. Targeting đã khoá — chỉ xem.
         </div>
       )}
+
+      <p className="text-xs text-smb-on-surface-variant">
+        <strong>3 loại quảng cáo độc lập</strong>: tuyến đường, khu vực và kệ hàng.
+        Có thể chọn tự do — không có quan hệ bao trùm hay phí trùng lặp.
+      </p>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <RoutesCard
@@ -92,13 +107,36 @@ export function TargetingManager({ campaignId, status, priceRoute, priceZone, pr
           onSaved={fetchAll}
         />
         <ShelfCard
-          shelf={shelf}
+          shelves={shelves}
           loading={loading}
           pricePerItem={priceShelf}
           canEdit={canEdit}
           campaignId={campaignId}
           onSaved={fetchAll}
         />
+      </div>
+
+      {/* Tổng kết chi phí targeting */}
+      <div className="rounded-xl border border-smb-primary-container/50 bg-smb-primary-container/10 p-4">
+        <h4 className="mb-2 text-sm font-semibold text-smb-on-surface">Chi Phí Targeting</h4>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm lg:grid-cols-4">
+          <div className="flex justify-between">
+            <span className="text-smb-on-surface-variant">Tuyến ({routes.length})</span>
+            <span className="font-medium text-smb-on-surface">{formatVND(totalRoute)} đ</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-smb-on-surface-variant">Khu vực ({zones.length})</span>
+            <span className="font-medium text-smb-on-surface">{formatVND(totalZone)} đ</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-smb-on-surface-variant">Kệ ({shelves.length})</span>
+            <span className="font-medium text-smb-on-surface">{formatVND(totalShelf)} đ</span>
+          </div>
+          <div className="flex justify-between border-t border-smb-outline-variant pt-1 font-bold">
+            <span className="text-smb-primary-container">Tổng cộng</span>
+            <span className="text-smb-primary-container">{formatVND(grandTotal)} đ</span>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -158,7 +196,6 @@ function RoutesCard({ routes, loading, pricePerItem, canEdit, campaignId, floorI
       actionLabel="Mua thêm"
       canEdit={canEdit}
       onAction={() => setOpen(true)}
-      footer={<>Phí mỗi route: <strong className="text-smb-on-surface">{formatVND(pricePerItem)} đ</strong></>}
     >
       {loading ? <Skeleton /> : routes.length === 0 ? <Empty /> : (
         <ul className="space-y-1.5">
@@ -217,7 +254,6 @@ function ZonesCard({ zones, loading, pricePerItem, canEdit, assignedIds, onSaved
       actionLabel="Mua thêm"
       canEdit={canEdit}
       onAction={() => setOpen(true)}
-      footer={<>Phí mỗi zone: <strong className="text-smb-on-surface">{formatVND(pricePerItem)} đ</strong></>}
     >
       {loading ? <Skeleton /> : zones.length === 0 ? <Empty /> : (
         <ul className="space-y-1.5">
@@ -264,41 +300,51 @@ function ZonesCard({ zones, loading, pricePerItem, canEdit, assignedIds, onSaved
   )
 }
 
-// ─── Shelf card (single) ──────────────────────────────────────────────────
-function ShelfCard({ shelf, loading, pricePerItem, canEdit, campaignId, onSaved }) {
+// ─── Shelf card (multi) ──────────────────────────────────────────────────
+function ShelfCard({ shelves, loading, pricePerItem, canEdit, campaignId, onSaved }) {
   const [open, setOpen] = useState(false)
+  const assignedIds = shelves.map((s) => s.shelfId ?? s.id)
   return (
     <Card
       icon="inventory_2"
       title="Kệ Hàng"
-      count={shelf ? 1 : 0}
+      count={shelves.length}
       color="amber"
-      actionLabel="Chọn kệ"
+      actionLabel="Mua thêm"
       canEdit={canEdit}
       onAction={() => setOpen(true)}
-      footer={<>Phí: <strong className="text-smb-on-surface">{formatVND(pricePerItem)} đ</strong></>}
     >
-      {loading ? <Skeleton /> : !shelf ? <Empty label="Chưa chọn kệ" /> : (
-        <div className="rounded-md border border-smb-primary-container/40 bg-smb-primary-container/5 p-3">
-          <div className="flex items-center gap-2">
-            <Icon name="inventory_2" className="text-[20px] text-smb-primary-container" />
-            <span className="font-semibold text-smb-on-surface">{shelf.label ?? `Kệ #${shelf.semanticObjectId}`}</span>
-          </div>
-          {shelf.floorName && (
-            <p className="mt-1 text-xs text-smb-on-surface-variant">Tầng {shelf.floorName}</p>
-          )}
-          <p className="mt-1 text-xs tabular-nums text-smb-on-surface-variant">
-            Phí: {formatVND(shelf.shelfPriceCharged ?? pricePerItem)} đ
-          </p>
-        </div>
+      {loading ? <Skeleton /> : shelves.length === 0 ? <Empty label="Chưa chọn kệ" /> : (
+        <ul className="space-y-1.5">
+          {shelves.map((s) => (
+            <li key={s.shelfId ?? s.id} className="flex items-center gap-2 rounded-md border border-smb-outline-variant bg-smb-surface-container-low px-3 py-2 text-sm">
+              <Icon name="inventory_2" className="text-[16px] text-smb-primary-container" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-smb-on-surface">{s.label ?? `Kệ #${s.shelfId ?? s.id}`}</p>
+                {s.floorName && <p className="text-xs text-smb-on-surface-variant">Tầng {s.floorName}</p>}
+              </div>
+              <span className="text-xs tabular-nums text-smb-on-surface-variant">
+                {formatVND(s.shelfPriceCharged ?? pricePerItem)} đ
+              </span>
+            </li>
+          ))}
+        </ul>
       )}
       {open && (
-        <ShelfSelectModal
-          campaignId={campaignId}
-          currentId={shelf?.semanticObjectId ?? null}
-          onSubmit={async (id) => {
+        <MultiSelectModal
+          title="Chọn kệ hàng"
+          icon="inventory_2"
+          fetchItems={() => getTargetingContext(campaignId, 1).then((d) => d?.shelves ?? [])}
+          normalize={(raw) => ({
+            id: raw.shelfId ?? raw.id,
+            label: raw.label ?? raw.shelfName ?? `Kệ #${raw.shelfId ?? raw.id}`,
+            subLabel: raw.floorName ? `Tầng ${raw.floorName}` : '',
+          })}
+          assignedIds={assignedIds}
+          pricePerItem={pricePerItem}
+          onSubmit={async (ids) => {
             try {
-              await assignCampaignShelf(campaignId, id)
+              await assignCampaignShelves(campaignId, ids)
               onSaved?.()
               setOpen(false)
             } catch (e) {
@@ -436,119 +482,6 @@ function MultiSelectModal({
               Huỷ
             </button>
             <button type="button" onClick={handleSubmit} disabled={submitting}
-              className="inline-flex items-center gap-1 rounded-lg bg-smb-primary-container px-3 py-1.5 text-sm font-medium text-smb-on-primary-container shadow-sm hover:opacity-90 disabled:opacity-50">
-              {submitting && <Icon name="progress_activity" className="animate-spin text-[14px]" />}
-              {submitting ? 'Đang lưu...' : 'Xác nhận'}
-            </button>
-          </div>
-        </footer>
-      </div>
-    </div>
-  )
-}
-
-// ─── Shelf single-select modal ────────────────────────────────────────────
-function ShelfSelectModal({ campaignId, currentId, onSubmit, onClose }) {
-  const [loading, setLoading] = useState(true)
-  const [items, setItems] = useState([])
-  const [picked, setPicked] = useState(currentId)
-  const [submitting, setSubmitting] = useState(false)
-  const [err, setErr] = useState(null)
-  const [query, setQuery] = useState('')
-
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    getTargetingContext(campaignId, 1)
-      .then((data) => {
-        if (cancelled) return
-        setItems(data?.shelves ?? [])
-      })
-      .catch((e) => { if (!cancelled) setErr(getErrorMessage(e, 'Không tải được danh sách kệ.')) })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [campaignId])
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return items
-    return items.filter((it) => (it.label || it.objectName || '').toLowerCase().includes(q))
-  }, [items, query])
-
-  const handleSubmit = async () => {
-    if (!picked) {
-      setErr('Vui lòng chọn 1 kệ.')
-      return
-    }
-    setSubmitting(true); setErr(null)
-    try {
-      await onSubmit(picked)
-    } catch (e) {
-      setErr(getErrorMessage(e, 'Lưu thất bại.'))
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-smb-outline-variant bg-smb-surface-container-lowest shadow-2xl">
-        <header className="flex items-center justify-between border-b border-smb-outline-variant px-6 py-4">
-          <h2 className="font-semibold text-smb-on-surface">
-            <Icon name="inventory_2" className="mr-1 text-[18px] text-smb-primary-container" />
-            Chọn kệ hàng (single)
-          </h2>
-          <button onClick={onClose} className="text-smb-on-surface-variant hover:text-smb-on-surface">
-            <Icon name="close" className="text-[20px]" />
-          </button>
-        </header>
-
-        <div className="space-y-3 px-6 py-4">
-          <input
-            type="text"
-            placeholder="Tìm kiếm kệ..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm focus:border-smb-primary-container focus:outline-none"
-          />
-          <div className="max-h-72 space-y-1 overflow-y-auto">
-            {loading ? (
-              <div className="flex items-center justify-center py-6 text-sm text-smb-on-surface-variant">
-                <Icon name="progress_activity" className="mr-2 animate-spin text-[16px]" /> Đang tải...
-              </div>
-            ) : filtered.length === 0 ? (
-              <p className="py-6 text-center text-sm text-smb-on-surface-variant">Không có kệ nào.</p>
-            ) : filtered.map((it) => {
-              const isPicked = picked === (it.objectId ?? it.semanticObjectId)
-              const id = it.objectId ?? it.semanticObjectId
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setPicked(isPicked ? null : id)}
-                  className={`flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-sm transition-colors ${
-                    isPicked ? 'border-smb-primary-container bg-smb-primary-container/10 text-smb-on-primary-container'
-                             : 'border-smb-outline-variant bg-smb-surface-container-lowest text-smb-on-surface hover:border-smb-outline'
-                  }`}
-                >
-                  <Icon name={isPicked ? 'radio_button_checked' : 'radio_button_unchecked'}
-                        className="text-[18px] text-smb-primary-container" />
-                  <span className="flex-1 truncate">{it.label ?? it.objectName ?? `Kệ #${id}`}</span>
-                  {it.floorName && <span className="text-xs text-smb-on-surface-variant">· Tầng {it.floorName}</span>}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        <footer className="space-y-2 border-t border-smb-outline-variant bg-smb-surface-container px-6 py-3">
-          {err && <div className="rounded border border-red-200 bg-red-50 p-2 text-xs text-red-700">{err}</div>}
-          <div className="flex justify-end gap-2">
-            <button type="button" onClick={onClose} disabled={submitting}
-              className="rounded-lg border border-smb-outline-variant px-3 py-1.5 text-sm font-medium text-smb-on-surface hover:bg-smb-surface-container-lowest">
-              Huỷ
-            </button>
-            <button type="button" onClick={handleSubmit} disabled={submitting || !picked}
               className="inline-flex items-center gap-1 rounded-lg bg-smb-primary-container px-3 py-1.5 text-sm font-medium text-smb-on-primary-container shadow-sm hover:opacity-90 disabled:opacity-50">
               {submitting && <Icon name="progress_activity" className="animate-spin text-[14px]" />}
               {submitting ? 'Đang lưu...' : 'Xác nhận'}

@@ -39,7 +39,6 @@
  * RoutePlanRequestDto: { startNodeId, endNodeId }
  * RoutePlanResultDto:  { totalDistance, nodes: [{ nodeId, xCoord, yCoord }] }
  */
- */
 
 import client from '../../../api/client'
 
@@ -59,13 +58,6 @@ export const getPolylineRoute = async ({ startX, startY, endObjectId, endNodeId 
   const res = await client.get(`${NAV_ENDPOINT}/route`, {
     params: { startX, startY, endObjectId, endNodeId },
   })
-  const data = res.data ?? {}
-  return {
-    totalDistance: data.totalDistance ?? 0,
-    routeNodes: Array.isArray(data.routeNodes) ? data.routeNodes : [],
-  }
-}
-
   const data = res.data ?? {}
   return {
     totalDistance: data.totalDistance ?? 0,

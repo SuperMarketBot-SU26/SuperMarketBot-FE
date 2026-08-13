@@ -10,7 +10,7 @@ import { ConfirmModal } from '../../../components/ConfirmModal'
 import { getErrorMessage } from '../../../api/client'
 import { getPackages } from '../api/adPackageApi'
 import { getBrands } from '../../brand/api/brandApi'
-import { createCampaign, createCampaignWithProducts } from '../api/adCampaignApi'
+import { createCampaignWithProducts } from '../api/adCampaignApi'
 import { uploadResource } from '../api/adResourcesApi'
 import { toast } from 'react-toastify'
 
@@ -21,11 +21,23 @@ function Icon({ name, className = '' }) {
 export function CampaignCreateWizard() {
   const navigate = useNavigate()
   const wizard = useCampaignWizard()
-  const { state, hasAnyTargeting, hasProducts, basicsValid } = wizard
+  const {
+    state,
+    effectiveTargeting,
+    deliveryMode,
+    allowedTargets,
+    hasAnyTargeting,
+    hasProducts,
+    basicsValid,
+    basicsErrors,
+    hasBasicsErrors,
+  } = wizard
 
   const [brandOptions, setBrandOptions] = useState([])
   const [packages, setPackages] = useState([])
   const [confirmReset, setConfirmReset] = useState(false)
+  // pendingFiles được thu thập từ StepProducts qua callback (state giữ ở parent).
+  const [pendingFiles, setPendingFiles] = useState([])
 
   // Load brands + packages cho Step 1/Step 3 review
   useEffect(() => {
@@ -62,11 +74,12 @@ export function CampaignCreateWizard() {
   // ── Step navigation ──
   const goNext = () => {
     if (state.step === 1) {
-      const errors = validateBasics(state.basics)
-      if (Object.keys(errors).length > 0) {
-        wizard.setErrors(errors)
+      // Realtime validate đã chạy ở useCampaignWizard; chỉ re-check thời điểm click.
+      if (hasBasicsErrors) {
+        wizard.setErrors(basicsErrors)
         return
       }
+      wizard.setErrors({})
       wizard.setStep(2)
     } else if (state.step === 2) {
       if (!hasAnyTargeting) return
@@ -76,6 +89,7 @@ export function CampaignCreateWizard() {
         wizard.setErrors({ products: 'Vui lòng chọn ít nhất 1 sản phẩm tài trợ.' })
         return
       }
+      wizard.setErrors({})
       wizard.setStep(4)
     }
   }
@@ -91,31 +105,27 @@ export function CampaignCreateWizard() {
   }
 
   // ── Submit ──
-  const handleSubmit = async (pendingFiles = []) => {
+  const handleSubmit = async () => {
     wizard.setSubmitting(true)
     wizard.setServerError(null)
     try {
+      // CHỈ gửi ID thuộc deliveryMode hiện tại (effectiveTargeting)
       const basePayload = {
         packageId: Number(state.basics.packageId),
         brandId: Number(state.basics.brandId),
         campaignName: state.basics.campaignName.trim(),
         startDate: new Date(state.basics.startDate).toISOString(),
         endDate: new Date(state.basics.endDate).toISOString(),
-        routeIds: state.targeting.routeIds,
-        zoneIds: state.targeting.zoneIds,
-        semanticObjectId: state.targeting.semanticObjectId,
+        routeIds: effectiveTargeting.routeIds,
+        zoneIds: effectiveTargeting.zoneIds,
+        shelfIds: effectiveTargeting.shelfIds,
+        semanticObjectId: effectiveTargeting.semanticObjectId,
+        deliveryMode: state.basics.deliveryMode ?? 'Zone',
       }
       const productIds = state.products.productIds
-      let res
-      try {
-        res = await createCampaignWithProducts({ ...basePayload, productIds })
-      } catch (err) {
-        if (err?.response?.status === 404 || err?.response?.status === 405) {
-          res = await createCampaign(basePayload)
-        } else {
-          throw err
-        }
-      }
+      // BE đã có endpoint /with-products → KHÔNG fallback createCampaign
+      // (fallback cũ làm mất productIds khi BE cũ chưa có endpoint).
+      const res = await createCampaignWithProducts({ ...basePayload, productIds })
       const newId = res?.adCampaignId ?? res?.id
       wizard.setCreatedId(newId)
 
@@ -164,6 +174,7 @@ export function CampaignCreateWizard() {
       state.basics.packageId !== null ||
       state.targeting.routeIds.length > 0 ||
       state.targeting.zoneIds.length > 0 ||
+      state.targeting.shelfIds.length > 0 ||
       state.targeting.semanticObjectId !== null ||
       state.products.productIds.length > 0
     if (isDirty) setConfirmReset(true)
@@ -191,7 +202,7 @@ export function CampaignCreateWizard() {
           </button>
           <h1 className="mt-1 text-2xl font-bold text-smb-on-surface">Tạo Chiến Dịch Quảng Cáo</h1>
           <p className="text-sm text-smb-on-surface-variant">
-            Hoàn thành 3 bước để khởi tạo chiến dịch. Dữ liệu được tự động lưu khi bạn nhập.
+            Hoàn thành 4 bước để khởi tạo chiến dịch. Dữ liệu được tự động lưu khi bạn nhập.
           </p>
         </div>
         <button
@@ -215,6 +226,7 @@ export function CampaignCreateWizard() {
             brandOptions={brandOptions}
             onNext={goNext}
             errors={state.errors}
+            basicsErrors={basicsErrors}
           />
         )}
         {state.step === 2 && (
@@ -225,6 +237,8 @@ export function CampaignCreateWizard() {
             hasAnyTargeting={hasAnyTargeting}
             onBack={goBack}
             onNext={goNext}
+            deliveryMode={deliveryMode}
+            allowedTargets={allowedTargets}
           />
         )}
         {state.step === 3 && (
@@ -234,6 +248,7 @@ export function CampaignCreateWizard() {
             hasProducts={hasProducts}
             onBack={goBack}
             onNext={goNext}
+            onUploadFiles={(files) => setPendingFiles(files)}
           />
         )}
         {state.step === 4 && (
@@ -241,6 +256,7 @@ export function CampaignCreateWizard() {
             state={state}
             brandOptions={brandOptions}
             selectedPackage={selectedPackage}
+            effectiveTargeting={effectiveTargeting}
             onBack={goBack}
             onSubmit={handleSubmit}
             submitting={state.submitting}
@@ -261,19 +277,6 @@ export function CampaignCreateWizard() {
       )}
     </div>
   )
-}
-
-function validateBasics(b) {
-  const errors = {}
-  if (!b.campaignName.trim()) errors.campaignName = 'Vui lòng nhập tên chiến dịch.'
-  if (!b.brandId)              errors.brandId     = 'Vui lòng chọn thương hiệu.'
-  if (!b.packageId)            errors.packageId   = 'Vui lòng chọn gói quảng cáo.'
-  if (!b.startDate)            errors.startDate   = 'Vui lòng chọn ngày bắt đầu.'
-  if (!b.endDate)              errors.endDate     = 'Vui lòng chọn ngày kết thúc.'
-  if (b.startDate && b.endDate && new Date(b.endDate) <= new Date(b.startDate)) {
-    errors.endDate = 'Ngày kết thúc phải sau ngày bắt đầu.'
-  }
-  return errors
 }
 
 export default CampaignCreateWizard

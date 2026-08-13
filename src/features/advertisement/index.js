@@ -1,5 +1,4 @@
 export { default as CampaignCreation } from './components/CampaignCreation'
-export { default as CampaignEdit } from './components/CampaignEdit'
 export { default as CampaignInfo } from './components/CampaignInfo'
 export { default as CampaignStatusActions } from './components/CampaignStatusActions'
 export { default as PackageSelector } from './components/PackageSelector'

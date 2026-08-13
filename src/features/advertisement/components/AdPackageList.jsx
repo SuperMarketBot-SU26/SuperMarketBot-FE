@@ -7,6 +7,7 @@ import { ConfirmModal } from '../../../components/ConfirmModal'
 import { FormModal, FormField } from '../../../components/FormModal'
 import { getPackages, createPackage, updatePackage, deletePackage } from '../api/adPackageApi'
 import { getErrorMessage } from '../../../api/client'
+import { toast } from 'react-toastify'
 
 const statusVariant = (status) => ({
   Active: 'success',
@@ -110,15 +111,17 @@ export function AdPackageList() {
       if (modal.type === 'create') {
         const created = await createPackage(payload)
         setPackages((prev) => [...prev, created])
+        toast.success(`Đã tạo gói "${created.packageName}".`)
       } else {
         const updated = await updatePackage(modal.data.packageId, payload)
         setPackages((prev) =>
           prev.map((p) => (p.packageId === modal.data.packageId ? updated : p))
         )
+        toast.success(`Đã cập nhật gói "${updated.packageName}".`)
       }
       closeModal()
     } catch (err) {
-      alert(getErrorMessage(err, 'Có lỗi xảy ra. Vui lòng thử lại.'))
+      toast.error(getErrorMessage(err, 'Có lỗi xảy ra. Vui lòng thử lại.'))
     } finally {
       setSubmitting(false)
     }
@@ -128,9 +131,10 @@ export function AdPackageList() {
     try {
       await deletePackage(deleteTarget.packageId)
       setPackages((prev) => prev.filter((p) => p.packageId !== deleteTarget.packageId))
+      toast.success(`Đã xóa gói "${deleteTarget.packageName}".`)
       setDeleteTarget(null)
     } catch (err) {
-      alert(getErrorMessage(err, 'Không thể xóa gói. Vui lòng thử lại.'))
+      toast.error(getErrorMessage(err, 'Không thể xóa gói. Vui lòng thử lại.'))
     }
   }
 
@@ -151,8 +155,13 @@ export function AdPackageList() {
       setPackages((prev) =>
         prev.map((p) => (p.packageId === pkg.packageId ? updated : p))
       )
+      toast.success(
+        newStatus === 'Active'
+          ? `Đã kích hoạt gói "${updated.packageName}".`
+          : `Đã tắt kích hoạt gói "${updated.packageName}".`
+      )
     } catch (err) {
-      alert(getErrorMessage(err, 'Có lỗi xảy ra. Vui lòng thử lại.'))
+      toast.error(getErrorMessage(err, 'Có lỗi xảy ra. Vui lòng thử lại.'))
     }
   }
 

@@ -96,18 +96,6 @@ export const getMap = async (mapId) => {
 }
 
 /**
- * Sync the full canvas state to the server.
- * Performs upsert on nodes, edges, and semanticObjects (by their IDs).
- * Returns counts of created/updated/deleted entities.
- *
- * @param {Object} payload — MapSyncRequestDto
- */
-export const syncMap = async (payload) => {
-  const res = await client.post(`${ENDPOINT}/sync`, payload)
-  return res.data
-}
-
-/**
  * Mark a specific map version as the canonical active map for its floor.
  */
 export const setActiveMap = async (mapId) => {
@@ -129,21 +117,6 @@ export const uploadMapFloorplanImage = async (mapId, file) => {
   // Override the axios instance's `application/json` default so ASP.NET
   // accepts multipart. Axios appends the `boundary=...` fragment automatically.
   const res = await client.post(`${ENDPOINT}/${mapId}/upload-image`, form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
-  return res.data
-}
-
-/**
- * Upload a full SLAM bundle exported from the robot.
- * BE auto-converts PGM→PNG and imports waypoints from the yaml.
- *
- * @param {FormData} bundle — prepared with mapYaml, mapImage, (optional) mapData, posegraph, waypoints
- * @returns {Promise<{ mapId, message }>}
- */
-export const uploadSlamBundle = async (bundle) => {
-  // Override instance's `application/json` default. Axios appends boundary.
-  const res = await client.post(`${ENDPOINT}/upload-slam-bundle`, bundle, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
   return res.data
