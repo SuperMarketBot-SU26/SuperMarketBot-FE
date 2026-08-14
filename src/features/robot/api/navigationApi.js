@@ -1,5 +1,4 @@
 /**
-/**
  * Navigation API — /api/v1/navigation & /Navigation & /Robots
  *
  * Backend endpoints:
@@ -93,6 +92,18 @@ export const dispatchAutonomous = async (payload) => {
   return res.data
 }
 
+export const getRobotOperationReadiness = async ({ robotCode, flowType, robotRouteId }) => {
+  const res = await client.get('/api/v1/robot-operations/readiness', {
+    params: { robotCode, flowType, robotRouteId },
+  })
+  return res.data
+}
+
+export const getActiveRobotMission = async (robotCode) => {
+  const res = await client.get(`/api/v1/robot-operations/missions/${encodeURIComponent(robotCode)}/active`)
+  return res.data
+}
+
 /* ── Point-to-point navigate ─────────────────────────────────────────────── */
 
 /**
@@ -130,6 +141,21 @@ export const navigate = (payload) => navigateRobot(payload)
  */
 export const cancelRobotNavigation = async (robotCode) => {
   const res = await client.post(`${V1_NAV_ENDPOINT}/robots/${encodeURIComponent(robotCode)}/cancel`)
+  return res.data
+}
+
+export const pauseRobotNavigation = async (robotCode) => {
+  const res = await client.post(`${V1_NAV_ENDPOINT}/robots/${encodeURIComponent(robotCode)}/pause`)
+  return res.data
+}
+
+export const resumeRobotNavigation = async (robotCode) => {
+  const res = await client.post(`${V1_NAV_ENDPOINT}/robots/${encodeURIComponent(robotCode)}/resume`)
+  return res.data
+}
+
+export const emergencyStopRobot = async (robotCode) => {
+  const res = await client.post(`${V1_NAV_ENDPOINT}/robots/${encodeURIComponent(robotCode)}/estop`)
   return res.data
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { getLatestMap } from '../api/mapsApi'
+import { getActiveMap } from '../api/mapsApi'
 import { getRoutes, getRoute } from '../api/robotRoutesApi'
 import { getRouteTypes } from '../api/routeTypesApi'
 
@@ -7,8 +7,8 @@ import { getRouteTypes } from '../api/routeTypesApi'
  * useMapAndRoutes
  *
  * Two-step load:
- *   1. Fetch the latest floorplan via `/api/v1/maps/latest?floorId=…`. The BE
- *      decides which `mapId` corresponds to that floor.
+ *   1. Fetch the active ROS floorplan via `/api/v1/maps/active?floorId=…`.
+ *      Historical map versions must not participate in robot operations.
  *   2. Use the `mapId` from step 1 to fetch all routes for that map.
  *      Each route is enriched with full waypoint details via `GET /v1/routes/:id`
  *      so the map can render polylines with correct route-type colours.
@@ -30,7 +30,7 @@ export function useMapAndRoutes({ floorId = 1, mapId: initialMapId } = {}) {
     // Step 1 — resolve the actual mapId for this floor.
     let resolvedMap = null
     try {
-      resolvedMap = await getLatestMap({ floorId })
+      resolvedMap = await getActiveMap({ floorId })
       setMap(resolvedMap ?? null)
     } catch (err) {
       setMap(null)

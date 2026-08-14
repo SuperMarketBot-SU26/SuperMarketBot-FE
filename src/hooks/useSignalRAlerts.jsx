@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import * as signalR from '@microsoft/signalr';
 import { toast } from 'react-toastify';
-import React from 'react';
 import { ShieldAlert } from 'lucide-react';
+import { ACTIVE_BACKEND_URL } from '../api/client';
 
 /**
  * Real-time alert listener for StaffHub (backend /hubs/staff).
@@ -17,32 +17,25 @@ import { ShieldAlert } from 'lucide-react';
  * The signal-handler logic (ReceiveShelfPatrolAlert → toast) is preserved
  * so you only flip the flag to re-enable it.
  */
-const signalrEnabled = false
-
 export function useSignalRAlerts() {
-  const [connection, setConnection] = useState(null)
   const [isConnected, setIsConnected] = useState(false)
   const connectionRef = useRef(null)
 
   useEffect(() => {
-    if (!signalrEnabled) {
-      // Hub not available on BE yet — skip silently.
-      return undefined
-    }
-
     // 1. Khởi tạo kết nối SignalR
+    const hubUrl = import.meta.env.DEV ? '/hubs/staff' : `${ACTIVE_BACKEND_URL}/hubs/staff`
     const newConnection = new signalR.HubConnectionBuilder()
-      .withUrl('/hubs/staff') // Trỏ tới StaffHub của Backend (qua Vite proxy)
+      .withUrl(hubUrl)
       .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
       .configureLogging(signalR.LogLevel.Warning)
       .build()
 
-    setConnection(newConnection)
     connectionRef.current = newConnection
 
     const startConnection = async () => {
       try {
         await newConnection.start()
+        await newConnection.invoke('JoinStaffGroup')
         setIsConnected(true)
         console.log('✅ SignalR Connected to StaffHub')
       } catch (err) {
@@ -51,8 +44,7 @@ export function useSignalRAlerts() {
       }
     }
 
-    // 2. Lắng nghe sự kiện "ReceiveShelfPatrolAlert"
-    newConnection.on('ReceiveShelfPatrolAlert', (payload) => {
+    const showRestockAlert = (payload) => {
       console.log('🔔 Received Patrol Alert:', payload)
       // payload shape: { AisleCode, OccupancyRatePct, EmptySlotCount, Message, ImageUrl? }
       toast.error(
@@ -62,14 +54,14 @@ export function useSignalRAlerts() {
             <span>Cảnh Báo Kệ Hết Hàng!</span>
           </div>
           <div className="text-xs text-gray-700">
-            <p><b>Kệ:</b> {payload.AisleCode}</p>
-            <p className="text-red-600 font-semibold"><b>Mật độ lấp đầy:</b> {payload.OccupancyRatePct}%</p>
-            <p><b>Số slot trống:</b> {payload.EmptySlotCount}</p>
-            <p className="mt-1 italic text-gray-500">"{payload.Message}"</p>
+            <p><b>Kệ:</b> {payload.aisleCode || payload.AisleCode || payload.shelfName || `Node ${payload.nodeId}`}</p>
+            <p className="text-red-600 font-semibold"><b>Mật độ lấp đầy:</b> {payload.occupancyRatePct ?? payload.OccupancyRatePct}%</p>
+            <p><b>Số slot trống:</b> {payload.emptySlotCount ?? payload.EmptySlotCount}</p>
+            <p className="mt-1 italic text-gray-500">"{payload.aiRecommendation || payload.Message || 'Cần bổ sung hàng.'}"</p>
           </div>
-          {payload.ImageUrl && (
+          {(payload.imageUrl || payload.ImageUrl) && (
             <div className="mt-2 rounded-md overflow-hidden border border-red-100 shadow-sm">
-              <img src={payload.ImageUrl} alt="Bằng chứng từ Robot" className="w-full h-auto object-cover max-h-32" />
+              <img src={payload.imageUrl || payload.ImageUrl} alt="Bằng chứng từ Robot" className="w-full h-auto object-cover max-h-32" />
             </div>
           )}
         </div>,
@@ -84,12 +76,23 @@ export function useSignalRAlerts() {
           theme: 'light',
         }
       )
+    }
+
+    newConnection.on('ReceiveShelfPatrolAlert', showRestockAlert)
+    newConnection.on('OutOfStockAlert', showRestockAlert)
+    newConnection.on('ShelfPatrolScanCompleted', (payload) => {
+      if (payload.needsRestock) return
+      toast.success(`Kệ ${payload.shelfName || payload.nodeName || payload.nodeId} đạt ${payload.occupancyRatePct}% hàng.`)
+    })
+    newConnection.on('ShelfPatrolScanFailed', (payload) => {
+      toast.error(`AI Vision lỗi tại Node ${payload.nodeId}: ${payload.errorMessage || 'Không phân tích được ảnh.'}`)
     })
 
     newConnection.onreconnecting(() => setIsConnected(false))
-    newConnection.onreconnected((connectionId) => {
+    newConnection.onreconnected(async (connectionId) => {
       console.log('✅ SignalR Reconnected. Connection ID:', connectionId)
       setIsConnected(true)
+      await newConnection.invoke('JoinStaffGroup').catch(() => {})
     })
     newConnection.onclose(() => setIsConnected(false))
 
@@ -98,11 +101,14 @@ export function useSignalRAlerts() {
     return () => {
       if (connectionRef.current) {
         connectionRef.current.off('ReceiveShelfPatrolAlert')
+        connectionRef.current.off('OutOfStockAlert')
+        connectionRef.current.off('ShelfPatrolScanCompleted')
+        connectionRef.current.off('ShelfPatrolScanFailed')
         connectionRef.current.stop()
         connectionRef.current = null
       }
     }
   }, [])
 
-  return { connection, isConnected }
+  return { connection: connectionRef.current, isConnected }
 }

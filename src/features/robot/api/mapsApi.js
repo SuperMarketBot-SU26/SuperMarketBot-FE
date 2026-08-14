@@ -119,9 +119,9 @@ export const setActiveMap = async (mapId) => {
  * @param {File} file
  * @returns {Promise<{ mapId, imageUrl, message }>}
  */
-export const uploadFloorplanImage = async (mapId, file) => {
-  const form = new FormData()
-  form.append('file', file)
+export const uploadFloorplanImage = async (mapId, fileOrFormData) => {
+  const form = fileOrFormData instanceof FormData ? fileOrFormData : new FormData()
+  if (!(fileOrFormData instanceof FormData)) form.append('file', fileOrFormData)
   // Override the axios instance's `application/json` default so ASP.NET
   // accepts multipart. Axios appends the `boundary=...` fragment automatically.
   const res = await client.post(`${ENDPOINT}/${mapId}/upload-image`, form, {

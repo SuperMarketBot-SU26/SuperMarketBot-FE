@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 function Icon({ name, className = '' }) {
@@ -28,7 +28,6 @@ export function CommandPalette({ isOpen, onClose }) {
 
   const navigationItems = [
     { label: 'Giám Sát Robot Theo Thời Gian Thực', path: '/robot-monitoring', icon: 'smart_toy', category: 'Điều Hành' },
-    { label: 'Chỉnh Sửa Bản Đồ Robot (Map Editor)', path: '/robot-monitoring/map-editor', icon: 'edit_square', category: 'Điều Hành' },
     { label: 'Quản Lý Chiến Dịch Quảng Cáo', path: '/advertisement', icon: 'campaign', category: 'Quảng Cáo' },
     { label: 'Tạo Chiến Dịch Mới', path: '/advertisement/create', icon: 'add_circle', category: 'Quảng Cáo' },
     { label: 'Quản Lý Gói Quảng Cáo', path: '/ad-packages', icon: 'inventory_2', category: 'Quảng Cáo' },

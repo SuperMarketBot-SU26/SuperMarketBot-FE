@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { statusPalette } from '../utils/robotHelpers'
 import {
   getRoute,
@@ -6,7 +6,6 @@ import {
 } from '../api/robotRoutesApi'
 import { getRobot, getRobotPose } from '../api/robotApi'
 import { getRouteTypes as fetchRouteTypes } from '../api/routeTypesApi'
-import { getMaps } from '../api/mapsApi'
 import { getZones as fetchZones } from '../api/zonesApi'
 
 function Icon({ name, className = '' }) {
@@ -75,7 +74,7 @@ export function RobotAssignmentPanel({
             onRouteCreated={onRouteCreated}
           />
         ) : tab === 'autonomous' ? (
-          <AutonomousTab robots={robots} map={map} />
+          <AutonomousTab robots={robots} routes={routes} map={map} />
         ) : (
           <RobotsTab
             robots={robots}
@@ -93,10 +92,15 @@ export function RobotAssignmentPanel({
 /*  Autonomous 3-Flow Tab                                               */
 /* -------------------------------------------------------------------- */
 
-import { dispatchAutonomous, cancelRobotNavigation } from '../api/navigationApi'
-import { getZones } from '../api/zonesApi'
+import {
+  dispatchAutonomous,
+  cancelRobotNavigation,
+  emergencyStopRobot,
+  getRobotOperationReadiness,
+  pauseRobotNavigation,
+  resumeRobotNavigation,
+} from '../api/navigationApi'
 import { getAdminProducts } from '../../product/api/adminProductApi'
-import client from '../../../api/client'
 
 // Status badge colours
 const STATUS_OK  = 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
@@ -147,10 +151,10 @@ function WaypointList({ waypoints }) {
   )
 }
 
-function AutonomousTab({ robots = [] }) {
+function AutonomousTab({ robots = [], routes = [] }) {
   const [selectedRobot, setSelectedRobot] = useState('')
-  const [selectedAdZone, setSelectedAdZone] = useState('')
-  const [selectedPatrolZone, setSelectedPatrolZone] = useState('')
+  const [selectedAdRoute, setSelectedAdRoute] = useState('')
+  const [selectedPatrolRoute, setSelectedPatrolRoute] = useState('')
   const [selectedProductId, setSelectedProductId] = useState('')
 
   const [adMsg, setAdMsg]         = useState(null)
@@ -160,9 +164,9 @@ function AutonomousTab({ robots = [] }) {
   const [guideMsg, setGuideMsg]   = useState(null)
   const [guideWaypoints, setGuideWaypoints] = useState(null)
   const [estopMsg, setEstopMsg]   = useState(null)
+  const [readiness, setReadiness] = useState(null)
 
   const [dispatching, setDispatching] = useState(false)
-  const [zones, setZones]       = useState([])
   const [products, setProducts] = useState([])
 
   // Auto-select the first robot when the list first loads
@@ -174,9 +178,21 @@ function AutonomousTab({ robots = [] }) {
 
   // Load zones + products once on mount
   useEffect(() => {
-    getZones({}).then(setZones).catch(() => {})
     getAdminProducts({ pageSize: 50 }).then((p) => setProducts(Array.isArray(p) ? p : p?.items ?? [])).catch(() => {})
   }, [])
+
+  const selectedRobotId = robots.find((robot) => robot.robotCode === selectedRobot)?.robotId
+  const adRoutes = routes.filter((route) =>
+    route.robotId === selectedRobotId && String(route.routeType || '').startsWith('ad_'))
+  const patrolRoutes = routes.filter((route) =>
+    route.robotId === selectedRobotId && route.routeType === 'patrol')
+
+  const activeAdRoute = adRoutes.some((route) => String(route.robotRouteId) === selectedAdRoute)
+    ? selectedAdRoute
+    : adRoutes[0] ? String(adRoutes[0].robotRouteId) : ''
+  const activePatrolRoute = patrolRoutes.some((route) => String(route.robotRouteId) === selectedPatrolRoute)
+    ? selectedPatrolRoute
+    : patrolRoutes[0] ? String(patrolRoutes[0].robotRouteId) : ''
 
   const handleDispatch = async (flowType, extra = {}) => {
     setDispatching(true)
@@ -192,6 +208,11 @@ function AutonomousTab({ robots = [] }) {
         flowType,
         ...extra,
       }
+      if (payload.robotRouteId) {
+        const check = await getRobotOperationReadiness(payload)
+        setReadiness(check)
+        if (!check.ready) throw new Error(check.errors?.join(' • ') || 'Hệ thống chưa sẵn sàng')
+      }
       const data = await dispatchAutonomous(payload)
       const msg = `✅ ${data.message || `Đã phát lệnh ${flowType}!`}`
       if (flowType === 'ad')      { setAdMsg({ type: 'success', text: msg });      setAdWaypoints(data.waypoints) }
@@ -199,10 +220,23 @@ function AutonomousTab({ robots = [] }) {
       if (flowType === 'guide')   { setGuideMsg({ type: 'success', text: msg });   setGuideWaypoints(data.waypoints) }
 
     } catch (e) {
-      const err = `❌ ${e?.response?.data?.message || e?.message || 'Lỗi phát lệnh'}`
+      const err = `❌ ${e?.response?.data?.detail || e?.response?.data?.title || e?.response?.data?.message || e?.message || 'Lỗi phát lệnh'}`
       if (flowType === 'ad')      setAdMsg({ type: 'error', text: err })
       if (flowType === 'patrol')  setPatrolMsg({ type: 'error', text: err })
       if (flowType === 'guide')   setGuideMsg({ type: 'error', text: err })
+    } finally {
+      setDispatching(false)
+    }
+  }
+
+  const handleControl = async (action, label) => {
+    setDispatching(true)
+    setEstopMsg(null)
+    try {
+      await action(selectedRobot)
+      setEstopMsg({ type: 'success', text: `Đã gửi lệnh ${label} tới ${selectedRobot}.` })
+    } catch (e) {
+      setEstopMsg({ type: 'error', text: e?.response?.data?.detail || e?.message || `Không gửi được ${label}.` })
     } finally {
       setDispatching(false)
     }
@@ -213,7 +247,7 @@ function AutonomousTab({ robots = [] }) {
     setEstopMsg(null)
     try {
       await cancelRobotNavigation(selectedRobot)
-      setEstopMsg({ type: 'success', text: `🔴 Đã gửi lệnh DỪNG KHẨN CẤP tới Robot ${selectedRobot}!` })
+      setEstopMsg({ type: 'success', text: `⏹ Đã gửi lệnh DỪNG NHIỆM VỤ tới Robot ${selectedRobot}.` })
 
     } catch (e) {
       setEstopMsg({ type: 'error', text: `❌ Lỗi: ${e?.message}` })
@@ -222,10 +256,6 @@ function AutonomousTab({ robots = [] }) {
     }
   }
 
-  const zoneOptions = [
-    { value: '', label: '📢 Tất cả các Zone (toàn siêu thị)' },
-    ...zones.map((z) => ({ value: String(z.zoneId), label: z.zoneName || `Zone #${z.zoneId}` })),
-  ]
   const productOptions = [
     { value: '', label: '— Chọn sản phẩm —' },
     ...products.map((p) => ({ value: String(p.productId), label: p.productName || `#${p.productId}` })),
@@ -271,19 +301,24 @@ function AutonomousTab({ robots = [] }) {
           </div>
 
           <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-orange-700/70">
-            Khu vực quảng cáo
+            Lộ trình quảng cáo đã cấu hình
           </label>
           <select
-            value={selectedAdZone}
-            onChange={(e) => setSelectedAdZone(e.target.value)}
+            value={activeAdRoute}
+            onChange={(e) => setSelectedAdRoute(e.target.value)}
             className="mb-3 w-full rounded-xl border border-orange-500/40 bg-smb-surface-container-lowest px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-orange-500"
           >
-            {zoneOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            <option value="">— Chọn route quảng cáo —</option>
+            {adRoutes.map((route) => (
+              <option key={route.robotRouteId} value={route.robotRouteId}>
+                {route.routeName} · {route.waypointCount} điểm
+              </option>
+            ))}
           </select>
 
           <button
-            disabled={dispatching}
-            onClick={() => handleDispatch('ad', selectedAdZone ? { zoneId: parseInt(selectedAdZone, 10) } : {})}
+            disabled={dispatching || !activeAdRoute}
+            onClick={() => handleDispatch('ad', { robotRouteId: Number(activeAdRoute) })}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 to-orange-500 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-orange-700 hover:to-orange-600 active:scale-95 disabled:opacity-50 disabled:scale-100"
           >
             {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="play_arrow" className="text-[16px]" />}
@@ -310,34 +345,31 @@ function AutonomousTab({ robots = [] }) {
           </div>
 
           <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-blue-700/70">
-            Khu vực tuần tra
+            Lộ trình tuần tra đã cấu hình
           </label>
           <select
-            value={selectedPatrolZone}
-            onChange={(e) => setSelectedPatrolZone(e.target.value)}
+            value={activePatrolRoute}
+            onChange={(e) => setSelectedPatrolRoute(e.target.value)}
             className="mb-3 w-full rounded-xl border border-blue-500/40 bg-smb-surface-container-lowest px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-blue-500"
           >
-            {zoneOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            <option value="">— Chọn route tuần tra —</option>
+            {patrolRoutes.map((route) => (
+              <option key={route.robotRouteId} value={route.robotRouteId}>
+                {route.routeName} · {route.waypointCount} kệ
+              </option>
+            ))}
           </select>
 
           <div className="mb-3 flex gap-2">
             <button
-              disabled={dispatching}
-              onClick={() => handleDispatch('patrol', selectedPatrolZone ? { zoneId: parseInt(selectedPatrolZone, 10) } : {})}
+              disabled={dispatching || !activePatrolRoute}
+              onClick={() => handleDispatch('patrol', { robotRouteId: Number(activePatrolRoute) })}
               className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-blue-700 hover:to-blue-600 active:scale-95 disabled:opacity-50 disabled:scale-100"
             >
               {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="search" className="text-[16px]" />}
               Phát lệnh tuần tra
             </button>
 
-            <button
-              disabled={dispatching}
-              onClick={() => handleDispatch('patrol', selectedPatrolZone ? { zoneId: parseInt(selectedPatrolZone, 10) } : {})}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-blue-700 hover:to-blue-600 active:scale-95 disabled:opacity-50 disabled:scale-100"
-            >
-              {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="search" className="text-[16px]" />}
-              Phát lệnh tuần tra
-            </button>
           </div>
 
           <StatusBadge msg={patrolMsg} />
@@ -384,25 +416,21 @@ function AutonomousTab({ robots = [] }) {
         </div>
       </div>
 
-      {/* E-Stop */}
-      <button
-        disabled={dispatching}
-        onClick={handleCancel}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-rose-700 to-rose-600 py-3 text-xs font-bold text-white shadow-lg transition-all hover:from-rose-800 hover:to-rose-700 active:scale-95 disabled:opacity-50 disabled:scale-100"
-      >
-        <Icon name="emergency_home" className="text-[20px]" />
-        DỪNG KHẨN CẤP (E-STOP)
-      </button>
+      {readiness && (
+        <div className={`rounded-xl border p-3 ${readiness.ready ? STATUS_OK : STATUS_ERR}`}>
+          <p className="font-bold">Preflight: {readiness.ready ? 'Sẵn sàng' : 'Chưa sẵn sàng'}</p>
+          {readiness.errors?.map((error) => <p key={error} className="mt-1">• {error}</p>)}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2">
+        <button disabled={dispatching} onClick={() => handleControl(pauseRobotNavigation, 'TẠM DỪNG')} className="rounded-xl bg-amber-500 py-2.5 font-bold text-white disabled:opacity-50">⏸ Tạm dừng</button>
+        <button disabled={dispatching} onClick={() => handleControl(resumeRobotNavigation, 'TIẾP TỤC')} className="rounded-xl bg-emerald-600 py-2.5 font-bold text-white disabled:opacity-50">▶ Tiếp tục</button>
+        <button disabled={dispatching} onClick={handleCancel} className="rounded-xl bg-rose-600 py-2.5 font-bold text-white disabled:opacity-50">⏹ Dừng nhiệm vụ</button>
+        <button disabled={dispatching} onClick={() => handleControl(emergencyStopRobot, 'E-STOP')} className="rounded-xl bg-red-950 py-2.5 font-bold text-white disabled:opacity-50">🚨 E-STOP</button>
+      </div>
       <StatusBadge msg={estopMsg} />
 
-      {/* Map Editor shortcut */}
-      <a
-        href="/robot-monitoring/map-editor"
-        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-smb-primary/40 bg-smb-primary/10 py-2.5 text-xs font-bold text-smb-primary shadow-sm transition-all hover:bg-smb-primary hover:text-white active:scale-95"
-      >
-        <Icon name="map" className="text-[18px]" />
-        Mở WebManager (Map Editor)
-      </a>
     </div>
   )
 }
@@ -468,7 +496,7 @@ function RobotDetailModal({ robotCode, onClose }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!robotCode) return
     let cancelled = false
     setLoading(true)
@@ -571,7 +599,7 @@ function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot }
   
   const handleCancelRobot = async (robotCode) => {
     try {
-      await cancelNavigation(robotCode)
+      await cancelRobotNavigation(robotCode)
       alert(`Đã gửi lệnh dừng khẩn cấp cho Robot ${robotCode}`)
     } catch (e) {
       alert(`Lỗi khi dừng khẩn cấp: ${e.message}`)
@@ -685,7 +713,7 @@ function AssignTab({
       <header className="border-b border-smb-outline-variant p-4">
         <h3 className="text-sm font-semibold text-smb-on-surface">Gán lộ trình</h3>
         <p className="mt-1 text-xs text-smb-on-surface-variant">
-          Xem trước lộ trình trên bản đồ và tạo lộ trình mới.
+          Quản lý lộ trình trên active map của ROS Bridge.
         </p>
       </header>
 
@@ -706,6 +734,7 @@ function AssignTab({
           />
         ) : (
           <NewRouteForm
+            key={map?.mapId ?? 'no-active-map'}
             robots={robots}
             map={map}
             onCreated={() => {
@@ -789,19 +818,20 @@ function RouteList({ routes, onPreviewRoute }) {
               Tạo bởi robot <span className="font-mono">#{isOwner ?? '—'}</span>
             </div>
 
-            {/* Action row */}
-            <div className="flex gap-2 border-t border-smb-outline-variant px-3 py-2">
-              <button
-                type="button"
-                onClick={async () => {
-                  const detail = await getRoute(r.robotRouteId)
-                  onPreviewRoute?.(detail)
-                }}
-                className="flex w-full items-center justify-center gap-1 rounded border border-smb-outline-variant px-2 py-1.5 text-xs font-medium text-smb-on-surface-variant hover:bg-smb-surface-container-lowest"
-              >
-                <Icon name="visibility" className="text-[14px]" /> Xem trước trên bản đồ
-              </button>
-            </div>
+            {onPreviewRoute && (
+              <div className="flex gap-2 border-t border-smb-outline-variant px-3 py-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const detail = await getRoute(r.robotRouteId)
+                    onPreviewRoute(detail)
+                  }}
+                  className="flex w-full items-center justify-center gap-1 rounded border border-smb-outline-variant px-2 py-1.5 text-xs font-medium text-smb-on-surface-variant hover:bg-smb-surface-container-lowest"
+                >
+                  <Icon name="visibility" className="text-[14px]" /> Xem trước trên bản đồ
+                </button>
+              </div>
+            )}
           </li>
         )
       })}
@@ -818,17 +848,15 @@ function NewRouteForm({ robots, map, onCreated }) {
     routeType: 'patrol',
     description: '',
     robotId: '',
-    mapId: '',
+    mapId: map?.mapId ?? '',
     zoneId: '',
     nodeIds: [], // ordered array of numbers
   })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
-  const [maps, setMaps] = useState([])
   const [zones, setZones] = useState([])
   const [routeTypes, setRouteTypes] = useState([])
-  const [loadingMaps, setLoadingMaps] = useState(false)
   const [loadingZones, setLoadingZones] = useState(false)
 
   // Load route types from BE; dropdown will be empty if the endpoint fails.
@@ -844,25 +872,6 @@ function NewRouteForm({ robots, map, onCreated }) {
       .catch(() => {})
     return () => { cancelled = true }
   }, [])
-
-  // Load maps once on mount; default the selection to the loaded map.
-  useEffect(() => {
-    let cancelled = false
-    setLoadingMaps(true)
-    getMaps()
-      .then((list) => {
-        if (cancelled) return
-        setMaps(list)
-        // Default to the loaded map if it exists in the list, else first entry.
-        const preferred = map?.mapId
-          ? list.find((m) => m.mapId === map.mapId) ?? list[0]
-          : list[0]
-        setForm((prev) => (prev.mapId ? prev : { ...prev, mapId: preferred?.mapId ?? '' }))
-      })
-      .catch(() => {})
-      .finally(() => !cancelled && setLoadingMaps(false))
-    return () => { cancelled = true }
-  }, [map?.mapId])
 
   // When mapId changes, reload zones from /v1/zones (filtered by floor).
   useEffect(() => {
@@ -967,7 +976,7 @@ function NewRouteForm({ robots, map, onCreated }) {
     return m
   }, [nodesForMap])
 
-  const selectedMap = maps.find((m) => String(m.mapId) === String(form.mapId))
+  const selectedMap = map && String(map.mapId) === String(form.mapId) ? map : null
 
   return (
     <div className="space-y-4">
@@ -986,21 +995,21 @@ function NewRouteForm({ robots, map, onCreated }) {
         />
       </Field>
 
-      <Field label={`Map${form.mapId ? '' : ' *'}`}>
-        <Select
-          value={form.mapId}
-          onChange={(v) => set({ mapId: v })}
-          disabled={loadingMaps}
-          placeholder={loadingMaps ? 'Đang tải map…' : '-- chọn map --'}
-          options={maps.map((m) => ({
-            value: m.mapId,
-            label: `#${m.mapId} · ${m.mapName}${m.nodeCount != null ? ` · ${m.nodeCount} node` : ''}`,
-          }))}
-        />
+      <Field label="ROS map đang hoạt động *">
         {selectedMap && (
-          <p className="mt-1 text-[11px] text-smb-on-surface-variant">
-            {selectedMap.widthMeters}×{selectedMap.heightMeters} m ·{' '}
-            {nodesForMap.length || selectedMap.nodeCount || 0} node khả dụng
+          <div className="rounded border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+            <p className="text-xs font-semibold text-emerald-600">
+              #{selectedMap.mapId} · {selectedMap.mapName}
+            </p>
+            <p className="mt-1 text-[11px] text-smb-on-surface-variant">
+              {selectedMap.widthMeters}×{selectedMap.heightMeters} m ·{' '}
+              {nodesForMap.length || selectedMap.nodeCount || 0} node khả dụng
+            </p>
+          </div>
+        )}
+        {!selectedMap && (
+          <p className="rounded border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-600">
+            Chưa có active map cho ROS Bridge. Không thể tạo lộ trình.
           </p>
         )}
       </Field>
