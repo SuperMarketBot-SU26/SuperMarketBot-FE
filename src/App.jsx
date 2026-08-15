@@ -18,6 +18,7 @@ import ProductDetail from './pages/ProductDetail'
 import AccountManagement from './pages/AccountManagement'
 import Register from './pages/Register'
 import RobotMonitoring from './pages/RobotMonitoring'
+import ShelfManagement from './pages/ShelfManagement'
 
 import { AuthProvider } from './features/auth/AuthContext'
 import ProtectedRoute from './features/auth/ProtectedRoute'
@@ -177,6 +178,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <RobotMonitoring />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/shelf-management"
+              element={
+                <ProtectedRoute>
+                  <ShelfManagement />
                 </ProtectedRoute>
               }
             />

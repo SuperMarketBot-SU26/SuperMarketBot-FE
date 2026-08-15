@@ -114,6 +114,7 @@ export function ProductManagement() {
   const [fetchError, setFetchError] = useState(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState('')
 
   // Create/Edit modal state
   const [modalOpen, setModalOpen] = useState(false)
@@ -203,7 +204,9 @@ export function ProductManagement() {
       !search || p.productName.toLowerCase().includes(search.toLowerCase())
     const matchStatus =
       statusFilter === 'all' || p.status.toLowerCase() === statusFilter
-    return matchSearch && matchStatus
+    const matchType =
+      !typeFilter || p.productTypeId === Number(typeFilter)
+    return matchSearch && matchStatus && matchType
   })
 
   const counts = {
@@ -508,6 +511,22 @@ export function ProductManagement() {
                   onChange={(e) => setSearch(e.target.value)}
                   className="w-64 rounded-xl border border-smb-outline-variant/60 bg-smb-surface-container-lowest pl-9 pr-4 py-2 text-sm text-smb-on-surface placeholder:text-smb-on-surface-variant/50 focus:border-smb-primary-container focus:outline-none focus:ring-2 focus:ring-smb-primary-container/20 transition-all"
                 />
+              </div>
+
+              {/* Type Filter */}
+              <div className="relative">
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  className="rounded-xl border border-smb-outline-variant/60 bg-smb-surface-container-lowest px-4 py-2 text-sm text-smb-on-surface outline-none focus:border-smb-primary-container focus:ring-2 focus:ring-smb-primary-container/20 transition-all"
+                >
+                  <option value="">Tất cả Loại Sản Phẩm</option>
+                  {productTypes.map((t) => (
+                    <option key={t.productTypeId} value={t.productTypeId}>
+                      {t.typeName}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex items-center gap-2">

@@ -1,14 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import {
   getSlotsByShelf,
+  getSlot,
   createSlot,
   updateSlot,
   deleteSlot,
   assignProductToSlot,
   unassignProductFromSlot,
 } from '../api/slotsApi'
-import { getProducts } from '../../product/api/productApi'
+import { getProducts, getProductTypes } from '../../product/api/productApi'
 import { ConfirmModal } from '../../../components/ConfirmModal'
+import { toast } from 'react-toastify'
 
 function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
@@ -18,21 +20,31 @@ export function SlotManager({ shelfId, shelfName }) {
   const [slots, setSlots] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [form, setForm] = useState({ slotCode: '', rowIndex: 1, columnIndex: 1, capacity: '' })
+  const [form, setForm] = useState({ slotCode: '' })
   const [editing, setEditing] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [deletingId, setDeletingId] = useState(null)
   const [assigningSlot, setAssigningSlot] = useState(null)
   const [products, setProducts] = useState([])
+  const [productTypes, setProductTypes] = useState([])
+  const [typeFilter, setTypeFilter] = useState('')
   const [assignForm, setAssignForm] = useState({ productId: '', quantity: 1 })
+  const [assigning, setAssigning] = useState(false)
 
   const fetchSlots = useCallback(async () => {
     if (!shelfId) return
     setLoading(true)
     setError(null)
     try {
-      const data = await getSlotsByShelf(shelfId)
-      setSlots(Array.isArray(data) ? data : [])
+      const summaries = await getSlotsByShelf(shelfId)
+      if (!Array.isArray(summaries)) {
+        setSlots([])
+        return
+      }
+      const details = await Promise.all(
+        summaries.map((s) => getSlot(s.slotId).catch(() => s))
+      )
+      setSlots(details)
     } catch (err) {
       setError(err?.response?.data?.message ?? 'Không thể tải slots.')
       setSlots([])
@@ -50,10 +62,16 @@ export function SlotManager({ shelfId, shelfName }) {
     getProducts()
       .then((data) => setProducts(Array.isArray(data) ? data : []))
       .catch(() => setProducts([]))
+      
+    getProductTypes()
+      .then((data) => setProductTypes(Array.isArray(data) ? data : []))
+      .catch(() => setProductTypes([]))
   }, [assigningSlot])
 
+  const filteredProducts = products.filter(p => !typeFilter || p.productTypeId === Number(typeFilter))
+
   const resetForm = () => {
-    setForm({ slotCode: '', rowIndex: 1, columnIndex: 1, capacity: '' })
+    setForm({ slotCode: '' })
     setEditing(null)
   }
 
@@ -66,9 +84,6 @@ export function SlotManager({ shelfId, shelfName }) {
       const payload = {
         shelfId,
         slotCode: form.slotCode.trim(),
-        rowIndex: Number(form.rowIndex) || 1,
-        columnIndex: Number(form.columnIndex) || 1,
-        capacity: form.capacity === '' ? null : Number(form.capacity),
       }
       if (editing) {
         await updateSlot(editing.slotId, payload)
@@ -88,9 +103,6 @@ export function SlotManager({ shelfId, shelfName }) {
     setEditing(slot)
     setForm({
       slotCode: slot.slotCode ?? '',
-      rowIndex: slot.rowIndex ?? 1,
-      columnIndex: slot.columnIndex ?? 1,
-      capacity: slot.capacity ?? '',
     })
   }
 
@@ -109,16 +121,34 @@ export function SlotManager({ shelfId, shelfName }) {
   const handleAssign = async (e) => {
     e.preventDefault()
     if (!assigningSlot || !assignForm.productId) return
+    setAssigning(true)
+    setError(null)
     try {
       await assignProductToSlot(assigningSlot.slotId, {
+        slotId: assigningSlot.slotId,
         productId: Number(assignForm.productId),
         quantity: Number(assignForm.quantity) || 1,
       })
+      toast.success('Đã gán sản phẩm vào slot.')
       setAssigningSlot(null)
       setAssignForm({ productId: '', quantity: 1 })
       await fetchSlots()
     } catch (err) {
       setError(err?.response?.data?.message ?? 'Không thể gán sản phẩm.')
+    } finally {
+      setAssigning(false)
+    }
+  }
+
+  const handleUnassign = async (slotId, productId) => {
+    if (!window.confirm('Bạn có chắc muốn gỡ sản phẩm này khỏi slot?')) return
+    setError(null)
+    try {
+      await unassignProductFromSlot(slotId, productId)
+      toast.success('Đã gỡ sản phẩm khỏi slot.')
+      await fetchSlots()
+    } catch (err) {
+      setError(err?.response?.data?.message ?? 'Không thể gỡ sản phẩm.')
     }
   }
 
@@ -130,54 +160,28 @@ export function SlotManager({ shelfId, shelfName }) {
         </h4>
       </div>
 
-      {error && (
+      {error && !assigningSlot && (
         <div className="rounded-lg bg-smb-error-container px-3 py-2 text-xs text-smb-on-error-container">
           {error}
         </div>
       )}
 
-      {/* Form */}
       <form
         onSubmit={handleSubmit}
-        className="grid grid-cols-2 gap-2 sm:grid-cols-5"
+        className="flex flex-wrap items-center gap-2"
       >
         <input
           type="text"
-          required
-          placeholder="Slot code (VD: S01-L1)"
+          placeholder="Mã (VD: S1)"
           value={form.slotCode}
           onChange={(e) => setForm((p) => ({ ...p, slotCode: e.target.value }))}
-          className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm outline-none focus:border-smb-primary"
+          className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm outline-none focus:border-smb-primary w-48"
         />
-        <input
-          type="number"
-          min="1"
-          placeholder="Hàng"
-          value={form.rowIndex}
-          onChange={(e) => setForm((p) => ({ ...p, rowIndex: e.target.value }))}
-          className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm outline-none focus:border-smb-primary"
-        />
-        <input
-          type="number"
-          min="1"
-          placeholder="Cột"
-          value={form.columnIndex}
-          onChange={(e) => setForm((p) => ({ ...p, columnIndex: e.target.value }))}
-          className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm outline-none focus:border-smb-primary"
-        />
-        <input
-          type="number"
-          min="0"
-          placeholder="Sức chứa"
-          value={form.capacity}
-          onChange={(e) => setForm((p) => ({ ...p, capacity: e.target.value }))}
-          className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm outline-none focus:border-smb-primary"
-        />
-        <div className="flex gap-1">
+        <div className="flex gap-1 w-full sm:w-auto mt-2 sm:mt-0">
           <button
             type="submit"
             disabled={submitting}
-            className="flex-1 rounded-lg bg-smb-primary px-3 py-2 text-xs font-medium text-smb-on-primary hover:bg-smb-primary/90 disabled:opacity-50"
+            className="flex-1 sm:flex-none rounded-lg bg-smb-primary px-4 py-2 text-xs font-medium text-smb-on-primary hover:bg-smb-primary/90 disabled:opacity-50"
           >
             {editing ? 'Lưu' : 'Thêm'}
           </button>
@@ -193,7 +197,6 @@ export function SlotManager({ shelfId, shelfName }) {
         </div>
       </form>
 
-      {/* List */}
       {loading ? (
         <div className="flex justify-center py-6">
           <Icon name="progress_activity" className="animate-spin text-2xl text-smb-on-surface-variant" />
@@ -207,25 +210,44 @@ export function SlotManager({ shelfId, shelfName }) {
           <table className="w-full text-sm">
             <thead className="bg-smb-surface-container text-xs uppercase text-smb-on-surface-variant">
               <tr>
-                <th className="px-3 py-2 text-left">Code</th>
-                <th className="px-3 py-2 text-center">Hàng</th>
-                <th className="px-3 py-2 text-center">Cột</th>
-                <th className="px-3 py-2 text-center">Sức chứa</th>
+                <th className="px-3 py-2 text-left">Code & Sản phẩm</th>
                 <th className="px-3 py-2 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-smb-outline-variant/50">
               {slots.map((slot) => (
-                <tr key={slot.slotId} className="hover:bg-smb-surface-container/50">
-                  <td className="px-3 py-2 font-medium text-smb-on-surface">{slot.slotCode}</td>
-                  <td className="px-3 py-2 text-center text-smb-on-surface-variant">{slot.rowIndex}</td>
-                  <td className="px-3 py-2 text-center text-smb-on-surface-variant">{slot.columnIndex}</td>
-                  <td className="px-3 py-2 text-center text-smb-on-surface-variant">{slot.capacity ?? '—'}</td>
+                <tr key={slot.slotId} className="hover:bg-smb-surface-container/50 align-top">
+                  <td className="px-3 py-2">
+                    <div className="font-medium text-smb-on-surface mb-1">{slot.slotCode}</div>
+                    {slot.products && slot.products.length > 0 ? (
+                      <div className="flex flex-col gap-1 mt-2">
+                        {slot.products.map((p) => (
+                          <div key={p.productId} className="flex items-center gap-2 text-xs text-smb-on-surface-variant bg-smb-surface-container-lowest px-2 py-1 rounded border border-smb-outline-variant/50 w-fit group">
+                            <span className="font-medium text-smb-primary line-clamp-1 max-w-[150px]">{p.productName}</span>
+                            <span className="text-[10px] bg-smb-surface-container px-1 rounded">x{p.quantity}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleUnassign(slot.slotId, p.productId)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 text-smb-error hover:text-smb-on-error-container"
+                              title="Gỡ sản phẩm"
+                            >
+                              <Icon name="close" className="text-sm" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-smb-on-surface-variant/70 italic mt-1">Trống</div>
+                    )}
+                  </td>
                   <td className="px-3 py-2">
                     <div className="flex justify-end gap-1">
                       <button
                         type="button"
-                        onClick={() => setAssigningSlot(slot)}
+                        onClick={() => {
+                          setAssigningSlot(slot)
+                          setError(null)
+                        }}
                         className="rounded p-1 text-smb-on-surface-variant hover:bg-smb-surface-container hover:text-smb-primary"
                         title="Gán sản phẩm"
                       >
@@ -276,7 +298,28 @@ export function SlotManager({ shelfId, shelfName }) {
             <h3 className="mb-4 text-base font-semibold text-smb-on-surface">
               Gán sản phẩm vào {assigningSlot.slotCode}
             </h3>
+            
+            {error && (
+              <div className="mb-4 rounded-lg bg-smb-error-container px-3 py-2 text-xs text-smb-on-error-container">
+                {error}
+              </div>
+            )}
+
             <div className="flex flex-col gap-3">
+              <select
+                value={typeFilter}
+                onChange={(e) => {
+                  setTypeFilter(e.target.value)
+                  setAssignForm((p) => ({ ...p, productId: '' })) // Reset product when type changes
+                }}
+                className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-low px-3 py-2 text-sm outline-none focus:border-smb-primary"
+              >
+                <option value="">-- Tất cả Loại Sản Phẩm --</option>
+                {productTypes.map((t) => (
+                  <option key={t.productTypeId} value={t.productTypeId}>{t.typeName}</option>
+                ))}
+              </select>
+
               <select
                 required
                 value={assignForm.productId}
@@ -284,7 +327,7 @@ export function SlotManager({ shelfId, shelfName }) {
                 className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-low px-3 py-2 text-sm outline-none focus:border-smb-primary"
               >
                 <option value="">-- Chọn sản phẩm --</option>
-                {products.map((p) => (
+                {filteredProducts.map((p) => (
                   <option key={p.productId} value={p.productId}>{p.productName}</option>
                 ))}
               </select>
@@ -297,21 +340,22 @@ export function SlotManager({ shelfId, shelfName }) {
                 onChange={(e) => setAssignForm((p) => ({ ...p, quantity: e.target.value }))}
                 className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-low px-3 py-2 text-sm outline-none focus:border-smb-primary"
               />
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setAssigningSlot(null)}
-                className="rounded-lg px-4 py-2 text-sm text-smb-on-surface-variant hover:bg-smb-surface-container"
-              >
-                Huỷ
-              </button>
-              <button
-                type="submit"
-                className="rounded-lg bg-smb-primary px-4 py-2 text-sm font-medium text-smb-on-primary hover:bg-smb-primary/90"
-              >
-                Gán
-              </button>
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAssigningSlot(null)}
+                  className="rounded-lg px-4 py-2 text-sm text-smb-on-surface-variant hover:bg-smb-surface-container"
+                >
+                  Huỷ
+                </button>
+                <button
+                  type="submit"
+                  disabled={assigning}
+                  className="rounded-lg bg-smb-primary px-4 py-2 text-sm font-medium text-smb-on-primary hover:bg-smb-primary/90 disabled:opacity-50"
+                >
+                  {assigning ? 'Đang gán...' : 'Gán'}
+                </button>
+              </div>
             </div>
           </form>
         </div>
