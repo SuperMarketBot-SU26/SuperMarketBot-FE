@@ -59,6 +59,11 @@ export function CampaignDetail() {
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [saving, setSaving] = useState(false)
   const [completionStatus, setCompletionStatus] = useState(null)
+  const [billingResult, setBillingResult] = useState(null)
+
+  // Billing result types:
+  // Activate: { adCampaignId, campaignName, previousStatus, newStatus, amountCharged, remainingWalletBalance, totalDays, prorataMultiplier, packageCostCharged }
+  // Cancel: { adCampaignId, campaignName, newStatus, refundedAmount, daysUsed, daysRemaining }
 
   // Form edit state — chỉ khởi tạo 1 lần từ data đầu tiên
   const [editForm, setEditForm] = useState({
@@ -106,10 +111,17 @@ export function CampaignDetail() {
   // không bị "nuốt" bởi lỗi refresh, và ngược lại.
   const runStatusAction = async (action, label) => {
     setActionLoading(true)
+    setBillingResult(null)
     let actionOk = false
     try {
-      await action()
+      const result = await action()
       actionOk = true
+      // Capture billing result for success display
+      if (result) {
+        setBillingResult(result)
+        // Auto-hide after 8 seconds
+        setTimeout(() => setBillingResult(null), 8000)
+      }
     } catch (e) {
       const status = e?.response?.status
       const msg = e?.response?.data?.message
@@ -262,6 +274,50 @@ export function CampaignDetail() {
                     loading={actionLoading}
                   />
                 </div>
+
+                {/* Billing result toast */}
+                  {billingResult && (
+                    <div className="rounded-xl border bg-smb-surface-container-lowest p-4 shadow-lg animate-in slide-in-from-top-2">
+                      <div className="flex items-start gap-3">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-green-100">
+                          <span className="material-symbols-outlined text-xl text-green-600">check_circle</span>
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-smb-on-surface">
+                            {billingResult.refundedAmount !== undefined ? 'Chiến dịch đã hủy' : 'Chiến dịch đã kích hoạt'}
+                          </h4>
+                          <div className="mt-1 space-y-0.5 text-sm text-smb-on-surface-variant">
+                            {billingResult.amountCharged !== undefined && (
+                              <>
+                                <p>Đã trừ: <strong className="text-smb-on-surface">{billingResult.amountCharged?.toLocaleString('vi-VN')}₫</strong></p>
+                                {billingResult.totalDays > 0 && (
+                                  <p className="text-xs">
+                                    Pro-rata: {billingResult.packageCostCharged?.toLocaleString('vi-VN')}₫ × {billingResult.totalDays}/30 ngày
+                                    {(billingResult.prorataMultiplier * 100).toFixed(1)}%
+                                  </p>
+                                )}
+                                <p>Số dư ví: <strong className="text-smb-on-surface">{billingResult.remainingWalletBalance?.toLocaleString('vi-VN')}₫</strong></p>
+                              </>
+                            )}
+                            {billingResult.refundedAmount !== undefined && (
+                              <>
+                                <p>Đã hoàn: <strong className="text-green-600">{billingResult.refundedAmount?.toLocaleString('vi-VN')}₫</strong></p>
+                                <p className="text-xs">
+                                  Đã dùng: {billingResult.daysUsed} ngày · Còn lại: {billingResult.daysRemaining} ngày
+                                </p>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setBillingResult(null)}
+                          className="text-smb-on-surface-variant hover:text-smb-on-surface"
+                        >
+                          <span className="material-symbols-outlined">close</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                 {/* Tabs */}
                 <div className="flex flex-wrap gap-1 border-b border-smb-outline-variant">
