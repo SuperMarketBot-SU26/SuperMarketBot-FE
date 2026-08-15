@@ -14,6 +14,7 @@ import BrandWallet from './pages/BrandWallet'
 import Forbidden from './pages/Forbidden'
 import Login from './pages/Login'
 import ProductManagement from './pages/ProductManagement'
+import { ProductTypeManagement } from './pages/ProductTypeManagement'
 import ProductDetail from './pages/ProductDetail'
 import AccountManagement from './pages/AccountManagement'
 import Register from './pages/Register'
@@ -146,6 +147,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ProductManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/product-types"
+              element={
+                <ProtectedRoute>
+                  <ProductTypeManagement />
                 </ProtectedRoute>
               }
             />

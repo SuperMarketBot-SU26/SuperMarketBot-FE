@@ -141,3 +141,18 @@ export const importAdminProducts = (file) => {
     })
     .then((res) => res.data)
 }
+
+/* ------------------------------------------------------------------ */
+/*  Product Types CRUD (Admin)                                        */
+/* ------------------------------------------------------------------ */
+
+const ADMIN_PRODUCT_TYPES_ENDPOINT = '/api/v1/admin/product-types'
+
+export const createAdminProductType = (payload) =>
+  client.post(ADMIN_PRODUCT_TYPES_ENDPOINT, payload).then((res) => res.data)
+
+export const updateAdminProductType = (productTypeId, payload) =>
+  client.put(`${ADMIN_PRODUCT_TYPES_ENDPOINT}/${productTypeId}`, payload).then((res) => res.data)
+
+export const deleteAdminProductType = (productTypeId) =>
+  client.delete(`${ADMIN_PRODUCT_TYPES_ENDPOINT}/${productTypeId}`).then((res) => res.data)
