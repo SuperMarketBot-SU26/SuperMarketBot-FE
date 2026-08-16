@@ -153,9 +153,15 @@ function WaypointList({ waypoints }) {
 
 function AutonomousTab({ robots = [], routes = [] }) {
   const [selectedRobot, setSelectedRobot] = useState('')
+  const [adMode, setAdMode] = useState('shelf') // 'shelf' | 'route'
   const [selectedAdRoute, setSelectedAdRoute] = useState('')
   const [selectedPatrolRoute, setSelectedPatrolRoute] = useState('')
   const [selectedProductId, setSelectedProductId] = useState('')
+
+  // Duration & Dwell settings
+  const [adDuration, setAdDuration] = useState(30) // default 30 mins
+  const [adDwell, setAdDwell] = useState(20) // default 20s for shelf
+  const [adLooping, setAdLooping] = useState(true)
 
   const [adMsg, setAdMsg]         = useState(null)
   const [adWaypoints, setAdWaypoints] = useState(null)
@@ -182,10 +188,21 @@ function AutonomousTab({ robots = [], routes = [] }) {
   }, [])
 
   const selectedRobotId = robots.find((robot) => robot.robotCode === selectedRobot)?.robotId
-  const adRoutes = routes.filter((route) =>
-    route.robotId === selectedRobotId && String(route.routeType || '').startsWith('ad_'))
-  const patrolRoutes = routes.filter((route) =>
-    route.robotId === selectedRobotId && route.routeType === 'patrol')
+  const adRoutes = useMemo(() => {
+    const matched = routes.filter((route) =>
+      (!route.robotId || route.robotId === selectedRobotId) &&
+      (String(route.routeType || '').toLowerCase().includes('ad') || route.routeType === 'custom')
+    )
+    return matched.length > 0 ? matched : routes
+  }, [routes, selectedRobotId])
+
+  const patrolRoutes = useMemo(() => {
+    const matched = routes.filter((route) =>
+      (!route.robotId || route.robotId === selectedRobotId) &&
+      (route.routeType === 'patrol' || route.routeType === 'custom')
+    )
+    return matched.length > 0 ? matched : routes
+  }, [routes, selectedRobotId])
 
   const activeAdRoute = adRoutes.some((route) => String(route.robotRouteId) === selectedAdRoute)
     ? selectedAdRoute
@@ -294,35 +311,159 @@ function AutonomousTab({ robots = [], routes = [] }) {
               </div>
               <div>
                 <p className="font-bold text-orange-700 dark:text-orange-400">Flow Quảng Cáo</p>
-                <p className="text-[10px] text-orange-600/70">Robot phát nhạc/video khi dừng tại kệ</p>
+                <p className="text-[10px] text-orange-600/70">Quảng cáo theo Kệ hàng hoặc Lộ trình</p>
               </div>
             </div>
             <span className="rounded-full bg-orange-500/20 px-2.5 py-1 text-[10px] font-bold text-orange-700">Linh hoạt</span>
           </div>
 
-          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-orange-700/70">
-            Lộ trình quảng cáo đã cấu hình
+          {/* Ad Mode Segmented Buttons */}
+          <div className="mb-3 grid grid-cols-2 gap-1.5 rounded-xl bg-orange-500/10 p-1">
+            <button
+              type="button"
+              onClick={() => setAdMode('shelf')}
+              className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-bold transition-all ${
+                adMode === 'shelf'
+                  ? 'bg-white text-orange-700 shadow-sm dark:bg-orange-950 dark:text-orange-300'
+                  : 'text-orange-700/70 hover:text-orange-800'
+              }`}
+            >
+              <Icon name="storefront" className="text-[14px]" />
+              Theo Kệ Hàng
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdMode('route')}
+              className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-bold transition-all ${
+                adMode === 'route'
+                  ? 'bg-white text-orange-700 shadow-sm dark:bg-orange-950 dark:text-orange-300'
+                  : 'text-orange-700/70 hover:text-orange-800'
+              }`}
+            >
+              <Icon name="route" className="text-[14px]" />
+              Theo Lộ Trình
+            </button>
+          </div>
+
+          {/* Mode 1: Theo Kệ Hàng */}
+          {adMode === 'shelf' && (
+            <div className="mb-3 space-y-2 rounded-xl border border-orange-500/20 bg-orange-500/5 p-2.5">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-semibold text-orange-800 dark:text-orange-300">Phạm vi:</span>
+                <span className="rounded-md bg-orange-500/15 px-2 py-0.5 font-bold text-orange-700">Toàn Siêu Thị (All Shelves)</span>
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-orange-700/70">
+                  Dừng tại mỗi kệ (Dwell Time)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="5"
+                    max="120"
+                    value={adDwell}
+                    onChange={(e) => setAdDwell(Number(e.target.value))}
+                    className="w-20 rounded-lg border border-orange-500/40 bg-smb-surface-container-lowest px-2.5 py-1 text-xs font-semibold text-smb-on-surface outline-none focus:border-orange-500"
+                  />
+                  <span className="text-[11px] text-orange-700/80">giây / kệ (để phát video & TTS)</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Mode 2: Theo Lộ Trình */}
+          {adMode === 'route' && (
+            <div className="mb-3 space-y-2">
+              <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-orange-700/70">
+                Lộ trình quảng cáo đã cấu hình
+              </label>
+              <select
+                value={activeAdRoute}
+                onChange={(e) => setSelectedAdRoute(e.target.value)}
+                className="w-full rounded-xl border border-orange-500/40 bg-smb-surface-container-lowest px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-orange-500"
+              >
+                <option value="">— Chọn route quảng cáo —</option>
+                {adRoutes.map((route) => (
+                  <option key={route.robotRouteId} value={route.robotRouteId}>
+                    {route.routeName} · {route.waypointCount} điểm
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] italic text-orange-600/80">
+                * Robot di chuyển liên tục, Tablet phát xoay vòng các quảng cáo ưu tiên VIP.
+              </p>
+            </div>
+          )}
+
+          {/* Timer & Duration controls */}
+          <div className="mb-3 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-orange-700/70">
+                Hẹn giờ chạy (Duration)
+              </label>
+              <span className="text-[11px] font-bold text-orange-600">{adDuration ? `${adDuration} phút` : 'Không giới hạn'}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {[15, 30, 60].map((mins) => (
+                <button
+                  key={mins}
+                  type="button"
+                  onClick={() => setAdDuration(mins)}
+                  className={`flex-1 rounded-lg py-1 text-[11px] font-bold transition-all ${
+                    adDuration === mins
+                      ? 'bg-orange-600 text-white shadow-sm'
+                      : 'border border-orange-500/30 bg-smb-surface-container-lowest text-orange-700 hover:bg-orange-500/10'
+                  }`}
+                >
+                  {mins} phút
+                </button>
+              ))}
+              <input
+                type="number"
+                min="1"
+                max="300"
+                placeholder="Tùy chỉnh"
+                value={adDuration || ''}
+                onChange={(e) => setAdDuration(e.target.value ? Number(e.target.value) : '')}
+                className="w-16 rounded-lg border border-orange-500/40 bg-smb-surface-container-lowest px-2 py-1 text-center text-xs font-semibold text-smb-on-surface outline-none focus:border-orange-500"
+              />
+            </div>
+          </div>
+
+          {/* Checkbox Looping */}
+          <label className="mb-3.5 flex items-center gap-2 text-[11px] font-medium text-orange-800 dark:text-orange-300">
+            <input
+              type="checkbox"
+              checked={adLooping}
+              onChange={(e) => setAdLooping(e.target.checked)}
+              className="rounded accent-orange-600"
+            />
+            <span>Chạy tuần hoàn liên tục (Looping cycle)</span>
           </label>
-          <select
-            value={activeAdRoute}
-            onChange={(e) => setSelectedAdRoute(e.target.value)}
-            className="mb-3 w-full rounded-xl border border-orange-500/40 bg-smb-surface-container-lowest px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-orange-500"
-          >
-            <option value="">— Chọn route quảng cáo —</option>
-            {adRoutes.map((route) => (
-              <option key={route.robotRouteId} value={route.robotRouteId}>
-                {route.routeName} · {route.waypointCount} điểm
-              </option>
-            ))}
-          </select>
 
           <button
-            disabled={dispatching || !activeAdRoute}
-            onClick={() => handleDispatch('ad', { robotRouteId: Number(activeAdRoute) })}
+            disabled={dispatching || (adMode === 'route' && !activeAdRoute)}
+            onClick={() => {
+              if (adMode === 'shelf') {
+                handleDispatch('ad', {
+                  fullZoneMap: true,
+                  durationMinutes: adDuration ? Number(adDuration) : null,
+                  dwellTimeSeconds: adDwell ? Number(adDwell) : 20,
+                  isLooping: adLooping,
+                })
+              } else {
+                handleDispatch('ad', {
+                  robotRouteId: Number(activeAdRoute),
+                  durationMinutes: adDuration ? Number(adDuration) : null,
+                  dwellTimeSeconds: 0,
+                  isLooping: adLooping,
+                })
+              }
+            }}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 to-orange-500 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-orange-700 hover:to-orange-600 active:scale-95 disabled:opacity-50 disabled:scale-100"
           >
             {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="play_arrow" className="text-[16px]" />}
-            Phát lệnh quảng cáo
+            {adMode === 'shelf' ? 'Phát Lệnh Quảng Cáo Theo Kệ' : 'Phát Lệnh Quảng Cáo Theo Lộ Trình'}
           </button>
 
           <StatusBadge msg={adMsg} />
