@@ -133,7 +133,11 @@ export function useRobotFleet({ pollMs = 5000 } = {}) {
     if (pollMs <= 0) return undefined
     const id = setInterval(async () => {
       const codes = Object.keys(poses)
-      if (codes.length === 0) return
+      if (codes.length === 0) {
+        // Nếu chưa có robot nào, thử tải lại toàn bộ danh sách robot
+        loadAll()
+        return
+      }
 
       const results = await Promise.allSettled(
         codes.map(async (c) => {

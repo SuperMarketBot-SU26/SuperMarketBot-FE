@@ -41,8 +41,8 @@
 
 import client from '../../../api/client'
 
-const NAV_ENDPOINT = '/Navigation'
-const ROBOTS_ENDPOINT = '/Robots'
+const NAV_ENDPOINT = '/api/Navigation'
+const ROBOTS_ENDPOINT = '/api/Robots'
 const V1_NAV_ENDPOINT = '/api/v1/navigation'
 
 /* ── Polyline routing (web/mobile display) ──────────────────────────────── */
@@ -104,6 +104,11 @@ export const getActiveRobotMission = async (robotCode) => {
   return res.data
 }
 
+export const getActiveCampaigns = async () => {
+  const { data } = await client.get('/api/v1/ad-campaigns', { params: { Status: 'Active', PageSize: 50 } })
+  return data?.items ?? data ?? []
+}
+
 /* ── Point-to-point navigate ─────────────────────────────────────────────── */
 
 /**
@@ -158,7 +163,7 @@ export const resumeRobotNavigation = async (robotCode) => {
 }
 
 export const getRobotMissionState = async (robotCode) => {
-  const res = await client.get(`${V1_NAV_ENDPOINT}/robots/${encodeURIComponent(robotCode)}/mission`)
+  const res = await client.get(`/api/v1/robot-operations/missions/${encodeURIComponent(robotCode)}/active`)
   return res.data
 }
 

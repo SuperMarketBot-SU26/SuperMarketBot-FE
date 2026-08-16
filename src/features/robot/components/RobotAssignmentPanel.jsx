@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { toast } from 'react-toastify'
 import { statusPalette } from '../utils/robotHelpers'
 import {
   getRoute,
   createRoute,
 } from '../api/robotRoutesApi'
 import { getRobot, getRobotPose } from '../api/robotApi'
-import { getRouteTypes as fetchRouteTypes } from '../api/routeTypesApi'
 import { getZones as fetchZones } from '../api/zonesApi'
 
 function Icon({ name, className = '' }) {
@@ -53,6 +53,7 @@ export function RobotAssignmentPanel({
   onRouteCreated,
 }) {
   const [tab, setTab] = useState('assign') // land on the action page by default
+  const [selectedRouteForExecution, setSelectedRouteForExecution] = useState(null)
 
   // Switch to the "Robot" tab automatically the first time a robot gets picked
   // from the map (so the operator sees context for which one they clicked).
@@ -72,9 +73,20 @@ export function RobotAssignmentPanel({
             map={map}
             onPreviewRoute={onPreviewRoute}
             onRouteCreated={onRouteCreated}
+            onSelectForExecution={(route) => {
+              setSelectedRouteForExecution(route)
+              setTab('autonomous')
+            }}
           />
         ) : tab === 'autonomous' ? (
-          <AutonomousTab robots={robots} routes={routes} map={map} />
+          <AutonomousTab 
+            robots={robots} 
+            routes={routes} 
+            map={map} 
+            defaultRoute={selectedRouteForExecution} 
+            selectedRobotCode={selectedRobotCode}
+            onSelectRobot={onSelectRobot}
+          />
         ) : (
           <RobotsTab
             robots={robots}
@@ -99,8 +111,9 @@ import {
   getRobotOperationReadiness,
   pauseRobotNavigation,
   resumeRobotNavigation,
+  getActiveCampaigns,
+  getRobotMissionState,
 } from '../api/navigationApi'
-import { getAdminProducts } from '../../product/api/adminProductApi'
 
 // Status badge colours
 const STATUS_OK  = 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
@@ -117,46 +130,77 @@ function StatusBadge({ msg }) {
 }
 
 function WaypointList({ waypoints }) {
+  const [expanded, setExpanded] = useState(false)
   if (!waypoints?.length) return null
+
+  const visibleWaypoints = expanded ? waypoints : waypoints.slice(0, 5)
+  const remaining = waypoints.length - 5
+
   return (
     <div className="mt-3 rounded-xl border border-smb-outline-variant bg-smb-surface-container p-3 space-y-1.5">
       <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-smb-on-surface-variant">
-        {waypoints.length} waypoint được tính toán
+        {waypoints.length} điểm đến được tính toán
       </p>
-      {waypoints.slice(0, 5).map((wp, i) => (
-        <div key={wp.nodeId ?? i} className="flex items-center gap-2 text-[11px] text-smb-on-surface">
-          <span className="flex size-5 items-center justify-center rounded-full bg-smb-primary/10 text-[10px] font-bold text-smb-primary">
-            {i + 1}
-          </span>
-          <span className="flex-1 font-medium">
-            {wp.nodeName || `Node #${wp.nodeId}`}
-          </span>
-          {wp.dwellTimeSeconds && (
-            <span className="rounded bg-smb-surface-container-lowest px-1.5 py-0.5 text-[10px] text-smb-on-surface-variant">
-              ⏱ {wp.dwellTimeSeconds}s
-            </span>
-          )}
-          <span className="text-[10px] font-mono text-smb-on-surface-variant">
-            ({typeof wp.xCoord === 'number' ? wp.xCoord.toFixed(1) : '?'},
-             {typeof wp.yCoord === 'number' ? wp.yCoord.toFixed(1) : '?'})
-          </span>
-        </div>
-      ))}
-      {waypoints.length > 5 && (
-        <p className="text-center text-[10px] text-smb-on-surface-variant">
-          +{waypoints.length - 5} waypoint nữa…
-        </p>
+      {visibleWaypoints.map((wp, i) => {
+        const productName = wp.playlist?.[0]?.productName || wp.productNames?.[0]
+        const hasMoreProducts = (wp.playlist?.length > 1) || (wp.productNames?.length > 1)
+        
+        return (
+          <div key={wp.nodeId ?? i} className="flex flex-col gap-0.5 mb-1.5 border-b border-smb-outline-variant/30 pb-1.5 last:border-0 last:pb-0">
+            <div className="flex items-center gap-2 text-[11px] text-smb-on-surface">
+              <span className="flex size-5 items-center justify-center rounded-full bg-smb-primary/10 text-[10px] font-bold text-smb-primary shrink-0">
+                {i + 1}
+              </span>
+              <span className="flex-1 font-bold text-smb-primary-container truncate" title={wp.nodeName || `Node #${wp.nodeId}`}>
+                {wp.nodeName || `Kệ hàng (Node #${wp.nodeId})`}
+              </span>
+              {wp.dwellTimeSeconds && (
+                <span className="rounded bg-smb-surface-container-lowest px-1.5 py-0.5 text-[10px] text-smb-on-surface-variant shrink-0">
+                  ⏱ {wp.dwellTimeSeconds}s
+                </span>
+              )}
+            </div>
+            {productName && (
+              <div className="pl-7 text-[10px] text-smb-on-surface-variant flex items-center gap-1">
+                <Icon name="campaign" className="text-[12px] text-orange-500" />
+                <span className="truncate">Sản phẩm: {productName} {hasMoreProducts ? '(+...)' : ''}</span>
+              </div>
+            )}
+            <div className="pl-7 text-[9px] font-mono text-smb-on-surface-variant/70">
+              Tọa độ: ({typeof wp.xCoord === 'number' ? wp.xCoord.toFixed(1) : '?'}, {typeof wp.yCoord === 'number' ? wp.yCoord.toFixed(1) : '?'})
+            </div>
+          </div>
+        )
+      })}
+      {!expanded && remaining > 0 && (
+        <button 
+          onClick={() => setExpanded(true)}
+          className="w-full text-center text-[10px] text-smb-primary hover:text-smb-primary-container font-semibold py-1 hover:bg-smb-primary/5 rounded transition-colors mt-1"
+        >
+          + Xem thêm {remaining} điểm đến nữa…
+        </button>
+      )}
+      {expanded && remaining > 0 && (
+        <button 
+          onClick={() => setExpanded(false)}
+          className="w-full text-center text-[10px] text-smb-primary hover:text-smb-primary-container font-semibold py-1 hover:bg-smb-primary/5 rounded transition-colors mt-1"
+        >
+          Thu gọn danh sách
+        </button>
       )}
     </div>
   )
 }
 
-function AutonomousTab({ robots = [], routes = [] }) {
-  const [selectedRobot, setSelectedRobot] = useState('')
-  const [adMode, setAdMode] = useState('shelf') // 'shelf' | 'route'
-  const [selectedAdRoute, setSelectedAdRoute] = useState('')
+function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRobotCode, onSelectRobot }) {
+  const selectedRobot = selectedRobotCode || ''
+  const setSelectedRobot = (code) => {
+    const robot = robots.find(r => r.robotCode === code)
+    if (robot && onSelectRobot) onSelectRobot(robot)
+  }
+
+  const [adMode, setAdMode] = useState('campaign') // 'freeroam' | 'campaign'
   const [selectedPatrolRoute, setSelectedPatrolRoute] = useState('')
-  const [selectedProductId, setSelectedProductId] = useState('')
 
   // Duration & Dwell settings
   const [adDuration, setAdDuration] = useState(30) // default 30 mins
@@ -167,13 +211,36 @@ function AutonomousTab({ robots = [], routes = [] }) {
   const [adWaypoints, setAdWaypoints] = useState(null)
   const [patrolMsg, setPatrolMsg] = useState(null)
   const [patrolWaypoints, setPatrolWaypoints] = useState(null)
-  const [guideMsg, setGuideMsg]   = useState(null)
-  const [guideWaypoints, setGuideWaypoints] = useState(null)
   const [estopMsg, setEstopMsg]   = useState(null)
   const [readiness, setReadiness] = useState(null)
+  
+  const [missionState, setMissionState] = useState(null)
+  const [campaigns, setCampaigns] = useState([])
+  const [selectedCampaign, setSelectedCampaign] = useState('')
 
   const [dispatching, setDispatching] = useState(false)
-  const [products, setProducts] = useState([])
+
+  useEffect(() => {
+    getActiveCampaigns().then(setCampaigns).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!selectedRobot) {
+      setMissionState(null)
+      return
+    }
+    const poll = async () => {
+      try {
+        const state = await getRobotMissionState(selectedRobot)
+        setMissionState(state)
+      } catch {
+        // fail silently
+      }
+    }
+    poll()
+    const id = setInterval(poll, 5000)
+    return () => clearInterval(id)
+  }, [selectedRobot])
 
   // Auto-select the first robot when the list first loads
   useEffect(() => {
@@ -182,19 +249,22 @@ function AutonomousTab({ robots = [], routes = [] }) {
     }
   }, [robots, selectedRobot])
 
-  // Load zones + products once on mount
+  // Auto-select route when navigating from AssignTab
   useEffect(() => {
-    getAdminProducts({ pageSize: 50 }).then((p) => setProducts(Array.isArray(p) ? p : p?.items ?? [])).catch(() => {})
-  }, [])
+    if (defaultRoute) {
+      if (defaultRoute.routeType?.toLowerCase().includes('ad')) {
+         setAdMode('campaign')
+      } else {
+         setSelectedPatrolRoute(String(defaultRoute.robotRouteId))
+      }
+      if (defaultRoute.robotId) {
+         const matchedRobot = robots.find(r => r.robotId === defaultRoute.robotId)
+         if (matchedRobot) setSelectedRobot(matchedRobot.robotCode)
+      }
+    }
+  }, [defaultRoute, robots])
 
   const selectedRobotId = robots.find((robot) => robot.robotCode === selectedRobot)?.robotId
-  const adRoutes = useMemo(() => {
-    const matched = routes.filter((route) =>
-      (!route.robotId || route.robotId === selectedRobotId) &&
-      (String(route.routeType || '').toLowerCase().includes('ad') || route.routeType === 'custom')
-    )
-    return matched.length > 0 ? matched : routes
-  }, [routes, selectedRobotId])
 
   const patrolRoutes = useMemo(() => {
     const matched = routes.filter((route) =>
@@ -204,9 +274,6 @@ function AutonomousTab({ robots = [], routes = [] }) {
     return matched.length > 0 ? matched : routes
   }, [routes, selectedRobotId])
 
-  const activeAdRoute = adRoutes.some((route) => String(route.robotRouteId) === selectedAdRoute)
-    ? selectedAdRoute
-    : adRoutes[0] ? String(adRoutes[0].robotRouteId) : ''
   const activePatrolRoute = patrolRoutes.some((route) => String(route.robotRouteId) === selectedPatrolRoute)
     ? selectedPatrolRoute
     : patrolRoutes[0] ? String(patrolRoutes[0].robotRouteId) : ''
@@ -216,7 +283,6 @@ function AutonomousTab({ robots = [], routes = [] }) {
     const clear = () => {
       if (flowType === 'ad')      { setAdMsg(null); setAdWaypoints(null) }
       if (flowType === 'patrol')  { setPatrolMsg(null); setPatrolWaypoints(null) }
-      if (flowType === 'guide')   { setGuideMsg(null); setGuideWaypoints(null) }
     }
     clear()
     try {
@@ -234,13 +300,11 @@ function AutonomousTab({ robots = [], routes = [] }) {
       const msg = `✅ ${data.message || `Đã phát lệnh ${flowType}!`}`
       if (flowType === 'ad')      { setAdMsg({ type: 'success', text: msg });      setAdWaypoints(data.waypoints) }
       if (flowType === 'patrol')  { setPatrolMsg({ type: 'success', text: msg });  setPatrolWaypoints(data.waypoints) }
-      if (flowType === 'guide')   { setGuideMsg({ type: 'success', text: msg });   setGuideWaypoints(data.waypoints) }
 
     } catch (e) {
       const err = `❌ ${e?.response?.data?.detail || e?.response?.data?.title || e?.response?.data?.message || e?.message || 'Lỗi phát lệnh'}`
       if (flowType === 'ad')      setAdMsg({ type: 'error', text: err })
       if (flowType === 'patrol')  setPatrolMsg({ type: 'error', text: err })
-      if (flowType === 'guide')   setGuideMsg({ type: 'error', text: err })
     } finally {
       setDispatching(false)
     }
@@ -273,9 +337,9 @@ function AutonomousTab({ robots = [], routes = [] }) {
     }
   }
 
-  const productOptions = [
-    { value: '', label: '— Chọn sản phẩm —' },
-    ...products.map((p) => ({ value: String(p.productId), label: p.productName || `#${p.productId}` })),
+  const campaignOptions = [
+    { value: '', label: '— Không gắn chiến dịch —' },
+    ...campaigns.map((c) => ({ value: String(c.campaignId), label: c.campaignName || `#${c.campaignId}` })),
   ]
 
   return (
@@ -289,7 +353,7 @@ function AutonomousTab({ robots = [], routes = [] }) {
           className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-smb-primary"
         >
           {robots.length === 0 ? (
-            <option value="">Đang tải robot…</option>
+            <option value="">Chưa có robot (Nhấn F5 để thử lại)</option>
           ) : (
             robots.map((r) => (
               <option key={r.robotCode} value={r.robotCode}>
@@ -299,6 +363,38 @@ function AutonomousTab({ robots = [], routes = [] }) {
           )}
         </select>
       </div>
+
+      {missionState && missionState.status !== 'COMPLETED' && missionState.waypoints?.length > 0 && (
+        <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-3.5 mb-2 shadow-sm relative overflow-hidden">
+           <div className="flex justify-between items-center mb-2 relative z-10">
+              <div className="flex items-center gap-2">
+                 <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-500"></span>
+                 </span>
+                 <span className="font-bold text-indigo-700 text-[11px] uppercase tracking-wider">Nhiệm vụ hiện tại</span>
+              </div>
+              <span className="rounded-full bg-indigo-500 text-white px-2 py-0.5 text-[10px] font-bold">
+                 {missionState.flowType?.toUpperCase()}
+              </span>
+           </div>
+           <div className="relative z-10 flex flex-col gap-1">
+              <div className="flex justify-between text-xs">
+                 <span className="text-indigo-800/70 font-medium">Trạng thái:</span>
+                 <span className="font-bold text-indigo-700">{missionState.status}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                 <span className="text-indigo-800/70 font-medium">Waypoint:</span>
+                 <span className="font-bold text-indigo-700">
+                    {missionState.currentWaypointIndex + 1} / {missionState.waypoints.length}
+                 </span>
+              </div>
+              <div className="w-full bg-indigo-200 rounded-full h-1.5 mt-2">
+                 <div className="bg-indigo-600 h-1.5 rounded-full transition-all duration-500" style={{ width: `${Math.max(5, ((missionState.currentWaypointIndex + 1) / missionState.waypoints.length) * 100)}%` }}></div>
+              </div>
+           </div>
+        </div>
+      )}
 
       {/* 3 Flow Cards */}
       <div className="flex flex-col gap-4">
@@ -311,7 +407,7 @@ function AutonomousTab({ robots = [], routes = [] }) {
               </div>
               <div>
                 <p className="font-bold text-orange-700 dark:text-orange-400">Flow Quảng Cáo</p>
-                <p className="text-[10px] text-orange-600/70">Quảng cáo theo Kệ hàng hoặc Lộ trình</p>
+                <p className="text-[10px] text-orange-600/70">Quảng cáo theo Chiến dịch hoặc Toàn siêu thị</p>
               </div>
             </div>
             <span className="rounded-full bg-orange-500/20 px-2.5 py-1 text-[10px] font-bold text-orange-700">Linh hoạt</span>
@@ -321,149 +417,139 @@ function AutonomousTab({ robots = [], routes = [] }) {
           <div className="mb-3 grid grid-cols-2 gap-1.5 rounded-xl bg-orange-500/10 p-1">
             <button
               type="button"
-              onClick={() => setAdMode('shelf')}
+              onClick={() => setAdMode('campaign')}
               className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-bold transition-all ${
-                adMode === 'shelf'
+                adMode === 'campaign'
                   ? 'bg-white text-orange-700 shadow-sm dark:bg-orange-950 dark:text-orange-300'
                   : 'text-orange-700/70 hover:text-orange-800'
               }`}
             >
-              <Icon name="storefront" className="text-[14px]" />
-              Theo Kệ Hàng
+              <Icon name="campaign" className="text-[14px]" />
+              Theo Chiến Dịch
             </button>
             <button
               type="button"
-              onClick={() => setAdMode('route')}
+              onClick={() => setAdMode('freeroam')}
               className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-bold transition-all ${
-                adMode === 'route'
+                adMode === 'freeroam'
                   ? 'bg-white text-orange-700 shadow-sm dark:bg-orange-950 dark:text-orange-300'
                   : 'text-orange-700/70 hover:text-orange-800'
               }`}
             >
-              <Icon name="route" className="text-[14px]" />
-              Theo Lộ Trình
+              <Icon name="all_inclusive" className="text-[14px]" />
+              Quét Toàn Siêu Thị
             </button>
           </div>
 
-          {/* Mode 1: Theo Kệ Hàng */}
-          {adMode === 'shelf' && (
-            <div className="mb-3 space-y-2 rounded-xl border border-orange-500/20 bg-orange-500/5 p-2.5">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="font-semibold text-orange-800 dark:text-orange-300">Phạm vi:</span>
-                <span className="rounded-md bg-orange-500/15 px-2 py-0.5 font-bold text-orange-700">Toàn Siêu Thị (All Shelves)</span>
-              </div>
-              <div>
-                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-orange-700/70">
-                  Dừng tại mỗi kệ (Dwell Time)
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="5"
-                    max="120"
-                    value={adDwell}
-                    onChange={(e) => setAdDwell(Number(e.target.value))}
-                    className="w-20 rounded-lg border border-orange-500/40 bg-smb-surface-container-lowest px-2.5 py-1 text-xs font-semibold text-smb-on-surface outline-none focus:border-orange-500"
-                  />
-                  <span className="text-[11px] text-orange-700/80">giây / kệ (để phát video & TTS)</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Mode 2: Theo Lộ Trình */}
-          {adMode === 'route' && (
+          {/* Campaign Selector */}
+          {adMode === 'campaign' && (
             <div className="mb-3 space-y-2">
               <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-orange-700/70">
-                Lộ trình quảng cáo đã cấu hình
+                Chiến dịch (Campaign)
               </label>
               <select
-                value={activeAdRoute}
-                onChange={(e) => setSelectedAdRoute(e.target.value)}
+                value={selectedCampaign}
+                onChange={(e) => setSelectedCampaign(e.target.value)}
                 className="w-full rounded-xl border border-orange-500/40 bg-smb-surface-container-lowest px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-orange-500"
               >
-                <option value="">— Chọn route quảng cáo —</option>
-                {adRoutes.map((route) => (
-                  <option key={route.robotRouteId} value={route.robotRouteId}>
-                    {route.routeName} · {route.waypointCount} điểm
-                  </option>
-                ))}
+                {campaignOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
               </select>
-              <p className="text-[10px] italic text-orange-600/80">
-                * Robot di chuyển liên tục, Tablet phát xoay vòng các quảng cáo ưu tiên VIP.
-              </p>
             </div>
           )}
 
-          {/* Timer & Duration controls */}
-          <div className="mb-3 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-orange-700/70">
-                Hẹn giờ chạy (Duration)
+          {/* Dwell Time Setting */}
+          <div className="mb-3 space-y-2 rounded-xl border border-orange-500/20 bg-orange-500/5 p-2.5">
+            <div>
+              <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-orange-700/70">
+                Dừng tại mỗi kệ (Dwell Time)
               </label>
-              <span className="text-[11px] font-bold text-orange-600">{adDuration ? `${adDuration} phút` : 'Không giới hạn'}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              {[15, 30, 60].map((mins) => (
-                <button
-                  key={mins}
-                  type="button"
-                  onClick={() => setAdDuration(mins)}
-                  className={`flex-1 rounded-lg py-1 text-[11px] font-bold transition-all ${
-                    adDuration === mins
-                      ? 'bg-orange-600 text-white shadow-sm'
-                      : 'border border-orange-500/30 bg-smb-surface-container-lowest text-orange-700 hover:bg-orange-500/10'
-                  }`}
-                >
-                  {mins} phút
-                </button>
-              ))}
-              <input
-                type="number"
-                min="1"
-                max="300"
-                placeholder="Tùy chỉnh"
-                value={adDuration || ''}
-                onChange={(e) => setAdDuration(e.target.value ? Number(e.target.value) : '')}
-                className="w-16 rounded-lg border border-orange-500/40 bg-smb-surface-container-lowest px-2 py-1 text-center text-xs font-semibold text-smb-on-surface outline-none focus:border-orange-500"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="5"
+                  max="120"
+                  value={adDwell}
+                  onChange={(e) => setAdDwell(Number(e.target.value))}
+                  className="w-20 rounded-lg border border-orange-500/40 bg-smb-surface-container-lowest px-2.5 py-1 text-xs font-semibold text-smb-on-surface outline-none focus:border-orange-500"
+                />
+                <span className="text-[11px] text-orange-700/80">giây / kệ (để phát video & TTS)</span>
+              </div>
             </div>
           </div>
 
-          {/* Checkbox Looping */}
-          <label className="mb-3.5 flex items-center gap-2 text-[11px] font-medium text-orange-800 dark:text-orange-300">
-            <input
-              type="checkbox"
-              checked={adLooping}
-              onChange={(e) => setAdLooping(e.target.checked)}
-              className="rounded accent-orange-600"
-            />
-            <span>Chạy tuần hoàn liên tục (Looping cycle)</span>
-          </label>
+          {/* Timer & Duration controls (Only for Free-roam) */}
+          {adMode === 'freeroam' && (
+            <>
+              <div className="mb-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-orange-700/70">
+                    Hẹn giờ chạy (Duration)
+                  </label>
+                  <span className="text-[11px] font-bold text-orange-600">{adDuration ? `${adDuration} phút` : 'Không giới hạn'}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {[15, 30, 60].map((mins) => (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => setAdDuration(mins)}
+                      className={`flex-1 rounded-lg py-1 text-[11px] font-bold transition-all ${
+                        adDuration === mins
+                          ? 'bg-orange-600 text-white shadow-sm'
+                          : 'border border-orange-500/30 bg-smb-surface-container-lowest text-orange-700 hover:bg-orange-500/10'
+                      }`}
+                    >
+                      {mins} phút
+                    </button>
+                  ))}
+                  <input
+                    type="number"
+                    min="1"
+                    max="300"
+                    placeholder="Tùy chỉnh"
+                    value={adDuration || ''}
+                    onChange={(e) => setAdDuration(e.target.value ? Number(e.target.value) : '')}
+                    className="w-16 rounded-lg border border-orange-500/40 bg-smb-surface-container-lowest px-2 py-1 text-center text-xs font-semibold text-smb-on-surface outline-none focus:border-orange-500"
+                  />
+                </div>
+              </div>
+
+              {/* Checkbox Looping */}
+              <label className="mb-3.5 flex items-center gap-2 text-[11px] font-medium text-orange-800 dark:text-orange-300">
+                <input
+                  type="checkbox"
+                  checked={adLooping}
+                  onChange={(e) => setAdLooping(e.target.checked)}
+                  className="rounded accent-orange-600"
+                />
+                <span>Chạy tuần hoàn liên tục (Looping cycle)</span>
+              </label>
+            </>
+          )}
 
           <button
-            disabled={dispatching || (adMode === 'route' && !activeAdRoute)}
+            disabled={dispatching || (adMode === 'campaign' && !selectedCampaign)}
             onClick={() => {
-              if (adMode === 'shelf') {
+              if (adMode === 'campaign') {
+                handleDispatch('ad', {
+                  campaignId: Number(selectedCampaign) || null,
+                  durationMinutes: null,
+                  dwellTimeSeconds: adDwell ? Number(adDwell) : 20,
+                  isLooping: false
+                })
+              } else if (adMode === 'freeroam') {
                 handleDispatch('ad', {
                   fullZoneMap: true,
                   durationMinutes: adDuration ? Number(adDuration) : null,
                   dwellTimeSeconds: adDwell ? Number(adDwell) : 20,
-                  isLooping: adLooping,
-                })
-              } else {
-                handleDispatch('ad', {
-                  robotRouteId: Number(activeAdRoute),
-                  durationMinutes: adDuration ? Number(adDuration) : null,
-                  dwellTimeSeconds: 0,
-                  isLooping: adLooping,
+                  isLooping: adLooping
                 })
               }
             }}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 to-orange-500 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-orange-700 hover:to-orange-600 active:scale-95 disabled:opacity-50 disabled:scale-100"
           >
             {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="play_arrow" className="text-[16px]" />}
-            {adMode === 'shelf' ? 'Phát Lệnh Quảng Cáo Theo Kệ' : 'Phát Lệnh Quảng Cáo Theo Lộ Trình'}
+            {adMode === 'campaign' ? 'Phát Lệnh Quảng Cáo Theo Chiến Dịch' : 'Phát Lệnh Quét Toàn Siêu Thị'}
           </button>
 
           <StatusBadge msg={adMsg} />
@@ -480,6 +566,9 @@ function AutonomousTab({ robots = [], routes = [] }) {
               <div>
                 <p className="font-bold text-blue-700 dark:text-blue-400">Flow Tuần Tra Kệ Hàng</p>
                 <p className="text-[10px] text-blue-600/70">Robot chụp ảnh kệ → Gemini AI phân tích mật độ</p>
+                <div className="mt-1 inline-flex items-center gap-1 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 border border-blue-500/20">
+                  🔍 AI Vision Scan: Chụp ảnh & Phân tích kệ hàng
+                </div>
               </div>
             </div>
             <span className="rounded-full bg-blue-500/20 px-2.5 py-1 text-[10px] font-bold text-blue-700">AI Vision</span>
@@ -517,44 +606,6 @@ function AutonomousTab({ robots = [], routes = [] }) {
           <WaypointList waypoints={patrolWaypoints} />
         </div>
 
-        {/* Flow 3: Dẫn Đường */}
-        <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 to-emerald-50/30 p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="flex size-8 items-center justify-center rounded-xl bg-emerald-500/15">
-                <Icon name="near_me" className="text-[18px] text-emerald-600" />
-              </div>
-              <div>
-                <p className="font-bold text-emerald-700 dark:text-emerald-400">Flow Dẫn Đường Khách</p>
-                <p className="text-[10px] text-emerald-600/70">Robot dẫn khách từ vị trí hiện tại đến kệ hàng</p>
-              </div>
-            </div>
-            <span className="rounded-full bg-emerald-500/20 px-2.5 py-1 text-[10px] font-bold text-emerald-700">Tự động</span>
-          </div>
-
-          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-emerald-700/70">
-            Sản phẩm đích
-          </label>
-          <select
-            value={selectedProductId}
-            onChange={(e) => setSelectedProductId(e.target.value)}
-            className="mb-3 w-full rounded-xl border border-emerald-500/40 bg-smb-surface-container-lowest px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-emerald-500"
-          >
-            {productOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-
-          <button
-            disabled={dispatching || !selectedProductId}
-            onClick={() => handleDispatch('guide', { productId: parseInt(selectedProductId, 10) })}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-emerald-700 hover:to-emerald-600 active:scale-95 disabled:opacity-50 disabled:scale-100"
-          >
-            {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="near_me" className="text-[16px]" />}
-            Phát lệnh dẫn đường
-          </button>
-
-          <StatusBadge msg={guideMsg} />
-          <WaypointList waypoints={guideWaypoints} />
-        </div>
       </div>
 
       {readiness && (
@@ -569,6 +620,7 @@ function AutonomousTab({ robots = [], routes = [] }) {
         <button disabled={dispatching} onClick={() => handleControl(resumeRobotNavigation, 'TIẾP TỤC')} className="rounded-xl bg-emerald-600 py-2.5 font-bold text-white disabled:opacity-50">▶ Tiếp tục</button>
         <button disabled={dispatching} onClick={handleCancel} className="rounded-xl bg-rose-600 py-2.5 font-bold text-white disabled:opacity-50">⏹ Dừng nhiệm vụ</button>
         <button disabled={dispatching} onClick={() => handleControl(emergencyStopRobot, 'E-STOP')} className="rounded-xl bg-red-950 py-2.5 font-bold text-white disabled:opacity-50">🚨 E-STOP</button>
+        <button disabled={dispatching} onClick={() => handleDispatch('return', { nodeIds: [10023], floorId: 1 })} className="col-span-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 py-3 font-bold text-white shadow-sm transition-all hover:from-indigo-700 hover:to-indigo-600 disabled:opacity-50">🏠 Về Trạm Sạc (WP7)</button>
       </div>
       <StatusBadge msg={estopMsg} />
 
@@ -845,16 +897,16 @@ function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot }
 
 function AssignTab({
   robots, routes, map,
-  onPreviewRoute, onRouteCreated,
+  onPreviewRoute, onRouteCreated, onSelectForExecution
 }) {
-  const [mode, setMode] = useState('list') // 'list' | 'new'
+  const [mode, setMode] = useState('list') // 'list' | 'create'
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="border-b border-smb-outline-variant p-4">
         <h3 className="text-sm font-semibold text-smb-on-surface">Gán lộ trình</h3>
         <p className="mt-1 text-xs text-smb-on-surface-variant">
-          Quản lý lộ trình trên active map của ROS Bridge.
+          Quản lý lộ trình trên sơ đồ mặt bằng hiện tại.
         </p>
       </header>
 
@@ -872,6 +924,7 @@ function AssignTab({
           <RouteList
             routes={routes}
             onPreviewRoute={onPreviewRoute}
+            onSelectForExecution={onSelectForExecution}
           />
         ) : (
           <NewRouteForm
@@ -907,7 +960,7 @@ function SubTab({ active, onClick, children }) {
 
 /* --- Route list (route-centric, no assignment actions) -------------- */
 
-function RouteList({ routes, onPreviewRoute }) {
+function RouteList({ routes, onPreviewRoute, onSelectForExecution }) {
   if (!routes.length) {
     return (
       <div className="flex flex-col items-center gap-2 py-10 text-center text-smb-on-surface-variant">
@@ -928,11 +981,14 @@ function RouteList({ routes, onPreviewRoute }) {
             className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-low"
           >
             {/* Header */}
-            <div className="flex items-start justify-between gap-3 p-3 pb-2">
+            <div 
+              className="flex items-start justify-between gap-3 p-3 pb-2 cursor-pointer hover:bg-smb-surface-container-high transition-colors"
+              onClick={() => onSelectForExecution?.(r)}
+            >
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-smb-on-surface">{r.routeName}</p>
+                <p className="truncate text-sm font-semibold text-smb-on-surface group-hover:text-smb-primary">{r.routeName}</p>
                 <p className="mt-0.5 text-[11px] text-smb-on-surface-variant">
-                  Map #{r.mapId} · {r.zoneName ?? 'Chưa gán khu vực'} · {r.waypointCount} điểm dừng
+                  Map #{r.mapId} · {r.zoneName ?? 'Chưa gán khu vực'} · {JSON.parse(r.pathNodesJson || '[]').length || r.waypointCount || 0} điểm đến
                 </p>
                 {r.description && (
                   <p className="mt-1 line-clamp-2 text-xs text-smb-on-surface-variant">
@@ -955,8 +1011,15 @@ function RouteList({ routes, onPreviewRoute }) {
             </div>
 
             {/* Owner (which robot owns this route) */}
-            <div className="border-t border-smb-outline-variant px-3 py-1.5 text-[11px] text-smb-on-surface-variant">
-              Tạo bởi robot <span className="font-mono">#{isOwner ?? '—'}</span>
+            <div className="border-t border-smb-outline-variant px-3 py-1.5 text-[11px] text-smb-on-surface-variant flex justify-between items-center">
+              <span>
+                Dành cho: <span className="font-mono text-smb-primary font-semibold">{r.robotCode || (r.robotId ? `Robot #${r.robotId}` : 'Mọi Robot')}</span>
+              </span>
+              {r.createdAt && (
+                <span className="text-[10px] opacity-70">
+                  Tạo ngày: {new Date(r.createdAt).toLocaleDateString('vi-VN')}
+                </span>
+              )}
             </div>
 
             {onPreviewRoute && (
@@ -988,7 +1051,7 @@ function NewRouteForm({ robots, map, onCreated }) {
     routeName: '',
     routeType: 'patrol',
     description: '',
-    robotId: '',
+    robotId: robots.length === 1 ? String(robots[0].robotId) : '',
     mapId: map?.mapId ?? '',
     zoneId: '',
     nodeIds: [], // ordered array of numbers
@@ -997,22 +1060,14 @@ function NewRouteForm({ robots, map, onCreated }) {
   const [error, setError] = useState(null)
 
   const [zones, setZones] = useState([])
-  const [routeTypes, setRouteTypes] = useState([])
   const [loadingZones, setLoadingZones] = useState(false)
 
-  // Load route types from BE; dropdown will be empty if the endpoint fails.
+  // Auto-select robot if only 1 exists
   useEffect(() => {
-    let cancelled = false
-    fetchRouteTypes()
-      .then((list) => {
-        if (cancelled) return
-        if (Array.isArray(list) && list.length) {
-          setRouteTypes(list.map((t) => ({ value: t.value, label: t.label })))
-        }
-      })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [])
+    if (robots.length === 1 && !form.robotId) {
+      setForm(prev => ({ ...prev, robotId: String(robots[0].robotId) }))
+    }
+  }, [robots, form.robotId])
 
   // When mapId changes, reload zones from /v1/zones (filtered by floor).
   useEffect(() => {
@@ -1049,8 +1104,35 @@ function NewRouteForm({ robots, map, onCreated }) {
   }, [map, form.mapId])
 
   const addNode = (nodeId) => {
+    const node = nodesForMap.find((n) => String(n.nodeId) === String(nodeId))
+    if (!node || (!node.shelfId && !node.shelfName)) {
+      toast.warning('Điểm này không thuộc kệ hàng nào. Vui lòng chọn node có gắn kệ!')
+      return
+    }
     setForm((prev) => ({ ...prev, nodeIds: [...prev.nodeIds, Number(nodeId)] }))
   }
+
+  const autoGenerateNodesForZone = () => {
+    if (!form.zoneId) {
+      toast.warning('Vui lòng chọn Zone trước để tự động thêm!')
+      return
+    }
+    const zoneNodes = nodesForMap.filter(n => 
+      String(n.zoneId) === String(form.zoneId) && (n.shelfId || n.shelfName)
+    )
+    if (zoneNodes.length === 0) {
+      toast.warning('Không tìm thấy node nào thuộc Zone này có gắn kệ.')
+      return
+    }
+    const newNodeIds = zoneNodes.map(n => Number(n.nodeId))
+    setForm(prev => {
+      const existing = new Set(prev.nodeIds)
+      const toAdd = newNodeIds.filter(id => !existing.has(id))
+      return { ...prev, nodeIds: [...prev.nodeIds, ...toAdd] }
+    })
+    toast.success(`Đã tự động thêm ${zoneNodes.length} node có kệ trong Zone!`)
+  }
+
   const removeNodeAt = (index) => {
     setForm((prev) => ({
       ...prev,
@@ -1108,8 +1190,12 @@ function NewRouteForm({ robots, map, onCreated }) {
   const nodeLabelById = useMemo(() => {
     const m = new Map()
     nodesForMap.forEach((n) => {
+      let label = n.nodeName || ''
+      if (!label || label.toLowerCase().startsWith('node ') || label.toLowerCase().startsWith('waypoint ')) {
+        label = `Điểm đến ${n.nodeId}`
+      }
       m.set(Number(n.nodeId), {
-        label: n.nodeName || `Node ${n.nodeId}`,
+        label,
         type: n.nodeType ?? null,
         blocked: !!n.isBlocked,
       })
@@ -1136,26 +1222,26 @@ function NewRouteForm({ robots, map, onCreated }) {
         />
       </Field>
 
-      <Field label="ROS map đang hoạt động *">
+      <Field label="Sơ đồ mặt bằng hiện tại *">
         {selectedMap && (
           <div className="rounded border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
             <p className="text-xs font-semibold text-emerald-600">
-              #{selectedMap.mapId} · {selectedMap.mapName}
+              Sơ đồ #{selectedMap.mapId}{selectedMap.mapName && selectedMap.mapName !== 'ROS2 SLAM Map' ? ` · ${selectedMap.mapName}` : ''}
             </p>
             <p className="mt-1 text-[11px] text-smb-on-surface-variant">
               {selectedMap.widthMeters}×{selectedMap.heightMeters} m ·{' '}
-              {nodesForMap.length || selectedMap.nodeCount || 0} node khả dụng
+              {nodesForMap.length || selectedMap.nodeCount || 0} điểm khả dụng
             </p>
           </div>
         )}
         {!selectedMap && (
           <p className="rounded border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-600">
-            Chưa có active map cho ROS Bridge. Không thể tạo lộ trình.
+            Chưa có sơ đồ mặt bằng nào. Không thể tạo lộ trình.
           </p>
         )}
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3">
         <Field label="Zone (tùy chọn)">
           <Select
             value={form.zoneId}
@@ -1177,20 +1263,13 @@ function NewRouteForm({ robots, map, onCreated }) {
             ]}
           />
         </Field>
-        <Field label="Loại lộ trình *">
-          <Select
-            value={form.routeType}
-            onChange={(v) => set({ routeType: v })}
-            options={routeTypes.map((t) => ({ value: t.value, label: t.label }))}
-          />
-        </Field>
       </div>
 
       <Field label="Robot sở hữu *">
         <Select
           value={form.robotId}
           onChange={(v) => set({ robotId: v })}
-          placeholder="-- chọn robot --"
+          placeholder={robots.length === 1 ? undefined : "-- chọn robot --"}
           options={robots.map((r) => ({
             value: r.robotId,
             label: `${r.robotName} · ${r.robotCode}`,
@@ -1209,9 +1288,19 @@ function NewRouteForm({ robots, map, onCreated }) {
         ) : (
           <>
             <div className="rounded border border-smb-outline-variant bg-smb-surface-container-lowest p-2">
-              <p className="mb-1.5 text-[11px] text-smb-on-surface-variant">
-                Click để thêm vào thứ tự
-              </p>
+              <div className="mb-1.5 flex items-center justify-between">
+                <p className="text-[11px] text-smb-on-surface-variant">
+                  Click để thêm vào thứ tự
+                </p>
+                <button
+                  type="button"
+                  onClick={autoGenerateNodesForZone}
+                  className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors"
+                >
+                  <Icon name="auto_awesome" className="text-[12px]" />
+                  Tự động thêm Kệ trong Zone
+                </button>
+              </div>
               <div className="flex flex-wrap gap-1.5">
                 {nodesForMap.map((n) => {
                   const info = nodeLabelById.get(Number(n.nodeId))
@@ -1220,10 +1309,11 @@ function NewRouteForm({ robots, map, onCreated }) {
                       key={n.nodeId}
                       type="button"
                       onClick={() => addNode(n.nodeId)}
-                      className="inline-flex items-center gap-1 rounded-full border border-smb-outline-variant bg-smb-surface-container-low px-2 py-0.5 text-[11px] font-medium text-smb-on-surface hover:border-smb-primary-container hover:bg-smb-active-bg"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-smb-outline-variant bg-smb-surface-container-lowest px-2.5 py-1 text-[11px] font-medium text-smb-on-surface hover:border-smb-primary-container hover:bg-smb-active-bg shadow-sm transition-all active:scale-95"
                     >
-                      <Icon name="add_location" className="text-[12px]" />
-                      {info.label} <span className="font-mono text-[10px] text-smb-on-surface-variant">#{n.nodeId}</span>
+                      <Icon name="add_location" className="text-[14px] text-smb-primary" />
+                      <span className="max-w-[140px] truncate">{info.label}</span>
+                      <span className="rounded bg-smb-surface-container-highest px-1.5 py-0.5 font-mono text-[9px] text-smb-on-surface-variant">#{n.nodeId}</span>
                     </button>
                   )
                 })}
@@ -1231,58 +1321,98 @@ function NewRouteForm({ robots, map, onCreated }) {
             </div>
 
             {form.nodeIds.length > 0 && (
-              <div className="mt-2 rounded border border-smb-outline-variant bg-smb-surface-container-lowest p-2">
-                <p className="mb-1.5 text-[11px] text-smb-on-surface-variant">
-                  Thứ tự di chuyển ({form.nodeIds.length} điểm dừng)
-                </p>
-                <ol className="flex flex-wrap gap-1.5">
-                  {form.nodeIds.map((id, idx) => {
-                    const info = nodeLabelById.get(id)
-                    return (
-                      <li
-                        key={`${id}-${idx}`}
-                        className="inline-flex items-center gap-1 rounded-full bg-smb-primary-container px-2 py-0.5 text-[11px] font-medium text-smb-on-primary"
-                      >
-                        <span className="font-mono text-[10px] opacity-80">{idx + 1}.</span>
-                        {info?.label ?? `Node ${id}`}
-                        <button
-                          type="button"
-                          onClick={() => moveNode(idx, -1)}
-                          disabled={idx === 0}
-                          className="ml-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded hover:bg-smb-on-primary/20 disabled:opacity-30"
-                          aria-label="Lên"
-                          title="Lên"
-                        >
-                          <Icon name="arrow_upward" className="text-[12px]" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => moveNode(idx, 1)}
-                          disabled={idx === form.nodeIds.length - 1}
-                          className="inline-flex h-3.5 w-3.5 items-center justify-center rounded hover:bg-smb-on-primary/20 disabled:opacity-30"
-                          aria-label="Xuống"
-                          title="Xuống"
-                        >
-                          <Icon name="arrow_downward" className="text-[12px]" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removeNodeAt(idx)}
-                          className="inline-flex h-3.5 w-3.5 items-center justify-center rounded hover:bg-smb-on-primary/20"
-                          aria-label="Xóa"
-                          title="Xóa"
-                        >
-                          <Icon name="close" className="text-[12px]" />
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ol>
+              <div className="mt-4 rounded-xl border border-smb-outline-variant bg-smb-surface-container-lowest overflow-hidden shadow-sm">
+                <div className="bg-smb-surface-container-low px-4 py-2.5 border-b border-smb-outline-variant flex items-center justify-between">
+                  <p className="text-xs font-semibold text-smb-on-surface">
+                    Thứ tự di chuyển
+                  </p>
+                  <span className="rounded-full bg-smb-primary/10 text-smb-primary px-2 py-0.5 text-[10px] font-bold">
+                    {form.nodeIds.length} điểm
+                  </span>
+                </div>
+                <div className="p-4 pt-5 pb-6">
+                  <div className="relative border-l-2 border-smb-primary-container/30 ml-3 space-y-5">
+                    {form.nodeIds.map((id, idx) => {
+                      const info = nodeLabelById.get(id)
+                      const isLast = idx === form.nodeIds.length - 1
+                      return (
+                        <div key={`${id}-${idx}`} className="relative pl-6 flex items-center justify-between group">
+                          {/* Timeline dot */}
+                          <div className="absolute -left-[9px] flex size-4 items-center justify-center rounded-full bg-smb-surface-container-lowest border-2 border-smb-primary-container ring-4 ring-smb-surface-container-lowest shadow-sm">
+                            <div className="size-1.5 rounded-full bg-smb-primary-container"></div>
+                          </div>
+
+                          <div className="flex items-center gap-3 min-w-0 flex-1 bg-smb-surface-container-lowest group-hover:bg-smb-surface-container-low rounded-lg p-2 -my-2 transition-colors border border-transparent group-hover:border-smb-outline-variant/40">
+                            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-smb-primary/10 text-[11px] font-bold text-smb-primary shadow-sm">
+                              {idx + 1}
+                            </span>
+                            <div className="min-w-0 flex-1 flex flex-wrap items-center gap-2">
+                              <Icon name="location_on" className="text-[18px] text-smb-on-surface-variant shrink-0" />
+                              <span className="font-semibold text-smb-on-surface text-sm truncate max-w-[200px]">
+                                {info?.label ?? `Điểm đến ${id}`}
+                              </span>
+                              <span className="rounded bg-smb-surface-container-highest px-1.5 py-0.5 text-[10px] font-mono text-smb-on-surface-variant shrink-0 shadow-sm border border-smb-outline-variant/30">
+                                #{id}
+                              </span>
+                              {info?.type && !info.label.includes(info.type) && (
+                                <span className="rounded-full bg-smb-surface-container-high px-2 py-0.5 text-[10px] text-smb-on-surface-variant shrink-0 border border-smb-outline-variant/50">
+                                  {info.type}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 ml-2">
+                            <button
+                              type="button"
+                              onClick={() => moveNode(idx, -1)}
+                              disabled={idx === 0}
+                              className="flex size-7 items-center justify-center rounded-lg text-smb-on-surface-variant hover:bg-smb-surface-container-high hover:text-smb-primary disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                              title="Di chuyển lên"
+                            >
+                              <Icon name="arrow_upward" className="text-[16px]" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveNode(idx, 1)}
+                              disabled={isLast}
+                              className="flex size-7 items-center justify-center rounded-lg text-smb-on-surface-variant hover:bg-smb-surface-container-high hover:text-smb-primary disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                              title="Di chuyển xuống"
+                            >
+                              <Icon name="arrow_downward" className="text-[16px]" />
+                            </button>
+                            <div className="w-px h-4 bg-smb-outline-variant/40 mx-0.5"></div>
+                            <button
+                              type="button"
+                              onClick={() => removeNodeAt(idx)}
+                              className="flex size-7 items-center justify-center rounded-lg text-rose-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 transition-colors"
+                              title="Xóa khỏi lộ trình"
+                            >
+                              <Icon name="delete" className="text-[16px]" />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
               </div>
             )}
           </>
         )}
       </Field>
+
+      {/* Link to Map Editor / Shelf Management */}
+      <div className="flex justify-end -mt-1 mb-3">
+        <button
+          type="button"
+          onClick={() => window.open('/shelf-management', '_blank')}
+          className="inline-flex items-center gap-1 text-[11px] font-bold text-smb-primary hover:text-smb-primary-container transition-colors"
+        >
+          <Icon name="tune" className="text-[14px]" />
+          Thiết lập Kệ & Node
+        </button>
+      </div>
 
       <Field label="Mô tả (tùy chọn)">
         <input
