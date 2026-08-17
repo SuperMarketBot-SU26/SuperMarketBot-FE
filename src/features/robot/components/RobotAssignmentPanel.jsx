@@ -114,6 +114,7 @@ import {
   getActiveCampaigns,
   getRobotMissionState,
 } from '../api/navigationApi'
+import { getShelves } from '../api/shelvesApi'
 
 // Status badge colours
 const STATUS_OK  = 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
@@ -199,13 +200,21 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
     if (robot && onSelectRobot) onSelectRobot(robot)
   }
 
-  const [adMode, setAdMode] = useState('campaign') // 'freeroam' | 'campaign'
   const [selectedPatrolRoute, setSelectedPatrolRoute] = useState('')
+  const [patrolMode, setPatrolMode] = useState('route') // 'route' | 'shelf'
+  const [shelves, setShelves] = useState([])
+  const [selectedNodeIds, setSelectedNodeIds] = useState([])
 
-  // Duration & Dwell settings
-  const [adDuration, setAdDuration] = useState(30) // default 30 mins
+  useEffect(() => {
+    getShelves().then(setShelves).catch(() => {})
+  }, [])
+
+  const validShelves = useMemo(() => shelves.filter(s => s.nodeId != null), [shelves])
+
+
+  // Dwell & Duration settings
   const [adDwell, setAdDwell] = useState(20) // default 20s for shelf
-  const [adLooping, setAdLooping] = useState(true)
+  const [adDuration, setAdDuration] = useState('') // optional total duration in minutes
 
   const [adMsg, setAdMsg]         = useState(null)
   const [adWaypoints, setAdWaypoints] = useState(null)
@@ -253,7 +262,7 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
   useEffect(() => {
     if (defaultRoute) {
       if (defaultRoute.routeType?.toLowerCase().includes('ad')) {
-         setAdMode('campaign')
+         // Defaulting to ad campaign 
       } else {
          setSelectedPatrolRoute(String(defaultRoute.robotRouteId))
       }
@@ -338,7 +347,7 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
   }
 
   const campaignOptions = [
-    { value: '', label: '— Không gắn chiến dịch —' },
+    { value: '', label: '— Không gắn chiến dịch (Quảng cáo tự do toàn siêu thị) —' },
     ...campaigns.map((c) => ({ value: String(c.campaignId), label: c.campaignName || `#${c.campaignId}` })),
   ]
 
@@ -413,52 +422,22 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
             <span className="rounded-full bg-orange-500/20 px-2.5 py-1 text-[10px] font-bold text-orange-700">Linh hoạt</span>
           </div>
 
-          {/* Ad Mode Segmented Buttons */}
-          <div className="mb-3 grid grid-cols-2 gap-1.5 rounded-xl bg-orange-500/10 p-1">
-            <button
-              type="button"
-              onClick={() => setAdMode('campaign')}
-              className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-bold transition-all ${
-                adMode === 'campaign'
-                  ? 'bg-white text-orange-700 shadow-sm dark:bg-orange-950 dark:text-orange-300'
-                  : 'text-orange-700/70 hover:text-orange-800'
-              }`}
+          {/* Campaign Selector */}
+          <div className="mb-3 space-y-2">
+            <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-orange-700/70">
+              Chiến dịch (Campaign)
+            </label>
+            <select
+              value={selectedCampaign}
+              onChange={(e) => setSelectedCampaign(e.target.value)}
+              className="w-full rounded-xl border border-orange-500/40 bg-smb-surface-container-lowest px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-orange-500"
             >
-              <Icon name="campaign" className="text-[14px]" />
-              Theo Chiến Dịch
-            </button>
-            <button
-              type="button"
-              onClick={() => setAdMode('freeroam')}
-              className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-bold transition-all ${
-                adMode === 'freeroam'
-                  ? 'bg-white text-orange-700 shadow-sm dark:bg-orange-950 dark:text-orange-300'
-                  : 'text-orange-700/70 hover:text-orange-800'
-              }`}
-            >
-              <Icon name="all_inclusive" className="text-[14px]" />
-              Quét Toàn Siêu Thị
-            </button>
+              {campaignOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+            </select>
           </div>
 
-          {/* Campaign Selector */}
-          {adMode === 'campaign' && (
-            <div className="mb-3 space-y-2">
-              <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-orange-700/70">
-                Chiến dịch (Campaign)
-              </label>
-              <select
-                value={selectedCampaign}
-                onChange={(e) => setSelectedCampaign(e.target.value)}
-                className="w-full rounded-xl border border-orange-500/40 bg-smb-surface-container-lowest px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-orange-500"
-              >
-                {campaignOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-              </select>
-            </div>
-          )}
-
-          {/* Dwell Time Setting */}
-          <div className="mb-3 space-y-2 rounded-xl border border-orange-500/20 bg-orange-500/5 p-2.5">
+          {/* Dwell Time & Duration Setting */}
+          <div className="mb-3 space-y-2.5 rounded-xl border border-orange-500/20 bg-orange-500/5 p-3">
             <div>
               <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-orange-700/70">
                 Dừng tại mỗi kệ (Dwell Time)
@@ -475,81 +454,43 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
                 <span className="text-[11px] text-orange-700/80">giây / kệ (để phát video & TTS)</span>
               </div>
             </div>
-          </div>
 
-          {/* Timer & Duration controls (Only for Free-roam) */}
-          {adMode === 'freeroam' && (
-            <>
-              <div className="mb-3 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-orange-700/70">
-                    Hẹn giờ chạy (Duration)
-                  </label>
-                  <span className="text-[11px] font-bold text-orange-600">{adDuration ? `${adDuration} phút` : 'Không giới hạn'}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {[15, 30, 60].map((mins) => (
-                    <button
-                      key={mins}
-                      type="button"
-                      onClick={() => setAdDuration(mins)}
-                      className={`flex-1 rounded-lg py-1 text-[11px] font-bold transition-all ${
-                        adDuration === mins
-                          ? 'bg-orange-600 text-white shadow-sm'
-                          : 'border border-orange-500/30 bg-smb-surface-container-lowest text-orange-700 hover:bg-orange-500/10'
-                      }`}
-                    >
-                      {mins} phút
-                    </button>
-                  ))}
+            {!selectedCampaign && (
+              <div className="border-t border-orange-500/15 pt-2">
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-orange-700/70">
+                  Tổng thời gian di chuyển (Hẹn giờ lặp lại)
+                </label>
+                <div className="flex items-center gap-2">
                   <input
                     type="number"
                     min="1"
-                    max="300"
-                    placeholder="Tùy chỉnh"
-                    value={adDuration || ''}
-                    onChange={(e) => setAdDuration(e.target.value ? Number(e.target.value) : '')}
-                    className="w-16 rounded-lg border border-orange-500/40 bg-smb-surface-container-lowest px-2 py-1 text-center text-xs font-semibold text-smb-on-surface outline-none focus:border-orange-500"
+                    max="480"
+                    placeholder="Tùy chọn"
+                    value={adDuration}
+                    onChange={(e) => setAdDuration(e.target.value)}
+                    className="w-24 rounded-lg border border-orange-500/40 bg-smb-surface-container-lowest px-2.5 py-1 text-xs font-semibold text-smb-on-surface outline-none focus:border-orange-500"
                   />
+                  <span className="text-[11px] text-orange-700/80">phút (để trống = đi 1 vòng toàn bộ kệ)</span>
                 </div>
               </div>
-
-              {/* Checkbox Looping */}
-              <label className="mb-3.5 flex items-center gap-2 text-[11px] font-medium text-orange-800 dark:text-orange-300">
-                <input
-                  type="checkbox"
-                  checked={adLooping}
-                  onChange={(e) => setAdLooping(e.target.checked)}
-                  className="rounded accent-orange-600"
-                />
-                <span>Chạy tuần hoàn liên tục (Looping cycle)</span>
-              </label>
-            </>
-          )}
+            )}
+          </div>
 
           <button
-            disabled={dispatching || (adMode === 'campaign' && !selectedCampaign)}
+            disabled={dispatching}
             onClick={() => {
-              if (adMode === 'campaign') {
-                handleDispatch('ad', {
-                  campaignId: Number(selectedCampaign) || null,
-                  durationMinutes: null,
-                  dwellTimeSeconds: adDwell ? Number(adDwell) : 20,
-                  isLooping: false
-                })
-              } else if (adMode === 'freeroam') {
-                handleDispatch('ad', {
-                  fullZoneMap: true,
-                  durationMinutes: adDuration ? Number(adDuration) : null,
-                  dwellTimeSeconds: adDwell ? Number(adDwell) : 20,
-                  isLooping: adLooping
-                })
-              }
+              handleDispatch('ad', {
+                campaignId: selectedCampaign ? Number(selectedCampaign) : null,
+                fullZoneMap: !selectedCampaign,
+                durationMinutes: adDuration ? Number(adDuration) : null,
+                dwellTimeSeconds: adDwell ? Number(adDwell) : 20,
+                isLooping: !!adDuration,
+              })
             }}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 to-orange-500 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-orange-700 hover:to-orange-600 active:scale-95 disabled:opacity-50 disabled:scale-100"
           >
             {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="play_arrow" className="text-[16px]" />}
-            {adMode === 'campaign' ? 'Phát Lệnh Quảng Cáo Theo Chiến Dịch' : 'Phát Lệnh Quét Toàn Siêu Thị'}
+            {selectedCampaign ? 'Phát Lệnh Quảng Cáo Theo Chiến Dịch' : 'Phát Lệnh Quảng Cáo Tự Do (Toàn Siêu Thị)'}
           </button>
 
           <StatusBadge msg={adMsg} />
@@ -574,33 +515,135 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
             <span className="rounded-full bg-blue-500/20 px-2.5 py-1 text-[10px] font-bold text-blue-700">AI Vision</span>
           </div>
 
-          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-blue-700/70">
-            Lộ trình tuần tra đã cấu hình
-          </label>
-          <select
-            value={activePatrolRoute}
-            onChange={(e) => setSelectedPatrolRoute(e.target.value)}
-            className="mb-3 w-full rounded-xl border border-blue-500/40 bg-smb-surface-container-lowest px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-blue-500"
-          >
-            <option value="">— Chọn route tuần tra —</option>
-            {patrolRoutes.map((route) => (
-              <option key={route.robotRouteId} value={route.robotRouteId}>
-                {route.routeName} · {route.waypointCount} kệ
-              </option>
-            ))}
-          </select>
-
-          <div className="mb-3 flex gap-2">
+          {/* Patrol Mode Segmented Buttons */}
+          <div className="mb-3 grid grid-cols-2 gap-1.5 rounded-xl bg-blue-500/10 p-1">
             <button
-              disabled={dispatching || !activePatrolRoute}
-              onClick={() => handleDispatch('patrol', { robotRouteId: Number(activePatrolRoute) })}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-blue-700 hover:to-blue-600 active:scale-95 disabled:opacity-50 disabled:scale-100"
+              type="button"
+              onClick={() => setPatrolMode('route')}
+              className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-bold transition-all ${
+                patrolMode === 'route'
+                  ? 'bg-white text-blue-700 shadow-sm dark:bg-blue-950 dark:text-blue-300'
+                  : 'text-blue-700/70 hover:text-blue-800'
+              }`}
             >
-              {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="search" className="text-[16px]" />}
-              Phát lệnh tuần tra
+              <Icon name="route" className="text-[14px]" />
+              Theo Route
             </button>
-
+            <button
+              type="button"
+              onClick={() => setPatrolMode('shelf')}
+              className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-bold transition-all ${
+                patrolMode === 'shelf'
+                  ? 'bg-white text-blue-700 shadow-sm dark:bg-blue-950 dark:text-blue-300'
+                  : 'text-blue-700/70 hover:text-blue-800'
+              }`}
+            >
+              <Icon name="format_list_bulleted" className="text-[14px]" />
+              Chọn Kệ
+            </button>
           </div>
+
+          {patrolMode === 'route' ? (
+            <>
+              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-blue-700/70">
+                Lộ trình tuần tra đã cấu hình
+              </label>
+              <select
+                value={activePatrolRoute}
+                onChange={(e) => setSelectedPatrolRoute(e.target.value)}
+                className="mb-3 w-full rounded-xl border border-blue-500/40 bg-smb-surface-container-lowest px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-blue-500"
+              >
+                <option value="">— Chọn route tuần tra —</option>
+                {patrolRoutes.map((route) => (
+                  <option key={route.robotRouteId} value={route.robotRouteId}>
+                    {route.routeName} · {route.waypointCount} kệ
+                  </option>
+                ))}
+              </select>
+
+              <div className="mb-3 flex gap-2">
+                <button
+                  disabled={dispatching || !activePatrolRoute}
+                  onClick={() => handleDispatch('patrol', { robotRouteId: Number(activePatrolRoute) })}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-blue-700 hover:to-blue-600 active:scale-95 disabled:opacity-50 disabled:scale-100"
+                >
+                  {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="search" className="text-[16px]" />}
+                  Phát lệnh tuần tra
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-blue-700/70">
+                  Danh sách kệ (Đã chọn: {selectedNodeIds.length}/{validShelves.length} kệ)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedNodeIds.length === validShelves.length) {
+                      setSelectedNodeIds([])
+                    } else {
+                      setSelectedNodeIds(validShelves.map(s => s.nodeId))
+                    }
+                  }}
+                  className="text-[10px] font-bold text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  {selectedNodeIds.length === validShelves.length ? 'Bỏ chọn' : 'Chọn tất cả'}
+                </button>
+              </div>
+              <div className="mb-3 max-h-[300px] overflow-y-auto rounded-xl border border-blue-500/20 bg-smb-surface-container-lowest p-1.5">
+                {validShelves.map((shelf) => {
+                  const isSelected = selectedNodeIds.includes(shelf.nodeId)
+                  return (
+                    <label
+                      key={shelf.shelfId}
+                      className={`flex cursor-pointer items-center gap-2 rounded-lg p-2 transition-colors hover:bg-blue-50/50 ${
+                        isSelected ? 'bg-blue-50/50' : ''
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="rounded accent-blue-600"
+                        checked={isSelected}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedNodeIds(prev => [...prev, shelf.nodeId])
+                          } else {
+                            setSelectedNodeIds(prev => prev.filter(id => id !== shelf.nodeId))
+                          }
+                        }}
+                      />
+                      <Icon name="shelves" className="text-[16px] text-blue-600/70" />
+                      <div className="flex-1 text-xs">
+                        <span className="font-semibold text-smb-on-surface">{shelf.shelfName}</span>
+                        {shelf.aisleName && (
+                          <span className="ml-1 text-[10px] text-smb-on-surface-variant">
+                            ({shelf.aisleName})
+                          </span>
+                        )}
+                      </div>
+                    </label>
+                  )
+                })}
+                {validShelves.length === 0 && (
+                  <div className="p-3 text-center text-xs text-smb-on-surface-variant">
+                    Không có kệ nào được gán tọa độ (nodeId).
+                  </div>
+                )}
+              </div>
+              <div className="mb-3 flex gap-2">
+                <button
+                  disabled={dispatching || selectedNodeIds.length === 0}
+                  onClick={() => handleDispatch('patrol', { nodeIds: selectedNodeIds })}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-blue-700 hover:to-blue-600 active:scale-95 disabled:opacity-50 disabled:scale-100"
+                >
+                  {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : null}
+                  🚀 Tuần tra kệ đã chọn
+                </button>
+              </div>
+            </>
+          )}
 
           <StatusBadge msg={patrolMsg} />
           <WaypointList waypoints={patrolWaypoints} />
