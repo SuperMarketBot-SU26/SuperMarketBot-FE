@@ -48,8 +48,8 @@ export const topUpWallet = (brandId, payload) =>
  * Admin deposit — admin manually adds funds to a brand's wallet.
  * Use for promotional credit, settlement, manual top-up, etc.
  *
- * Request:  { amountVnd: number, note?: string }
- * Response: { brandId, previousBalance, amountAdded, newBalance, note }
+ * Request:  { amount: number, referenceNo?: string }
+ * Response: { brandId, brandName, previousBalance, amountDeposited, newBalance }
  */
 export const adminDepositBrand = (brandId, payload) =>
   client.post(`${ENDPOINT}/${brandId}/deposit`, payload).then((res) => res.data)

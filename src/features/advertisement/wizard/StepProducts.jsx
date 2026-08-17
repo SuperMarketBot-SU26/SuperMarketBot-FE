@@ -41,14 +41,14 @@ function normalizeProduct(p) {
   }
 }
 
-export function StepProducts({ state, onChange, hasProducts, onBack, onNext, onUploadFiles }) {
+export function StepProducts({ state, onChange, hasProducts, onBack, onNext, pendingFiles = [], onUploadFiles }) {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [query, setQuery] = useState('')
 
   // Load products (hiện tại lấy toàn bộ; BE chưa hỗ trợ filter theo brandId).
-useEffect(() => {
+  useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError(null)
@@ -92,9 +92,7 @@ useEffect(() => {
   const clearAll = () => onChange({ productIds: [] })
 
   // ── Banner/Video upload (tuỳ chọn) ────────────────────────────────
-  // Lưu file vào pendingFiles; upload thực sự diễn ra SAU khi tạo campaign (cần campaignId).
-  const [pendingFiles, setPendingFiles] = useState([])
-  const [uploading, setUploading] = useState(false)
+  // Lưu file vào pendingFiles ở parent; upload thực sự diễn ra SAU khi tạo campaign (cần campaignId).
   const fileInputRef = useRef(null)
 
   const handleFileSelect = (e) => {
@@ -108,16 +106,14 @@ useEffect(() => {
       type: file.type.startsWith('video') ? 'Video' : 'Image',
       previewUrl: URL.createObjectURL(file),
     }))
-    setPendingFiles((prev) => [...prev, ...previews])
+    onUploadFiles?.([...pendingFiles, ...previews])
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   const removePending = (id) => {
-    setPendingFiles((prev) => {
-      const item = prev.find((f) => f.id === id)
-      if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl)
-      return prev.filter((f) => f.id !== id)
-    })
+    const item = pendingFiles.find((f) => f.id === id)
+    if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl)
+    onUploadFiles?.(pendingFiles.filter((f) => f.id !== id))
   }
 
   const formatBytes = (bytes) => {
@@ -125,13 +121,6 @@ useEffect(() => {
     const mb = bytes / 1024 / 1024
     return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`
   }
-
-  // Đẩy pending files ra wrapper để wrapper quyết định khi nào upload (sau khi tạo campaign).
-  useEffect(() => {
-    onUploadFiles?.(pendingFiles, setUploading)
-    return () => onUploadFiles?.([], setUploading)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingFiles])
 
   const totalValue = useMemo(
     () => selectedItems.reduce((sum, p) => sum + p.price, 0),
@@ -147,16 +136,6 @@ useEffect(() => {
           ưu tiên hiển thị khi khách hàng tương tác với các khu vực/tuyến đường đã chọn.
         </p>
       </header>
-
-      {/* Banner: BE chưa filter theo brand */}
-      <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
-        <Icon name="info" className="mt-0.5 text-[16px]" />
-        <span>
-          Hệ thống hiện hiển thị <strong>tất cả</strong> sản phẩm. Lọc theo brand sẽ được bật khi BE bổ sung query
-          <code className="mx-1 rounded bg-blue-100 px-1 py-0.5 text-[11px]">brandId</code> cho
-          <code className="mx-1 rounded bg-blue-100 px-1 py-0.5 text-[11px]">GET /api/products</code>.
-        </span>
-      </div>
 
       {error && (
         <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">

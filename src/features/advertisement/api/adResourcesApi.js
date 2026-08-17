@@ -177,3 +177,9 @@ export const deleteResource = async (resourceId) => {
   const res = await client.delete(`${ENDPOINT}/${resourceId}`)
   return res.data ?? { success: true }
 }
+
+/** Update resource details (e.g. caption). */
+export const updateResource = async (resourceId, payload) => {
+  const res = await client.put(`${ENDPOINT}/${resourceId}`, payload)
+  return res.data
+}

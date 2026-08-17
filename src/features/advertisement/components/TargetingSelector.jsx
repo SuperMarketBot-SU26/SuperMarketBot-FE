@@ -1,30 +1,21 @@
 /**
  * TargetingSelector — lets admin pick ≥1 targeting type per campaign.
  *
- * BE contract (server is source of truth — zones & shelves fetched live):
+ * BE contract (server is source of truth):
  *   - GET /api/v1/ad-campaigns/{id}             → CampaignResponseDto { routeIds[], semanticObjectId }
  *   - GET /api/v1/ad-campaigns/{id}/routes     → CampaignRoutesResponseDto { routes[] }
  *   - GET /api/v1/ad-campaigns/{id}/zones      → { zones[], zoneCount, totalZoneCharge }
- *     zones[] = { zoneId, zoneName, floorId, floorName, zonePriceCharged, purchasedAt }
  *   - GET /api/v1/ad-campaigns/{id}/shelves    → { shelves[], shelfCount, totalShelfCharge }
- *     shelves[] = { shelfId, label, shelfPriceCharged, purchasedAt }
- *   - POST /api/v1/ad-campaigns/{id}/shelves   → { shelfIds: [...] } (multi-select)
- *   - PUT /api/v1/ad-campaigns/{id}            → UpdateCampaignRequestDto (semanticObjectId + zoneIds + routeIds)
- *   - POST /api/v1/ad-campaigns/{id}/zones     → { zoneIds: [...] } (multi-select)
+ *   - POST /api/v1/ad-campaigns/{id}/shelves   → { shelfIds: [...] }
+ *   - PUT /api/v1/ad-campaigns/{id}            → UpdateCampaignRequestDto
+ *   - POST /api/v1/ad-campaigns/{id}/zones     → { zoneIds: [...] }
  *   - Activate validates: routeCount > 0 OR zoneCount > 0 OR shelfCount > 0
  *
- * Save model: each tab has its OWN "Lưu chọn" button that calls the
- * dedicated POST endpoint, returns the updated payload, then bubbles
- * the new assignment up via onTargetingChange() so parent can re-render.
- *
- * Zones, Routes, Shelves all support MULTI-SELECT now.
- *
- * Only Inactive / Paused campaigns accept POST /zones and POST /shelves.
- * When status === 'Active', all tabs become read-only.
+ * Route = "toàn bộ siêu thị" — chỉ cần 1 toggle đơn giản.
+ * Zones, Shelves hỗ trợ multi-select.
  */
 
 import React, { useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
-import Select from '../../../components/ui/Select'
 import Button from '../../../components/ui/Button'
 import client from '../../../api/client'
 import {
@@ -32,30 +23,17 @@ import {
   assignCampaignZones,
   getCampaignShelves,
   assignCampaignShelves,
-  getCampaignRoutes,
-  assignCampaignRoutes,
 } from '../api/adCampaignApi'
 
 const ENDPOINT_CAMPAIGN = '/api/v1/ad-campaigns'
-const ENDPOINT_ROUTES   = '/api/v1/routes'
 
 const TABS = [
-  { key: 'shelf',  label: 'Kệ Hàng',     icon: 'inventory_2', single: false },
-  { key: 'zone',   label: 'Khu Vực',    icon: 'grid_view',   single: false },
-  { key: 'route',  label: 'Tuyến Đường', icon: 'route',      single: false },
+  { key: 'route',  label: 'Tuyến Đường', icon: 'route' },
+  { key: 'shelf',  label: 'Kệ Hàng',     icon: 'inventory_2' },
+  { key: 'zone',   label: 'Khu Vực',    icon: 'grid_view' },
 ]
 
-const formatVND = (val) =>
-  Number(val ?? 0).toLocaleString('vi-VN')
-
-function normalizeRoutes(routes) {
-  return (routes ?? []).map((r) => ({
-    id:       r.robotRouteId,
-    name:     r.routeName ?? `Tuyến #${r.robotRouteId}`,
-    zoneId:   r.zoneId,
-    zoneName: r.zoneName,
-  }))
-}
+const formatVND = (val) => Number(val ?? 0).toLocaleString('vi-VN')
 
 export const TargetingSelector = forwardRef(function TargetingSelector(
   {
@@ -67,68 +45,63 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
   },
   ref
 ) {
-  const [activeTab, setActiveTab] = useState('shelf')
+  const [activeTab, setActiveTab] = useState('route')
   const [shelves,   setShelves]   = useState([])
-  const [allRoutes, setAllRoutes] = useState([])       // all routes on map (picker source)
-  const [assignedRoutes, setAssignedRoutes] = useState([])   // raw from BE (with price info)
-  const [zones,    setZones]     = useState([])
-  const [loading,  setLoading]    = useState(false)
+  const [zones,     setZones]     = useState([])
+  const [allRoutes, setAllRoutes] = useState([])    // all routes on map
+  const [loading,   setLoading]   = useState(false)
 
-  // Live server state (single source of truth after load)
-  const [assignedZones, setAssignedZones] = useState([])    // raw from BE
-  const [assignedShelves, setAssignedShelves] = useState([]) // array from BE
+  // Live server state
+  const [assignedZones,     setAssignedZones]     = useState([])
+  const [assignedShelves,   setAssignedShelves]   = useState([])
+  const [assignedRoutes,    setAssignedRoutes]    = useState([]) // [{ robotRouteId, routePriceCharged }]
 
-  // Working selections — user is editing these, not yet saved
-  const [pickedZoneIds, setPickedZoneIds] = useState([])
-  const [pickedShelfIds, setPickedShelfIds] = useState([])
-  const [pickedRouteIds, setPickedRouteIds] = useState(initialRouteIds ?? [])
+  // Working selections
+  const [pickedZoneIds,   setPickedZoneIds]   = useState([])
+  const [pickedShelfIds,   setPickedShelfIds]   = useState([])
+  const [pickedRouteIds,   setPickedRouteIds]   = useState([])   // selected route ids (empty = none, length > 0 = all routes)
 
-  // Per-tab pending state for the dedicated "Lưu chọn" buttons
-  const [savingTab, setSavingTab]     = useState(null)
-  const [tabError, setTabError]       = useState(null)
-  const [tabNotice, setTabNotice]     = useState(null)
+  // Per-tab state
+  const [savingTab, setSavingTab] = useState(null)
+  const [tabError,  setTabError]  = useState(null)
+  const [tabNotice, setTabNotice]  = useState(null)
 
+  // Sync route selection from initialRouteIds
   useEffect(() => {
     setPickedRouteIds(initialRouteIds ?? [])
   }, [initialRouteIds])
 
-  // Load shelves + all routes, then fetch server-truth for zones/shelf/routes
   const loadData = useCallback(async () => {
     if (!campaignId) return
     setLoading(true)
     try {
-      // Discover latest mapId for /routes filter
+      // Get all routes from map for the "all routes" selection
       const mapRes = await client.get('/api/v1/maps/latest', { params: { floorId: 1 } })
       const mapId = mapRes.data?.mapId
+      const routesRes = mapId
+        ? await client.get('/api/v1/routes', { params: { mapId } })
+        : { data: [] }
+      const routeList = (routesRes.data ?? []).map((r) => r.robotRouteId ?? r.routeId ?? r.id)
+      setAllRoutes(routeList)
 
-      const [shelfPickerRes, routeRes, zonesRes, shelfRes, campaignRoutesRes] = await Promise.all([
-        mapId
-          ? client.get('/api/v1/shelves')
-          : Promise.resolve({ data: [] }),
-        mapId
-          ? client.get(ENDPOINT_ROUTES, { params: { mapId } })
-          : Promise.resolve({ data: [] }),
+      const [zonesRes, shelfRes, campaignRoutesRes] = await Promise.all([
         getCampaignZones(campaignId),
         getCampaignShelves(campaignId),
         client.get(`${ENDPOINT_CAMPAIGN}/${campaignId}/routes`),
       ])
 
-      // Shelf PICKER (all shelves from /shelves — shows ShelfName)
+      // Shelf picker (all shelves)
+      const shelfPickerRes = await client.get('/api/v1/shelves')
       const shelfItems = (shelfPickerRes.data ?? [])
-        .map((s) => ({ value: s.shelfId, label: s.shelfName ?? `Kệ #${s.shelfId}` }))
+        .map((s) => ({ value: s.shelfId, label: s.label ?? s.shelfName ?? s.name ?? `Kệ #${s.shelfId}` }))
       setShelves(shelfItems)
 
-      // Routes (picker = all routes on map, assigned = only those bought)
-      const routeList = normalizeRoutes(routeRes.data ?? [])
-      setAllRoutes(routeList)
-      // Store assigned routes with price info from BE
-      setAssignedRoutes(campaignRoutesRes.data?.routes ?? [])
-
-      // Server-truth: zones & shelves
+      // Server truth
       setAssignedZones(zonesRes?.zones ?? [])
       setAssignedShelves(shelfRes?.shelves ?? [])
+      setAssignedRoutes(campaignRoutesRes?.routes ?? [])
 
-      // Build available zone list (unique by zoneId, name + floor info)
+      // Build zone list
       const seen = new Map()
       for (const z of zonesRes?.zones ?? []) {
         if (!seen.has(z.zoneId)) {
@@ -142,17 +115,10 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
       }
       setZones(Array.from(seen.values()))
 
-      // Initial working selection mirrors what's assigned
       setPickedZoneIds((zonesRes?.zones ?? []).map((z) => z.zoneId))
       setPickedShelfIds((shelfRes?.shelves ?? []).map((s) => s.shelfId))
-
-      // Routes: intersect with assigned
-      if (campaignRoutesRes.data?.routes) {
-        const assigned = new Set(campaignRoutesRes.data.routes.map((r) => r.robotRouteId))
-        setPickedRouteIds(Array.from(assigned))
-      }
     } catch {
-      // Non-critical — degrade gracefully
+      // Non-critical
     } finally {
       setLoading(false)
     }
@@ -160,7 +126,6 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
 
   useEffect(() => { loadData() }, [loadData])
 
-  // Bubble changes to parent for save orchestration
   const notifyChange = useCallback((patch) => {
     onTargetingChange?.({
       semanticObjectId: pickedShelfIds.length > 0 ? pickedShelfIds[0] : null,
@@ -201,23 +166,25 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
     notifyChange({ zoneIds: next })
   }
 
-  const toggleRoute = (routeId) => {
-    const next = pickedRouteIds.includes(routeId)
-      ? pickedRouteIds.filter((r) => r !== routeId)
-      : [...pickedRouteIds, routeId]
-    setPickedRouteIds(next)
+  const toggleRoute = () => {
+    if (pickedRouteIds.length > 0) {
+      // Uncheck = remove all
+      setPickedRouteIds([])
+      notifyChange({ routeIds: [] })
+    } else {
+      // Check = select all routes
+      setPickedRouteIds([...allRoutes])
+      notifyChange({ routeIds: [...allRoutes] })
+    }
     setTabError(null); setTabNotice(null)
-    notifyChange({ routeIds: next })
   }
 
-  const selectAllZones   = () => { const a = zones.map((z) => z.id);    setPickedZoneIds(a);   setTabError(null); setTabNotice(null); notifyChange({ zoneIds: a }) }
-  const clearZones      = () => { setPickedZoneIds([]);                  setTabError(null); setTabNotice(null); notifyChange({ zoneIds: [] }) }
-  const selectAllShelves = () => { const a = shelves.map((s) => s.value); setPickedShelfIds(a); setTabError(null); setTabNotice(null); notifyChange({ shelfIds: a }) }
-  const clearShelves    = () => { setPickedShelfIds([]);                 setTabError(null); setTabNotice(null); notifyChange({ shelfIds: [] }) }
-  const selectAllRoutes = () => { const a = allRoutes.map((r) => r.id);  setPickedRouteIds(a); setTabError(null); setTabNotice(null); notifyChange({ routeIds: a }) }
-  const clearRoutes    = () => { setPickedRouteIds([]);                  setTabError(null); setTabNotice(null); notifyChange({ routeIds: [] }) }
+  const selectAllZones   = () => { const a = zones.map((z) => z.id);    setPickedZoneIds(a);   notifyChange({ zoneIds: a }) }
+  const clearZones      = () => { setPickedZoneIds([]);                  notifyChange({ zoneIds: [] }) }
+  const selectAllShelves = () => { const a = shelves.map((s) => s.value); setPickedShelfIds(a); notifyChange({ shelfIds: a }) }
+  const clearShelves    = () => { setPickedShelfIds([]);                 notifyChange({ shelfIds: [] }) }
 
-  // ── Save handlers (per tab) ──────────────────────────────────────────
+  // ── Save handlers ────────────────────────────────────────────────────
   const handleSaveZones = async () => {
     if (!campaignId) return
     setSavingTab('zone'); setTabError(null); setTabNotice(null)
@@ -226,7 +193,6 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
       const returned = res?.zones ?? []
       setAssignedZones(returned)
       setPickedZoneIds(returned.map((z) => z.zoneId))
-      // rebuild picker list with newly seen zones
       setZones((prev) => {
         const map = new Map(prev.map((p) => [p.id, p]))
         for (const z of returned) {
@@ -242,11 +208,9 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
         return Array.from(map.values())
       })
       const charged = res?.totalZoneCharge ?? 0
-      setTabNotice(
-        `Đã gán ${res?.zoneCount ?? returned.length} khu vực. Phí phát sinh: ${formatVND(charged)} đ.`
-      )
+      setTabNotice(`Đã gán ${res?.zoneCount ?? returned.length} khu vực. Phí: ${formatVND(charged)} đ.`)
     } catch (err) {
-      setTabError(err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Không thể gán khu vực.')
+      setTabError(err?.response?.data?.error || err.message || 'Không thể gán khu vực.')
     } finally {
       setSavingTab(null)
     }
@@ -262,34 +226,11 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
       setPickedShelfIds(returned.map((s) => s.shelfId))
       const charged = res?.totalShelfCharge ?? 0
       const count = res?.shelfCount ?? returned.length
-      setTabNotice(
-        count > 0
-          ? `Đã gán ${count} kệ hàng. Phí phát sinh: ${formatVND(charged)} đ.`
-          : 'Đã gỡ tất cả kệ khỏi chiến dịch.'
-      )
+      setTabNotice(count > 0
+        ? `Đã gán ${count} kệ hàng. Phí: ${formatVND(charged)} đ.`
+        : 'Đã gỡ tất cả kệ khỏi chiến dịch.')
     } catch (err) {
-      setTabError(err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Không thể gán kệ hàng.')
-    } finally {
-      setSavingTab(null)
-    }
-  }
-
-  const handleSaveRoutes = async () => {
-    if (!campaignId) return
-    setSavingTab('route'); setTabError(null); setTabNotice(null)
-    try {
-      const res = await assignCampaignRoutes(campaignId, pickedRouteIds)
-      const returned = res?.routes ?? []
-      setAssignedRoutes(returned)
-      const charged = res?.totalRouteCharge ?? 0
-      const count = res?.routeCount ?? returned.length
-      setTabNotice(
-        count > 0
-          ? `Đã gán ${count} tuyến đường. Phí phát sinh: ${formatVND(charged)} đ.`
-          : 'Đã gỡ tất cả tuyến đường khỏi chiến dịch.'
-      )
-    } catch (err) {
-      setTabError(err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Không thể gán tuyến đường.')
+      setTabError(err?.response?.data?.error || err.message || 'Không thể gán kệ hàng.')
     } finally {
       setSavingTab(null)
     }
@@ -298,16 +239,14 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
   // ── Counts ────────────────────────────────────────────────────────────
   const shelfCount = pickedShelfIds.length
   const zoneCount  = pickedZoneIds.length
-  const routeCount = pickedRouteIds.length
-  const totalCount = shelfCount + zoneCount + routeCount
+  const totalCount = (routeSelected ? 1 : 0) + shelfCount + zoneCount
 
-  // ── Derived "is this tab dirty?" ──────────────────────────────────────
+  // ── Dirty checks ──────────────────────────────────────────────────────
   const isZonesDirty = JSON.stringify([...pickedZoneIds].sort())
     !== JSON.stringify([...assignedZones.map((z) => z.zoneId)].sort())
   const isShelvesDirty = JSON.stringify([...pickedShelfIds].sort())
     !== JSON.stringify([...assignedShelves.map((s) => s.shelfId)].sort())
-  const isRoutesDirty = JSON.stringify([...pickedRouteIds].sort())
-    !== JSON.stringify([...assignedRoutes.map((r) => r.robotRouteId)].sort())
+  const isRouteDirty = routeSelected !== (assignedRoutes.length > 0)
 
   return (
     <div className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest p-6">
@@ -319,7 +258,7 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
         <div>
           <h3 className="text-base font-semibold text-smb-on-surface">Nhắm Đích Chiến Dịch</h3>
           <p className="text-sm text-smb-on-surface-variant">
-            Chọn tối thiểu 1 loại: Kệ, Khu Vực, hoặc Tuyến Đường để kích hoạt
+            Chọn tối thiểu 1 loại: Tuyến Đường, Kệ, hoặc Khu Vực để kích hoạt
           </p>
         </div>
       </div>
@@ -329,7 +268,7 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
         <div className="mb-4 flex items-start gap-2 rounded border border-amber-200 bg-amber-50 p-3">
           <span className="material-symbols-outlined mt-0.5 text-[16px] text-amber-600">warning</span>
           <p className="text-xs text-amber-700">
-            Chiến dịch chưa có đối tượng nhắm đích. Cần chọn ít nhất 1 Kệ / Khu Vực / Tuyến Đường trước khi kích hoạt.
+            Chiến dịch chưa có đối tượng nhắm đích. Cần chọn ít nhất 1 loại trước khi kích hoạt.
           </p>
         </div>
       )}
@@ -346,9 +285,9 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
       {/* Tabs */}
       <div className="mb-4 flex gap-1 rounded-lg border border-smb-outline-variant bg-smb-surface-container p-1">
         {TABS.map((tab) => {
-          const count = tab.key === 'shelf' ? shelfCount
-                      : tab.key === 'zone'  ? zoneCount
-                      : routeCount
+          const count = tab.key === 'route' ? pickedRouteIds.length
+                      : tab.key === 'shelf' ? shelfCount
+                      : zoneCount
           return (
             <button
               key={tab.key}
@@ -379,7 +318,7 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
         })}
       </div>
 
-      {/* Per-tab feedback (error / notice) */}
+      {/* Feedback */}
       {tabError && (
         <div className="mb-3 flex items-start gap-2 rounded border border-red-200 bg-red-50 p-3 text-xs text-red-700">
           <span className="material-symbols-outlined mt-0.5 text-[14px]">error</span>
@@ -402,6 +341,68 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
           </div>
         )}
 
+        {/* Route tab — hiển thị từng tuyến để chọn */}
+        {!loading && activeTab === 'route' && (
+          allRoutes.length === 0
+            ? <p className="py-8 text-center text-sm text-smb-on-surface-variant">Không có tuyến đường nào trên bản đồ</p>
+            : <>
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-xs font-medium text-smb-on-surface-variant">
+                    Đã chọn {pickedRouteIds.length} / {allRoutes.length} tuyến
+                    {assignedRoutes.length > 0 && (
+                      <span className="ml-2 text-smb-on-surface-variant">
+                        · phí hiện tại {formatVND(assignedRoutes.reduce((acc, r) => acc + (r.routePriceCharged ?? 0), 0))} đ
+                      </span>
+                    )}
+                  </p>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => { setPickedRouteIds([...allRoutes]); notifyChange({ routeIds: [...allRoutes] }) }}
+                      disabled={disabled || pickedRouteIds.length === allRoutes.length}
+                      className="text-xs text-smb-primary hover:underline disabled:opacity-40">Chọn tất cả</button>
+                    <button type="button" onClick={() => { setPickedRouteIds([]); notifyChange({ routeIds: [] }) }}
+                      disabled={disabled || pickedRouteIds.length === 0}
+                      className="text-xs text-smb-error hover:underline disabled:opacity-40">Bỏ chọn</button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                  {allRoutes.map((routeId) => {
+                    const isPicked = pickedRouteIds.includes(routeId)
+                    return (
+                      <button key={routeId} type="button"
+                        onClick={() => !disabled && (() => {
+                          const next = isPicked
+                            ? pickedRouteIds.filter((r) => r !== routeId)
+                            : [...pickedRouteIds, routeId]
+                          setPickedRouteIds(next)
+                          notifyChange({ routeIds: next })
+                        })()}
+                        disabled={disabled}
+                        className={`
+                          flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-left
+                          transition-colors duration-100
+                          ${isPicked
+                            ? 'border-smb-primary-container bg-smb-primary-container/10 text-smb-on-primary-container'
+                            : 'border-smb-outline-variant bg-smb-surface-container-lowest text-smb-on-surface hover:border-smb-outline'}
+                          ${disabled ? 'cursor-not-allowed opacity-50' : ''}
+                        `}>
+                        <span className={`
+                          flex size-4 min-w-4 items-center justify-center rounded-sm border text-[10px] font-bold
+                          ${isPicked
+                            ? 'border-smb-on-primary-container bg-smb-on-primary-container text-smb-primary-container'
+                            : 'border-smb-outline bg-smb-surface-container'}
+                        `}>{isPicked && '✓'}</span>
+                        <span className="truncate">Tuyến #{routeId}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="mt-2 text-xs text-smb-on-surface-variant">
+                  Phí = PriceRoute × số tuyến MỚI được gán.
+                </p>
+              </>
+        )}
+
+        {/* Shelf tab */}
         {!loading && activeTab === 'shelf' && (
           shelves.length === 0
             ? <p className="py-4 text-center text-sm text-smb-on-surface-variant">Không có kệ hàng nào trên bản đồ</p>
@@ -467,6 +468,7 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
               </>
         )}
 
+        {/* Zone tab */}
         {!loading && activeTab === 'zone' && (
           zones.length === 0
             ? <p className="py-4 text-center text-sm text-smb-on-surface-variant">
@@ -538,87 +540,17 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
                 )}
               </>
         )}
-
-        {!loading && activeTab === 'route' && (
-          allRoutes.length === 0
-            ? <p className="py-4 text-center text-sm text-smb-on-surface-variant">
-                Không có tuyến đường nào. Vui lòng tạo tuyến đường trước.
-              </p>
-            : <>
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-xs font-medium text-smb-on-surface-variant">
-                    Đã chọn {routeCount} / {allRoutes.length} tuyến đường
-                    {assignedRoutes.length > 0 && (
-                      <span className="ml-2 text-smb-on-surface-variant">
-                        · phí hiện tại {formatVND(assignedRoutes.reduce((acc, r) => acc + (r.routePriceCharged ?? 0), 0))} đ
-                      </span>
-                    )}
-                  </p>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={selectAllRoutes} disabled={disabled || routeCount === allRoutes.length}
-                      className="text-xs text-smb-primary hover:underline disabled:opacity-40">Chọn tất cả</button>
-                    <button type="button" onClick={clearRoutes} disabled={disabled || routeCount === 0}
-                      className="text-xs text-smb-error hover:underline disabled:opacity-40">Bỏ chọn</button>
-                  </div>
-                </div>
-                <div className="grid max-h-48 grid-cols-1 gap-1.5 overflow-y-auto sm:grid-cols-2">
-                  {allRoutes.map((route) => {
-                    const isPicked = pickedRouteIds.includes(route.id)
-                    const assignedRoute = assignedRoutes.find((r) => r.robotRouteId === route.id)
-                    return (
-                      <button key={route.id} type="button"
-                        onClick={() => !disabled && toggleRoute(route.id)}
-                        disabled={disabled}
-                        className={`
-                          flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-left
-                          transition-colors duration-100
-                          ${isPicked
-                            ? 'border-smb-primary-container bg-smb-primary-container/10 text-smb-on-primary-container'
-                            : 'border-smb-outline-variant bg-smb-surface-container-lowest text-smb-on-surface hover:border-smb-outline'}
-                          ${disabled ? 'cursor-not-allowed opacity-50' : ''}
-                        `}>
-                        <span className={`
-                          flex size-4 min-w-4 items-center justify-center rounded-sm border text-[10px] font-bold
-                          ${isPicked
-                            ? 'border-smb-on-primary-container bg-smb-on-primary-container text-smb-primary-container'
-                            : 'border-smb-outline bg-smb-surface-container'}
-                        `}>{isPicked && '✓'}</span>
-                        <span className="truncate flex-1">{route.name}</span>
-                        {assignedRoute ? (
-                          <span className="text-[11px] font-medium text-green-600 whitespace-nowrap">
-                            {formatVND(assignedRoute.routePriceCharged)} đ
-                          </span>
-                        ) : (
-                          <span className="text-[11px] text-smb-on-surface-variant/50 whitespace-nowrap">chưa mua</span>
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
-                <p className="mt-2 text-xs text-smb-on-surface-variant">
-                  Phí = PriceRoute × số tuyến đường MỚI được gán (tuyến đã có không charge lại).
-                </p>
-                {!disabled && (
-                  <div className="mt-3 flex justify-end">
-                    <Button
-                      variant="primary"
-                      icon="save"
-                      onClick={handleSaveRoutes}
-                      disabled={!isRoutesDirty || savingTab === 'route'}
-                      loading={savingTab === 'route'}
-                    >
-                      Lưu chọn tuyến ({routeCount})
-                    </Button>
-                  </div>
-                )}
-              </>
-        )}
       </div>
 
       {/* Summary footer */}
       {totalCount > 0 && (
         <div className="mt-4 flex flex-wrap gap-2 rounded border border-smb-outline-variant bg-smb-surface-container p-3">
           <span className="text-xs font-medium text-smb-on-surface-variant">Đã chọn:</span>
+          {pickedRouteIds.length > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-smb-primary-container/10 px-2 py-0.5 text-xs text-smb-primary-container">
+              <span className="material-symbols-outlined text-[12px]">route</span>{pickedRouteIds.length} Tuyến
+            </span>
+          )}
           {shelfCount > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-smb-primary-container/10 px-2 py-0.5 text-xs text-smb-primary-container">
               <span className="material-symbols-outlined text-[12px]">inventory_2</span>{shelfCount} Kệ
@@ -627,11 +559,6 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
           {zoneCount > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-smb-primary-container/10 px-2 py-0.5 text-xs text-smb-primary-container">
               <span className="material-symbols-outlined text-[12px]">grid_view</span>{zoneCount} Khu Vực
-            </span>
-          )}
-          {routeCount > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-smb-primary-container/10 px-2 py-0.5 text-xs text-smb-primary-container">
-              <span className="material-symbols-outlined text-[12px]">route</span>{routeCount} Tuyến
             </span>
           )}
         </div>

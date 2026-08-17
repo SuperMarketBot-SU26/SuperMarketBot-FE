@@ -4,6 +4,7 @@ import {
   uploadResource,
   createResourceLink,
   deleteResource,
+  updateResource,
 } from '../api/adResourcesApi'
 import { getOriginalImageUrl } from '../../../utils/cloudinary'
 import { toast } from 'react-toastify'
@@ -192,6 +193,45 @@ export default function AdResourceManager({ campaignId, disabled = false }) {
     resourceType: 'banner', contentText: '', resolution: '',
   })
   const fileInputRef = useRef(null)
+
+  const [editingCaption, setEditingCaption] = useState(false)
+  const [editCaptionValue, setEditCaptionValue] = useState('')
+  const [savingCaption, setSavingCaption] = useState(false)
+
+  const handleOpenDetail = (res) => {
+    setSelectedResource(res)
+    setEditCaptionValue(res.contentText || '')
+    setEditingCaption(false)
+  }
+
+  const handleCloseDetail = () => {
+    setSelectedResource(null)
+    setEditingCaption(false)
+    setEditCaptionValue('')
+  }
+
+  const handleSaveCaption = async () => {
+    if (!selectedResource) return
+    setSavingCaption(true)
+    setError(null)
+    try {
+      const updated = await updateResource(selectedResource.resourceId, {
+        contentText: editCaptionValue.trim() || null
+      })
+      toast.success('Cập nhật caption thành công!')
+      setEditingCaption(false)
+      setSelectedResource((prev) => ({
+        ...prev,
+        contentText: updated.contentText
+      }))
+      await fetchResources()
+    } catch (err) {
+      setError(err?.response?.data?.message ?? 'Không thể cập nhật caption.')
+      toast.error('Cập nhật caption thất bại!')
+    } finally {
+      setSavingCaption(false)
+    }
+  }
 
   const fetchResources = async () => {
     if (!campaignId) return
@@ -398,7 +438,7 @@ export default function AdResourceManager({ campaignId, disabled = false }) {
               key={r.resourceId} 
               resource={r} 
               onDelete={(res) => setDeleteTarget(res)} 
-              onView={(res) => setSelectedResource(res)} 
+              onView={handleOpenDetail} 
             />
           ))}
         </div>
@@ -416,7 +456,7 @@ export default function AdResourceManager({ campaignId, disabled = false }) {
       {selectedResource && (
         <div
           className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-[fadeIn_150ms_ease-out]"
-          onClick={() => setSelectedResource(null)}
+          onClick={handleCloseDetail}
         >
           <div
             className="max-w-2xl w-full max-h-[90vh] overflow-auto rounded-2xl bg-smb-surface-container-lowest shadow-2xl animate-[slideUp_200ms_cubic-bezier(0.34,1.56,0.64,1)]"
@@ -439,7 +479,7 @@ export default function AdResourceManager({ campaignId, disabled = false }) {
                 </h3>
               </div>
               <button
-                onClick={() => setSelectedResource(null)}
+                onClick={handleCloseDetail}
                 className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-smb-surface-container-high transition-colors"
               >
                 <Icon name="close" />
@@ -504,13 +544,58 @@ export default function AdResourceManager({ campaignId, disabled = false }) {
                 )}
               </div>
 
-              {/* Caption & URL */}
-              {selectedResource.contentText && (
-                <div className="mt-4 rounded-xl bg-smb-surface-container p-3">
+              {/* Caption Section */}
+              <div className="mt-4 rounded-xl bg-smb-surface-container p-4">
+                <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-smb-on-surface-variant">Caption</span>
-                  <p className="mt-1 text-sm text-smb-on-surface">{selectedResource.contentText}</p>
+                  {!disabled && !editingCaption && (
+                    <button
+                      onClick={() => setEditingCaption(true)}
+                      className="flex items-center gap-1 text-xs text-smb-primary hover:underline cursor-pointer"
+                    >
+                      <Icon name="edit" className="text-sm" />
+                      Chỉnh sửa
+                    </button>
+                  )}
                 </div>
-              )}
+                {editingCaption ? (
+                  <div className="flex flex-col gap-2">
+                    <input
+                      type="text"
+                      value={editCaptionValue}
+                      onChange={(e) => setEditCaptionValue(e.target.value)}
+                      className="w-full rounded-xl border border-smb-outline-variant bg-smb-surface-container-lowest px-3.5 py-2.5 text-sm outline-none focus:border-smb-primary focus:ring-2 focus:ring-smb-primary/20 transition-all text-smb-on-surface"
+                      placeholder="Nhập caption cho file..."
+                      disabled={savingCaption}
+                    />
+                    <div className="flex justify-end gap-2 mt-1">
+                      <button
+                        onClick={() => {
+                          setEditingCaption(false)
+                          setEditCaptionValue(selectedResource.contentText || '')
+                        }}
+                        disabled={savingCaption}
+                        className="rounded-lg bg-smb-surface px-3 py-1.5 text-xs font-semibold text-smb-on-surface hover:bg-smb-surface-container-high transition-colors cursor-pointer"
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        onClick={handleSaveCaption}
+                        disabled={savingCaption}
+                        className="flex items-center gap-1 rounded-lg bg-smb-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-smb-primary/90 transition-colors cursor-pointer"
+                      >
+                        {savingCaption && <Icon name="progress_activity" className="animate-spin text-xs" />}
+                        Lưu
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-smb-on-surface break-all">
+                    {selectedResource.contentText || <span className="text-smb-on-surface-variant italic">Chưa có caption</span>}
+                  </p>
+                )}
+              </div>
+
               {selectedResource.mediaUrl && (
                 <div className="mt-4 rounded-xl bg-smb-surface-container p-3">
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-smb-on-surface-variant">URL</span>
@@ -531,16 +616,17 @@ export default function AdResourceManager({ campaignId, disabled = false }) {
                 <button
                   onClick={() => {
                     setSelectedResource(null)
+                    setEditingCaption(false)
                     setDeleteTarget(selectedResource)
                   }}
-                  className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-100 transition-colors"
+                  className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-100 transition-colors cursor-pointer"
                 >
                   <Icon name="delete" />
                   Xóa
                 </button>
                 <button
-                  onClick={() => setSelectedResource(null)}
-                  className="flex items-center gap-2 rounded-xl bg-smb-primary px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-smb-primary/90 transition-all"
+                  onClick={handleCloseDetail}
+                  className="flex items-center gap-2 rounded-xl bg-smb-primary px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-smb-primary/90 transition-all cursor-pointer"
                 >
                   <Icon name="check" />
                   Đóng

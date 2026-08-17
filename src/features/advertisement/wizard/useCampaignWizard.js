@@ -5,17 +5,14 @@ const FLOOR_ID_DEFAULT = 1
 
 /**
  * Step 2 Targeting — 3 loại hình quảng cáo ĐỘC LẬP:
- *   - Route: ad phát khi robot đi theo tuyến.
+ *   - Route: ad phát khi robot đi theo tuyến (toàn bộ siêu thị).
  *   - Zone:  ad phát khi robot dừng ở khu vực.
  *   - Shelf: ad phát khi robot ghé kệ cụ thể.
  *
  * `deliveryMode` quyết định cho phép loại nào (Route | Zone | Both):
- *   - 'Route' → chỉ routeIds
+ *   - 'Route' → chỉ routeIds (toàn bộ siêu thị)
  *   - 'Zone'  → zoneIds + shelfIds
  *   - 'Both'  → cả 3
- *
- * KHÔNG có khái niệm "Route bao trùm Zone" hay "Zone bao trùm Shelf".
- * Route, Zone, Shelf là 3 lựa chọn quảng cáo độc lập — kết hợp tuỳ `deliveryMode`.
  */
 
 const initialState = {
@@ -63,8 +60,8 @@ function hydrateFromStorage() {
 
 /**
  * Lọc target theo deliveryMode (chỉ áp dụng khi build payload gửi BE).
- * - 'Route' → chỉ giữ routeIds.
- * - 'Zone'  → chỉ giữ zoneIds + shelfIds (không gồm routeIds).
+ * - 'Route' → chỉ giữ routeIds (toàn bộ siêu thị).
+ * - 'Zone'  → chỉ giữ zoneIds + shelfIds.
  * - 'Both'  → giữ nguyên.
  */
 function filterTargetingByDeliveryMode(targeting, deliveryMode) {

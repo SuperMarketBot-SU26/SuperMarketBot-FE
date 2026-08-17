@@ -320,7 +320,7 @@ function ShelfCard({ shelves, loading, pricePerItem, canEdit, campaignId, onSave
             <li key={s.shelfId ?? s.id} className="flex items-center gap-2 rounded-md border border-smb-outline-variant bg-smb-surface-container-low px-3 py-2 text-sm">
               <Icon name="inventory_2" className="text-[16px] text-smb-primary-container" />
               <div className="min-w-0 flex-1">
-                <p className="truncate font-medium text-smb-on-surface">{s.label ?? `Kệ #${s.shelfId ?? s.id}`}</p>
+                <p className="truncate font-medium text-smb-on-surface">{s.shelfName || s.label || `Kệ #${s.shelfId ?? s.id}`}</p>
                 {s.floorName && <p className="text-xs text-smb-on-surface-variant">Tầng {s.floorName}</p>}
               </div>
               <span className="text-xs tabular-nums text-smb-on-surface-variant">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import Sidebar from '../components/Sidebar'
@@ -264,7 +264,7 @@ export function ProductManagement() {
         .filter((p) => p.productId !== excludeProductId)
         .map((p) => ({
           value: String(p.productId),
-          label: `#${p.productId} — ${p.productName}`,
+          label: p.productName,
         }))
       setSubstituteOptions(options)
     } catch {
@@ -380,18 +380,12 @@ export function ProductManagement() {
     }
   }
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       key: 'imageUrl',
       label: '',
       width: '56px',
       render: (val) => {
-        // Run every image URL through `buildImageUrl` so Cloudinary URLs get
-        // optimization transforms and bare local paths (e.g.
-        // `uploads/products/abc.jpg`) get the `/` prefix needed to traverse
-        // the Vite dev proxy. `buildImageUrl` returns a placeholder when the
-        // URL is null/empty/known-legacy — render the icon placeholder in
-        // those cases so the table cell always looks consistent.
         const src = val ? buildImageUrl(val, { width: 96, height: 96, crop: 'fill', quality: 'auto', format: 'auto' }) : ''
         return src ? (
           <img
@@ -439,11 +433,14 @@ export function ProductManagement() {
       key: 'productTypeId',
       label: 'Loại',
       align: 'center',
-      render: (val) => (
-        <span className="inline-flex items-center rounded-lg bg-smb-surface-container px-2 py-0.5 text-xs font-mono font-medium text-smb-on-surface-variant">
-          #{val}
-        </span>
-      ),
+      render: (val) => {
+        const type = productTypes.find((t) => t.productTypeId === val)
+        return (
+          <span className="inline-flex items-center rounded-lg bg-smb-surface-container px-2 py-0.5 text-xs font-medium text-smb-on-surface-variant">
+            {type?.typeName || `#${val}`}
+          </span>
+        )
+      },
     },
     {
       key: 'actions',
@@ -465,7 +462,7 @@ export function ProductManagement() {
         </div>
       ),
     },
-  ]
+  ], [productTypes])
 
   // ── Filter tab config ─────────────────────────────────────────
   const filterTabs = [
@@ -696,7 +693,7 @@ export function ProductManagement() {
                 disabled={productTypesLoading}
                 options={productTypes.map((t) => ({
                   value: String(t.productTypeId),
-                  label: `#${t.productTypeId} · ${t.typeName}${t.subcategoryId != null ? ` · sub #${t.subcategoryId}` : ''}`,
+                  label: t.typeName,
                 }))}
               />
             </FormField>

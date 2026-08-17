@@ -4,6 +4,7 @@ import Sidebar from '../components/Sidebar'
 import Navbar from '../components/Navbar'
 import Button from '../components/ui/Button'
 import { getProduct, getAlternatives } from '../features/product'
+import { getProductTypes } from '../features/product/api/productApi'
 import { ProductInfoCard, ProductAlternativesList } from '../features/product'
 
 export function ProductDetail() {
@@ -15,6 +16,7 @@ export function ProductDetail() {
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(null)
   const [loadingAlternatives, setLoadingAlternatives] = useState(false)
+  const [productTypes, setProductTypes] = useState([])
 
   const fetchProduct = useCallback(async () => {
     setLoading(true)
@@ -44,6 +46,7 @@ export function ProductDetail() {
   useEffect(() => {
     fetchProduct()
     fetchAlternatives()
+    getProductTypes().then((list) => setProductTypes(Array.isArray(list) ? list : [])).catch(() => {})
   }, [fetchProduct, fetchAlternatives])
 
   if (loading) {
@@ -105,7 +108,7 @@ export function ProductDetail() {
               </button>
             </div>
 
-            <ProductInfoCard product={product} />
+            <ProductInfoCard product={{ ...product, productTypeName: productTypes.find(t => t.productTypeId === product?.productTypeId)?.typeName }} />
 
             <ProductAlternativesList
               alternatives={alternatives}

@@ -15,6 +15,7 @@ import Forbidden from './pages/Forbidden'
 import Login from './pages/Login'
 import ProductManagement from './pages/ProductManagement'
 import { ProductTypeManagement } from './pages/ProductTypeManagement'
+import HealthTagManagement from './pages/HealthTagManagement'
 import ProductDetail from './pages/ProductDetail'
 import AccountManagement from './pages/AccountManagement'
 import Register from './pages/Register'
@@ -155,6 +156,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ProductTypeManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/health-tags"
+              element={
+                <ProtectedRoute>
+                  <HealthTagManagement />
                 </ProtectedRoute>
               }
             />

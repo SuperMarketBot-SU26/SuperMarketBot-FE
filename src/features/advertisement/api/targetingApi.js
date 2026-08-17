@@ -24,14 +24,15 @@ const unwrap = (res) => {
 export const getZonesByFloor = (floorId) =>
   client.get('/api/v1/zones', { params: { floorId } }).then(unwrap)
 
-// ── Shelves (entity Shelf, không dùng SemanticObject) ───────────────────────
-// Endpoint: GET /v1/shelves
-// Response: [{ shelfId, aisleId, aisleCode, aisleName, levelNumber }, ...]
+// ── Shelves (entity Shelf — dùng trong wizard) ────────────────────────────────
+// Endpoint: GET /api/v1/shelves  → ShelfDto[] (cùng endpoint như TargetingSelector "Mua thêm")
+// ShelfDto: { shelfId, shelfName, aisleId, aisleName, levelNumber }
+// shelfName = tên thật của kệ (ví dụ: "Kệ 1 - Đồ Ăn Vặt")
 export const getShelvesByFloor = async (floorId) => {
   try {
+    // Dùng cùng endpoint như TargetingSelector — trả shelfName thật
     const res = await client.get('/api/v1/shelves')
     const shelves = unwrap(res)
-    // Map Shelf entity → wizard shape
     return shelves.map(normalizeShelf)
   } catch {
     return []
@@ -67,18 +68,22 @@ export const normalizeZone = (z) => ({
   floorNumber: z.floorNumber ?? z.floor,
 })
 
-// Shelf entity: { shelfId, aisleId, aisleCode, aisleName, levelNumber }
-export const normalizeShelf = (s) => ({
-  id: s.shelfId ?? s.SemanticObjectId ?? s.objectId ?? s.id,
-  name: `${s.aisleCode ?? ''} - ${s.aisleName ?? ''} (Tầng ${s.levelNumber ?? 1})`,
-  label: `${s.aisleCode ?? ''} - ${s.aisleName ?? ''} (Tầng ${s.levelNumber ?? 1})`,
-  aisleId: s.aisleId,
-  aisleCode: s.aisleCode,
-  aisleName: s.aisleName,
-  levelNumber: s.levelNumber,
-  floorId: s.floorId,
-  floorNumber: s.floorNumber ?? s.floor,
-})
+// ShelfDto: { shelfId, shelfName, aisleId, aisleName, levelNumber }
+// shelfName = tên thật của kệ ("Kệ 1 - Đồ Ăn Vặt")
+// Fallback: "Kệ #ID" chỉ khi shelfName trống
+export const normalizeShelf = (s) => {
+  const shelfName = (s.label && s.label.trim()) || (s.shelfName && s.shelfName.trim()) || (s.name && s.name.trim()) || `Kệ #${s.shelfId ?? s.id}`;
+  return {
+    id: s.shelfId ?? s.SemanticObjectId ?? s.objectId ?? s.id,
+    name: shelfName,
+    label: shelfName,
+    aisleId: s.aisleId,
+    aisleName: s.aisleName,
+    levelNumber: s.levelNumber,
+    floorId: s.floorId,
+    floorNumber: s.floorNumber ?? s.floor,
+  };
+}
 
 export const normalizeRoute = (r) => ({
   id: r.robotRouteId ?? r.routeId ?? r.id,
