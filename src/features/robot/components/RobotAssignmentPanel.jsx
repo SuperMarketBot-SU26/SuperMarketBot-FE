@@ -152,8 +152,8 @@ function WaypointList({ waypoints }) {
               <span className="flex size-5 items-center justify-center rounded-full bg-smb-primary/10 text-[10px] font-bold text-smb-primary shrink-0">
                 {i + 1}
               </span>
-              <span className="flex-1 font-bold text-smb-primary-container truncate" title={wp.nodeName || `Node #${wp.nodeId}`}>
-                {wp.nodeName || `Kệ hàng (Node #${wp.nodeId})`}
+              <span className="flex-1 font-bold text-smb-primary-container truncate" title={wp.shelfName ? `${wp.shelfName} (${wp.nodeName || `Node #${wp.nodeId}`})` : (wp.nodeName || `Kệ hàng (Node #${wp.nodeId})`)}>
+                {wp.shelfName ? `${wp.shelfName} (${wp.nodeName || `Node #${wp.nodeId}`})` : (wp.nodeName || `Kệ hàng (Node #${wp.nodeId})`)}
               </span>
               {wp.dwellTimeSeconds && (
                 <span className="rounded bg-smb-surface-container-lowest px-1.5 py-0.5 text-[10px] text-smb-on-surface-variant shrink-0">
@@ -243,7 +243,7 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
         const state = await getRobotMissionState(selectedRobot)
         setMissionState(state)
       } catch {
-        // fail silently
+        setMissionState(null)
       }
     }
     poll()
@@ -309,11 +309,13 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
       const msg = `✅ ${data.message || `Đã phát lệnh ${flowType}!`}`
       if (flowType === 'ad')      { setAdMsg({ type: 'success', text: msg });      setAdWaypoints(data.waypoints) }
       if (flowType === 'patrol')  { setPatrolMsg({ type: 'success', text: msg });  setPatrolWaypoints(data.waypoints) }
+      if (flowType === 'return')  { setEstopMsg({ type: 'success', text: `🚀 Robot đang quay về ${extra.nodeIds?.[0] === 10029 ? 'Trạm Sạc (WP7)' : 'Vị Trí Gốc (WP8)'}.` }) }
 
     } catch (e) {
       const err = `❌ ${e?.response?.data?.detail || e?.response?.data?.title || e?.response?.data?.message || e?.message || 'Lỗi phát lệnh'}`
       if (flowType === 'ad')      setAdMsg({ type: 'error', text: err })
       if (flowType === 'patrol')  setPatrolMsg({ type: 'error', text: err })
+      if (flowType === 'return')  setEstopMsg({ type: 'error', text: err })
     } finally {
       setDispatching(false)
     }
@@ -348,7 +350,10 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
 
   const campaignOptions = [
     { value: '', label: '— Không gắn chiến dịch (Quảng cáo tự do toàn siêu thị) —' },
-    ...campaigns.map((c) => ({ value: String(c.campaignId), label: c.campaignName || `#${c.campaignId}` })),
+    ...campaigns.map((c) => {
+      const id = c.adCampaignId ?? c.campaignId ?? c.id
+      return { value: String(id), label: c.campaignName || `#${id}` }
+    }),
   ]
 
   return (
@@ -373,143 +378,127 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
         </select>
       </div>
 
-      {missionState && missionState.status !== 'COMPLETED' && missionState.waypoints?.length > 0 && (
-        <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-3.5 mb-2 shadow-sm relative overflow-hidden">
-           <div className="flex justify-between items-center mb-2 relative z-10">
-              <div className="flex items-center gap-2">
-                 <span className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-500"></span>
-                 </span>
-                 <span className="font-bold text-indigo-700 text-[11px] uppercase tracking-wider">Nhiệm vụ hiện tại</span>
-              </div>
-              <span className="rounded-full bg-indigo-500 text-white px-2 py-0.5 text-[10px] font-bold">
-                 {missionState.flowType?.toUpperCase()}
-              </span>
-           </div>
-           <div className="relative z-10 flex flex-col gap-1">
-              <div className="flex justify-between text-xs">
-                 <span className="text-indigo-800/70 font-medium">Trạng thái:</span>
-                 <span className="font-bold text-indigo-700">{missionState.status}</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                 <span className="text-indigo-800/70 font-medium">Waypoint:</span>
-                 <span className="font-bold text-indigo-700">
-                    {missionState.currentWaypointIndex + 1} / {missionState.waypoints.length}
-                 </span>
-              </div>
-              <div className="w-full bg-indigo-200 rounded-full h-1.5 mt-2">
-                 <div className="bg-indigo-600 h-1.5 rounded-full transition-all duration-500" style={{ width: `${Math.max(5, ((missionState.currentWaypointIndex + 1) / missionState.waypoints.length) * 100)}%` }}></div>
-              </div>
-           </div>
+      {/* Guide Active Warning Banner */}
+      {missionState && missionState.flowType === 'guide' && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5 text-amber-800 dark:text-amber-300 animate-pulse">
+          <div className="flex items-center gap-2">
+            <Icon name="alt_route" className="text-[18px] text-amber-600" />
+            <span className="font-bold">Robot đang dẫn đường khách mua sắm</span>
+          </div>
+          <p className="mt-1 text-[11px] leading-relaxed text-amber-700/90 dark:text-amber-300/80">
+            Khách hàng đang dùng giỏ hàng thông minh. Nếu bạn phát lệnh Quảng cáo hoặc Tuần tra lúc này, Robot sẽ ưu tiên nhiệm vụ Admin và hủy phiên dẫn đường.
+          </p>
         </div>
       )}
 
-      {/* 3 Flow Cards */}
-      <div className="flex flex-col gap-4">
-        {/* Flow 1: Quảng Cáo */}
-        <div className="rounded-2xl border border-orange-500/30 bg-gradient-to-br from-orange-500/5 to-orange-50/30 p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
+      {/* Flow Cards */}
+      <div className="flex flex-col gap-3">
+
+        {/* ── Flow 1: Quảng Cáo (Ad) ── */}
+        <div className="rounded-2xl border border-orange-500/30 bg-orange-500/5 p-4">
+          <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="flex size-8 items-center justify-center rounded-xl bg-orange-500/15">
-                <Icon name="campaign" className="text-[18px] text-orange-600" />
-              </div>
+              <span className="flex size-6 items-center justify-center rounded-lg bg-orange-500/20 text-orange-600">
+                <Icon name="campaign" className="text-[15px]" />
+              </span>
               <div>
-                <p className="font-bold text-orange-700 dark:text-orange-400">Flow Quảng Cáo</p>
-                <p className="text-[10px] text-orange-600/70">Quảng cáo theo Chiến dịch hoặc Toàn siêu thị</p>
+                <p className="font-bold text-orange-800 dark:text-orange-300">Flow Quảng Cáo Kệ Hàng</p>
+                <p className="text-[10px] text-orange-700/80 dark:text-orange-400/80">Phát video & TTS giới thiệu sản phẩm tại kệ</p>
               </div>
             </div>
-            <span className="rounded-full bg-orange-500/20 px-2.5 py-1 text-[10px] font-bold text-orange-700">Linh hoạt</span>
+            <span className="rounded-full bg-orange-500/20 px-2.5 py-1 text-[10px] font-bold text-orange-700">Tự động TTS</span>
           </div>
 
-          {/* Campaign Selector */}
-          <div className="mb-3 space-y-2">
-            <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-orange-700/70">
-              Chiến dịch (Campaign)
-            </label>
-            <select
-              value={selectedCampaign}
-              onChange={(e) => setSelectedCampaign(e.target.value)}
-              className="w-full rounded-xl border border-orange-500/40 bg-smb-surface-container-lowest px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-orange-500"
-            >
-              {campaignOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-            </select>
-          </div>
+          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-orange-700/70">
+            Chiến dịch (Campaign)
+          </label>
+          <select
+            value={selectedCampaign}
+            onChange={(e) => setSelectedCampaign(e.target.value)}
+            className="mb-3 w-full rounded-xl border border-orange-500/40 bg-smb-surface-container-lowest px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-orange-500"
+          >
+            {campaignOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
 
-          {/* Dwell Time & Duration Setting */}
-          <div className="mb-3 space-y-2.5 rounded-xl border border-orange-500/20 bg-orange-500/5 p-3">
-            <div>
-              <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-orange-700/70">
-                Dừng tại mỗi kệ (Dwell Time)
+          <div className="mb-3.5 grid grid-cols-2 gap-2.5">
+            {/* Dwell Time Input (Seconds) */}
+            <div className="flex flex-col">
+              <label className="mb-1 text-[11px] font-bold text-orange-950 dark:text-orange-200">
+                Dừng tại mỗi kệ
               </label>
-              <div className="flex items-center gap-2">
+              <div className="relative flex items-center">
                 <input
                   type="number"
                   min="5"
-                  max="120"
+                  max="300"
+                  placeholder="20"
                   value={adDwell}
-                  onChange={(e) => setAdDwell(Number(e.target.value))}
-                  className="w-20 rounded-lg border border-orange-500/40 bg-smb-surface-container-lowest px-2.5 py-1 text-xs font-semibold text-smb-on-surface outline-none focus:border-orange-500"
+                  onChange={(e) => setAdDwell(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="w-full rounded-xl border border-orange-400/50 bg-smb-surface-container-lowest py-2 pl-3 pr-12 text-xs font-bold text-smb-on-surface outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 shadow-sm"
                 />
-                <span className="text-[11px] text-orange-700/80">giây / kệ (để phát video & TTS)</span>
+                <span className="absolute right-3 text-[11px] font-semibold text-orange-700/80 pointer-events-none">
+                  giây
+                </span>
               </div>
+              <span className="mt-1 text-[10px] text-orange-800/80">Phát video & TTS tại kệ</span>
             </div>
 
-            {!selectedCampaign && (
-              <div className="border-t border-orange-500/15 pt-2">
-                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-orange-700/70">
-                  Tổng thời gian di chuyển (Hẹn giờ lặp lại)
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="1"
-                    max="480"
-                    placeholder="Tùy chọn"
-                    value={adDuration}
-                    onChange={(e) => setAdDuration(e.target.value)}
-                    className="w-24 rounded-lg border border-orange-500/40 bg-smb-surface-container-lowest px-2.5 py-1 text-xs font-semibold text-smb-on-surface outline-none focus:border-orange-500"
-                  />
-                  <span className="text-[11px] text-orange-700/80">phút (để trống = đi 1 vòng toàn bộ kệ)</span>
-                </div>
+            {/* Total Duration Input (Minutes) */}
+            <div className="flex flex-col">
+              <label className="mb-1 text-[11px] font-bold text-orange-950 dark:text-orange-200">
+                Tổng thời gian lặp
+              </label>
+              <div className="relative flex items-center">
+                <input
+                  type="number"
+                  min="1"
+                  max="480"
+                  placeholder="1 vòng"
+                  value={adDuration}
+                  onChange={(e) => setAdDuration(e.target.value)}
+                  className="w-full rounded-xl border border-orange-400/50 bg-smb-surface-container-lowest py-2 pl-3 pr-12 text-xs font-bold text-smb-on-surface outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 shadow-sm"
+                />
+                <span className="absolute right-3 text-[11px] font-semibold text-orange-700/80 pointer-events-none">
+                  phút
+                </span>
               </div>
-            )}
+              <span className="mt-1 text-[10px] text-orange-800/80">Trống = đi 1 vòng</span>
+            </div>
           </div>
 
-          <button
-            disabled={dispatching}
-            onClick={() => {
-              handleDispatch('ad', {
-                campaignId: selectedCampaign ? Number(selectedCampaign) : null,
-                fullZoneMap: !selectedCampaign,
-                durationMinutes: adDuration ? Number(adDuration) : null,
+          <div className="mb-3 flex gap-2">
+            <button
+              disabled={dispatching}
+              onClick={() => handleDispatch('ad', {
+                campaignId: selectedCampaign ? Number(selectedCampaign) : undefined,
                 dwellTimeSeconds: adDwell ? Number(adDwell) : 20,
-                isLooping: !!adDuration,
-              })
-            }}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 to-orange-500 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-orange-700 hover:to-orange-600 active:scale-95 disabled:opacity-50 disabled:scale-100"
-          >
-            {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="play_arrow" className="text-[16px]" />}
-            {selectedCampaign ? 'Phát Lệnh Quảng Cáo Theo Chiến Dịch' : 'Phát Lệnh Quảng Cáo Tự Do (Toàn Siêu Thị)'}
-          </button>
+                durationMinutes: adDuration ? Number(adDuration) : undefined,
+              })}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-orange-700 hover:to-amber-600 active:scale-95 disabled:opacity-50 disabled:scale-100"
+            >
+              {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="play_arrow" className="text-[16px]" />}
+              Phát Lệnh Quảng Cáo Tự Do (Toàn Siêu Thị)
+            </button>
+          </div>
 
           <StatusBadge msg={adMsg} />
           <WaypointList waypoints={adWaypoints} />
         </div>
 
-        {/* Flow 2: Tuần Tra */}
-        <div className="rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/5 to-blue-50/30 p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
+        {/* ── Flow 2: Tuần Tra Kệ Hàng (Patrol) ── */}
+        <div className="rounded-2xl border border-blue-500/30 bg-blue-500/5 p-4">
+          <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="flex size-8 items-center justify-center rounded-xl bg-blue-500/15">
-                <Icon name="shield" className="text-[18px] text-blue-600" />
-              </div>
+              <span className="flex size-6 items-center justify-center rounded-lg bg-blue-500/20 text-blue-600">
+                <Icon name="shield" className="text-[15px]" />
+              </span>
               <div>
-                <p className="font-bold text-blue-700 dark:text-blue-400">Flow Tuần Tra Kệ Hàng</p>
-                <p className="text-[10px] text-blue-600/70">Robot chụp ảnh kệ → Gemini AI phân tích mật độ</p>
-                <div className="mt-1 inline-flex items-center gap-1 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 border border-blue-500/20">
-                  🔍 AI Vision Scan: Chụp ảnh & Phân tích kệ hàng
-                </div>
+                <p className="font-bold text-blue-800 dark:text-blue-300">Flow Tuần Tra Kệ Hàng</p>
+                <p className="text-[10px] text-blue-700/80 dark:text-blue-400/80">Robot chụp ảnh kệ → Gemini AI phân tích mật độ</p>
               </div>
             </div>
             <span className="rounded-full bg-blue-500/20 px-2.5 py-1 text-[10px] font-bold text-blue-700">AI Vision</span>
@@ -658,12 +647,66 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2">
-        <button disabled={dispatching} onClick={() => handleControl(pauseRobotNavigation, 'TẠM DỪNG')} className="rounded-xl bg-amber-500 py-2.5 font-bold text-white disabled:opacity-50">⏸ Tạm dừng</button>
-        <button disabled={dispatching} onClick={() => handleControl(resumeRobotNavigation, 'TIẾP TỤC')} className="rounded-xl bg-emerald-600 py-2.5 font-bold text-white disabled:opacity-50">▶ Tiếp tục</button>
-        <button disabled={dispatching} onClick={handleCancel} className="rounded-xl bg-rose-600 py-2.5 font-bold text-white disabled:opacity-50">⏹ Dừng nhiệm vụ</button>
-        <button disabled={dispatching} onClick={() => handleControl(emergencyStopRobot, 'E-STOP')} className="rounded-xl bg-red-950 py-2.5 font-bold text-white disabled:opacity-50">🚨 E-STOP</button>
-        <button disabled={dispatching} onClick={() => handleDispatch('return', { nodeIds: [10023], floorId: 1 })} className="col-span-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 py-3 font-bold text-white shadow-sm transition-all hover:from-indigo-700 hover:to-indigo-600 disabled:opacity-50">🏠 Về Trạm Sạc (WP7)</button>
+      {/* Control Buttons Grid */}
+      <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            disabled={dispatching || !selectedRobot}
+            onClick={() => handleControl(pauseRobotNavigation, 'TẠM DỪNG')}
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 py-2.5 font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
+          >
+            <Icon name="pause" className="text-[16px]" />
+            Tạm dừng
+          </button>
+          <button
+            type="button"
+            disabled={dispatching || !selectedRobot}
+            onClick={() => handleControl(resumeRobotNavigation, 'TIẾP TỤC')}
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 py-2.5 font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
+          >
+            <Icon name="play_arrow" className="text-[16px]" />
+            Tiếp tục
+          </button>
+          <button
+            type="button"
+            disabled={dispatching || !selectedRobot}
+            onClick={handleCancel}
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 py-2.5 font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
+          >
+            <Icon name="stop" className="text-[16px]" />
+            Dừng nhiệm vụ
+          </button>
+          <button
+            type="button"
+            disabled={dispatching || !selectedRobot}
+            onClick={() => handleControl(emergencyStopRobot, 'E-STOP')}
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-red-950 hover:bg-red-900 py-2.5 font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
+          >
+            <Icon name="e911_emergency" className="text-[16px]" />
+            E-STOP
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            disabled={dispatching || !selectedRobot}
+            onClick={() => handleDispatch('return', { nodeIds: [10029], floorId: 1 })}
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 py-3 font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
+          >
+            <Icon name="ev_station" className="text-[16px]" />
+            Về Trạm Sạc (WP7)
+          </button>
+          <button
+            type="button"
+            disabled={dispatching || !selectedRobot}
+            onClick={() => handleDispatch('return', { nodeIds: [10033], floorId: 1 })}
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 py-3 font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
+          >
+            <Icon name="flag" className="text-[16px]" />
+            Về Vị Trí Gốc (WP8)
+          </button>
+        </div>
       </div>
       <StatusBadge msg={estopMsg} />
 

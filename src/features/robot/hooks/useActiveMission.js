@@ -18,7 +18,7 @@ export function useActiveMission(robotCode, pollMs = 5000) {
         const data = await getRobotMissionState(robotCode)
         if (isMounted) setMissionState(data)
       } catch (err) {
-        console.error('Failed to fetch mission state:', err)
+        if (isMounted) setMissionState(null)
       } finally {
         if (isMounted) setLoading(false)
       }
