@@ -257,7 +257,6 @@ export default function ShelfManagement() {
     await createShelf({
       aisleId: selectedAisle.aisleId,
       shelfName: values.shelfName.trim(),
-      levelNumber: Number(values.levelNumber) || 1,
       slotCount: Number(values.slotCount) || 4,
     })
     toast.success('Đã tạo kệ hàng mới!')
@@ -269,7 +268,6 @@ export default function ShelfManagement() {
     if (!values.shelfName?.trim()) { toast.error('Tên kệ không được để trống.'); return }
     await updateShelf(editingShelf.shelfId, {
       shelfName: values.shelfName.trim(),
-      levelNumber: Number(values.levelNumber) || 1,
     })
     toast.success('Đã cập nhật kệ hàng!')
     setEditingShelf(null)
@@ -322,18 +320,6 @@ export default function ShelfManagement() {
     shelf: 'Xóa kệ hàng này? Tất cả ô chứa và sản phẩm đã gán sẽ bị gỡ.',
   }
 
-  const groupedShelves = useMemo(() => {
-    const groups = {}
-    shelves.forEach(s => {
-      const name = s.shelfName || 'Không tên'
-      if (!groups[name]) groups[name] = []
-      groups[name].push(s)
-    })
-    return Object.entries(groups).map(([name, items]) => ({
-      name,
-      items: items.sort((a, b) => (a.levelNumber || 0) - (b.levelNumber || 0))
-    }))
-  }, [shelves])
 
   return (
     <div className="flex min-h-screen bg-smb-surface">
@@ -592,8 +578,7 @@ export default function ShelfManagement() {
                                     <div className="mb-2">
                                       <InlineForm
                                         fields={[
-                                          { key: 'shelfName', label: 'Tên kệ', required: true, placeholder: 'VD: Kệ Tầng 1' },
-                                          { key: 'levelNumber', label: 'Tầng kệ', type: 'number', min: 1, placeholder: '1' },
+                                          { key: 'shelfName', label: 'Tên kệ', required: true, placeholder: 'VD: Kệ 1' },
                                           { key: 'slotCount', label: 'Số ô chứa', type: 'number', min: 1, placeholder: '4' },
                                         ]}
                                         onSubmit={handleCreateShelf}
@@ -618,68 +603,59 @@ export default function ShelfManagement() {
                                     <div className="flex justify-center py-4">
                                       <Icon name="progress_activity" className="animate-spin text-lg text-smb-on-surface-variant" />
                                     </div>
-                                  ) : groupedShelves.length === 0 ? (
+                                  ) : shelves.length === 0 ? (
                                     <p className="py-3 text-center text-[10px] text-smb-on-surface-variant/60">Chưa có kệ nào.</p>
                                   ) : (
-                                    <ul className="space-y-3">
-                                      {groupedShelves.map((group) => (
-                                        <li key={group.name} className="flex flex-col gap-1">
-                                          <div className="text-[11px] font-bold text-smb-on-surface ml-1 flex items-center gap-1.5 opacity-90">
-                                            <Icon name="shelves" className="text-[14px]" /> {group.name}
-                                          </div>
-                                          <ul className="space-y-1 pl-2 border-l-2 border-smb-outline-variant/30 ml-2.5">
-                                            {group.items.map((shelf) => (
-                                              <li key={shelf.shelfId}>
-                                                {editingShelf?.shelfId === shelf.shelfId ? (
-                                                  <InlineForm
-                                                    fields={[
-                                                      { key: 'shelfName', label: 'Tên kệ', required: true },
-                                                      { key: 'levelNumber', label: 'Tầng', type: 'number', min: 1 },
-                                                    ]}
-                                                    initial={{ shelfName: shelf.shelfName, levelNumber: shelf.levelNumber }}
-                                                    onSubmit={handleUpdateShelf}
-                                                    onCancel={() => setEditingShelf(null)}
-                                                  />
-                                                ) : (
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => setSelectedShelf(shelf)}
-                                                    className={`group flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left transition-all ${
-                                                      selectedShelf?.shelfId === shelf.shelfId
-                                                        ? 'bg-smb-primary/10 ring-1 ring-smb-primary/30'
-                                                        : 'hover:bg-smb-surface-container-low'
-                                                    }`}
-                                                  >
-                                                    <div className="min-w-0 flex-1">
-                                                      <span className={`text-xs font-semibold ${
-                                                        selectedShelf?.shelfId === shelf.shelfId ? 'text-smb-primary' : 'text-smb-on-surface'
-                                                      }`}>
-                                                        Tầng {shelf.levelNumber ?? '?'}
-                                                      </span>
-                                                    </div>
-                                                    <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                                                      <span
-                                                        role="button"
-                                                        tabIndex={0}
-                                                        onClick={(e) => { e.stopPropagation(); setEditingShelf(shelf); setShowShelfForm(false) }}
-                                                        className="rounded p-0.5 hover:bg-smb-surface-container hover:text-smb-primary"
-                                                      >
-                                                        <Icon name="edit" className="text-[13px]" />
-                                                      </span>
-                                                      <span
-                                                        role="button"
-                                                        tabIndex={0}
-                                                        onClick={(e) => { e.stopPropagation(); setDeleteTarget({ type: 'shelf', id: shelf.shelfId, name: shelf.shelfName }) }}
-                                                        className="rounded p-0.5 hover:bg-smb-error-container hover:text-smb-on-error-container"
-                                                      >
-                                                        <Icon name="delete" className="text-[13px]" />
-                                                      </span>
-                                                    </div>
-                                                  </button>
-                                                )}
-                                              </li>
-                                            ))}
-                                          </ul>
+                                    <ul className="space-y-1">
+                                      {shelves.map((shelf) => (
+                                        <li key={shelf.shelfId}>
+                                          {editingShelf?.shelfId === shelf.shelfId ? (
+                                            <InlineForm
+                                              fields={[
+                                                { key: 'shelfName', label: 'Tên kệ', required: true }
+                                              ]}
+                                              initial={{ shelfName: shelf.shelfName }}
+                                              onSubmit={handleUpdateShelf}
+                                              onCancel={() => setEditingShelf(null)}
+                                            />
+                                          ) : (
+                                            <button
+                                              type="button"
+                                              onClick={() => setSelectedShelf(shelf)}
+                                              className={`group flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left transition-all ${
+                                                selectedShelf?.shelfId === shelf.shelfId
+                                                  ? 'bg-smb-primary/10 ring-1 ring-smb-primary/30'
+                                                  : 'hover:bg-smb-surface-container-low'
+                                              }`}
+                                            >
+                                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                <Icon name="shelves" className={`text-[15px] ${selectedShelf?.shelfId === shelf.shelfId ? 'text-smb-primary' : 'text-smb-on-surface-variant'}`} />
+                                                <span className={`text-xs font-semibold ${
+                                                  selectedShelf?.shelfId === shelf.shelfId ? 'text-smb-primary' : 'text-smb-on-surface'
+                                                }`}>
+                                                  {shelf.shelfName || 'Không tên'}
+                                                </span>
+                                              </div>
+                                              <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                                                <span
+                                                  role="button"
+                                                  tabIndex={0}
+                                                  onClick={(e) => { e.stopPropagation(); setEditingShelf(shelf); setShowShelfForm(false) }}
+                                                  className="rounded p-0.5 hover:bg-smb-surface-container hover:text-smb-primary"
+                                                >
+                                                  <Icon name="edit" className="text-[13px]" />
+                                                </span>
+                                                <span
+                                                  role="button"
+                                                  tabIndex={0}
+                                                  onClick={(e) => { e.stopPropagation(); setDeleteTarget({ type: 'shelf', id: shelf.shelfId, name: shelf.shelfName }) }}
+                                                  className="rounded p-0.5 hover:bg-smb-error-container hover:text-smb-on-error-container"
+                                                >
+                                                  <Icon name="delete" className="text-[13px]" />
+                                                </span>
+                                              </div>
+                                            </button>
+                                          )}
                                         </li>
                                       ))}
                                     </ul>

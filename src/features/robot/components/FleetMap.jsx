@@ -47,7 +47,7 @@ export default function FleetMap({ robots, poses, map, missionState, selectedRob
               <p className="text-sm text-gray-600 mt-2 mb-4">Vui lòng gán lộ trình hoặc nhiệm vụ ở bảng điều khiển bên phải.</p>
               
               <a 
-                href="/ros-map-tool.html" 
+                href="/ros-map-tool.html?edit=true" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 rounded-xl bg-gray-800/50 px-5 py-2.5 hover:bg-gray-700/80 text-gray-400 hover:text-white border border-gray-700/50 hover:border-gray-600 transition-all shadow-sm"

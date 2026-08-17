@@ -441,9 +441,9 @@
     <script src="https://cdn.jsdelivr.net/npm/eventemitter2@6.4.9/lib/eventemitter2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
     <script>
-        // Edit mode flag (can be enabled via ?edit=true URL param or postMessage)
+        // Edit mode flag (enabled by default unless explicitly set to ?edit=false)
         const urlParams = new URLSearchParams(window.location.search);
-        window.isEditMode = urlParams.get('edit') === 'true';
+        window.isEditMode = urlParams.get('edit') !== 'false';
         
         if (window.isEditMode) {
             document.body.classList.add('edit-mode');
@@ -1359,6 +1359,11 @@
                 btn.disabled = false;
             }
         }
+
+        // Auto-fetch active map from BE on startup
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchActiveMapFromBE().catch(e => console.warn('Auto fetch map failed:', e));
+        });
 
     </script>
 </body>
