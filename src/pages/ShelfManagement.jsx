@@ -256,7 +256,8 @@ export default function ShelfManagement() {
     if (!values.shelfName?.trim()) { toast.error('Tên kệ không được để trống.'); return }
     await createShelf({
       aisleId: selectedAisle.aisleId,
-      shelfName: values.shelfName.trim(),
+      shelfLabel: values.shelfName.trim(),
+      levelNumber: 1,
       slotCount: Number(values.slotCount) || 4,
     })
     toast.success('Đã tạo kệ hàng mới!')
@@ -267,7 +268,7 @@ export default function ShelfManagement() {
   const handleUpdateShelf = async (values) => {
     if (!values.shelfName?.trim()) { toast.error('Tên kệ không được để trống.'); return }
     await updateShelf(editingShelf.shelfId, {
-      shelfName: values.shelfName.trim(),
+      shelfLabel: values.shelfName.trim(),
     })
     toast.success('Đã cập nhật kệ hàng!')
     setEditingShelf(null)
