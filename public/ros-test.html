@@ -376,11 +376,10 @@
                 </select>
             </div>
 
-            <div class="input-group" style="margin-bottom: 8px;">
-                <button id="btn-agent-start" onclick="startRobotOS()" style="width: 50%; background: #3b82f6;">🚀 Boot
-                    Robot OS</button>
-                <button id="btn-agent-stop" onclick="stopRobotOS()" style="width: 50%; background: #64748b;">🛑
-                    Shutdown</button>
+            <div class="input-group" style="margin-bottom: 8px; display: flex; gap: 4px;">
+                <button id="btn-agent-start" onclick="startRobotOS()" style="flex: 1; background: #3b82f6; padding: 6px;">🚀 Boot</button>
+                <button id="btn-agent-stop" onclick="stopRobotOS()" style="flex: 1; background: #64748b; padding: 6px;">🛑 Stop</button>
+                <button id="btn-agent-save" onclick="saveRobotMap()" style="flex: 1; background: #10b981; padding: 6px;" title="Save current SLAM map to active_map">💾 Save Map</button>
             </div>
 
             <div class="input-group">
@@ -999,6 +998,28 @@
                 setTimeout(checkAgentStatus, 1500);
             } catch (err) {
                 alert("Failed to contact Agent Server");
+            }
+        }
+
+        async function saveRobotMap() {
+            const mode = document.getElementById('boot-mode').value;
+            if (mode !== 'slam') {
+                alert("You can only save a map while running in SLAM (Mapping) mode!");
+                return;
+            }
+            
+            if (!confirm("This will save the current SLAM map directly to the robot and overwrite the active map for AMCL. Are you sure?")) return;
+            
+            try {
+                const res = await fetch(`${getAgentApiUrl()}/save_map`, { method: 'POST' });
+                const data = await res.json();
+                if (data.error) {
+                    alert("Save failed: " + data.error);
+                } else {
+                    alert("Success: " + data.message);
+                }
+            } catch (err) {
+                alert("Failed to contact Agent Server to save map");
             }
         }
 
