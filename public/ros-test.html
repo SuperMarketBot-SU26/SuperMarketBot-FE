@@ -946,6 +946,9 @@
                 if (data.status === 'running') {
                     statusEl.innerText = 'Running';
                     statusEl.style.color = '#10b981';
+                } else if (data.status === 'starting') {
+                    statusEl.innerText = 'Starting...';
+                    statusEl.style.color = '#f59e0b';
                 } else {
                     statusEl.innerText = 'Stopped';
                     statusEl.style.color = '#ef4444';
