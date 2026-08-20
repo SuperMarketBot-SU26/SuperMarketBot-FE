@@ -344,17 +344,17 @@
             text-decoration: underline;
         }
         /* ImGui Collapsible Style */
-        details.imgui-collapsible {
+        /* ImGui Collapsible Style */
+        .imgui-collapsible {
             background: transparent;
             margin-bottom: 2px;
         }
-        details.imgui-collapsible > summary {
+        .imgui-collapsible > .summary {
             background: #2a3441;
             padding: 6px 8px;
             font-size: 0.85rem;
             font-weight: 500;
             cursor: pointer;
-            list-style: none;
             display: flex;
             align-items: center;
             color: #cbd5e1;
@@ -362,28 +362,34 @@
             transition: background 0.2s;
             border-radius: 2px;
         }
-        details.imgui-collapsible > summary:hover {
+        .imgui-collapsible > .summary:hover {
             background: #374151;
         }
-        details.imgui-collapsible > summary::-webkit-details-marker {
-            display: none;
-        }
-        details.imgui-collapsible > summary::before {
+        .imgui-collapsible > .summary::before {
             content: '▶';
             font-size: 0.65rem;
             margin-right: 8px;
             color: #94a3b8;
             display: inline-block;
-            transition: transform 0.15s ease;
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        details.imgui-collapsible[open] > summary::before {
+        .imgui-collapsible.open > .summary::before {
             transform: rotate(90deg);
         }
-        details.imgui-collapsible > .details-content {
-            padding: 12px 0 0 0;
+        .imgui-collapsible > .details-content {
             display: flex;
             flex-direction: column;
             gap: 16px;
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            padding: 0;
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, padding 0.4s ease;
+        }
+        .imgui-collapsible.open > .details-content {
+            max-height: 2500px;
+            opacity: 1;
+            padding: 12px 0 0 0;
         }
     </style>
     <script src="/config.js"></script>
@@ -402,8 +408,8 @@
             </div>
         </div>
 
-        <details class="imgui-collapsible" open>
-            <summary>ROS2</summary>
+        <div class="imgui-collapsible open">
+            <div class="summary" onclick="this.parentElement.classList.toggle('open')">ROS2</div>
             <div class="details-content">
         <div class="card">
             <div class="card-title">1. Connect to Robot (ROS 2)</div>
@@ -506,7 +512,7 @@
 
         <!-- Removed Export Mission -->
             </div> <!-- End Details Content -->
-        </details> <!-- End Details -->
+        </div> <!-- End ImGui Collapsible -->
     </div>
 
     <div class="map-container" id="mapContainer">
