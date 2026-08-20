@@ -1361,17 +1361,10 @@
 
             for (let i = 0; i < IMAGE_WIDTH * IMAGE_HEIGHT; i++) {
                 let val = pgmData[i];
-                if (val < 10) { // Obstacle
-                    pixels[i * 4] = 255;
-                    pixels[i * 4 + 1] = 255;
-                    pixels[i * 4 + 2] = 255;
-                    pixels[i * 4 + 3] = 255;
-                } else {
-                    pixels[i * 4] = val;
-                    pixels[i * 4 + 1] = val;
-                    pixels[i * 4 + 2] = val;
-                    pixels[i * 4 + 3] = (val > 250) ? 0 : 255; // Free space transparent
-                }
+                pixels[i * 4] = val;
+                pixels[i * 4 + 1] = val;
+                pixels[i * 4 + 2] = val;
+                pixels[i * 4 + 3] = 255;
             }
 
             ctxMap.putImageData(pgmImageData, 0, 0);
@@ -1599,13 +1592,13 @@
 
                         const val = mapData[i];
                         if (val === -1) {
-                            data[idx] = 15; data[idx + 1] = 23; data[idx + 2] = 42; data[idx + 3] = 255; // Unknown
+                            data[idx] = 205; data[idx + 1] = 205; data[idx + 2] = 205; data[idx + 3] = 255; // Unknown
                         } else if (val === 0) {
-                            data[idx] = 51; data[idx + 1] = 65; data[idx + 2] = 85; data[idx + 3] = 255; // Free space
+                            data[idx] = 254; data[idx + 1] = 254; data[idx + 2] = 254; data[idx + 3] = 255; // Free space
                         } else if (val === 100) {
-                            data[idx] = 255; data[idx + 1] = 255; data[idx + 2] = 255; data[idx + 3] = 255; // Obstacle (White)
+                            data[idx] = 0; data[idx + 1] = 0; data[idx + 2] = 0; data[idx + 3] = 255; // Obstacle (Black)
                         } else {
-                            const b = 51 + (val / 100.0) * 100;
+                            const b = 254 - (val / 100.0) * 254;
                             data[idx] = b; data[idx + 1] = b; data[idx + 2] = b; data[idx + 3] = 255;
                         }
                     }
