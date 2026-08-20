@@ -454,7 +454,7 @@
             </div>
             <div class="data-row">
                 <span>Trạng thái WS:</span><span class="value" id="val-ros-status"
-                    style="color: #ef4444;">Ngắt Kết Nốied</span>
+                    style="color: #ef4444;">Đã Ngắt Kết Nối</span>
             </div>
         </div>
 
@@ -1080,7 +1080,7 @@
                     statusEl.innerText = 'Starting...';
                     statusEl.style.color = '#f59e0b';
                 } else {
-                    statusEl.innerText = 'Stopped';
+                    statusEl.innerText = 'Đã Dừng';
                     statusEl.style.color = '#ef4444';
                 }
             } catch (err) {
@@ -1288,7 +1288,7 @@
             });
 
             ros.on('close', function () {
-                statusEl.innerText = 'Ngắt Kết Nốied';
+                statusEl.innerText = 'Đã Ngắt Kết Nối';
                 statusEl.style.color = '#ef4444';
                 btn.innerText = 'Connect';
                 btn.style.background = '#10b981';
