@@ -433,6 +433,10 @@
                 <button id="btn-agent-save" onclick="saveRobotMap()" style="flex: 1; background: #10b981; padding: 6px;" title="Save current SLAM map to active_map">💾 Lưu Bản Đồ</button>
             </div>
 
+            <div class="input-group" style="margin-bottom: 8px;">
+                <button id="btn-agent-shutdown" onclick="shutdownPi()" style="width: 100%; background: #ef4444; padding: 6px; font-weight: 600;">⚠️ TẮT NGUỒN ROBOT (SHUTDOWN) ⚠️</button>
+            </div>
+
             <div class="input-group">
                 <input type="text" id="ros-ws-url" value="ws://snake.local:9090" placeholder="ws://snake.local:9090">
                 <button id="btn-ros-connect" onclick="connectROS()" style="background: #10b981;">Kết Nối</button>
@@ -1044,6 +1048,24 @@
                 alert("Failed to contact Agent Server");
             }
         }
+
+        async function shutdownPi() {
+            if (!confirm("⚠️ CẢNH BÁO: Hành động này sẽ TẮT NGUỒN (Shutdown) máy tính Raspberry Pi trên Robot.\nBạn sẽ mất kết nối hoàn toàn và phải bật lại nguồn bằng tay.\n\nBạn có chắc chắn muốn TẮT NGUỒN không?")) {
+                return;
+            }
+            try {
+                const res = await fetch(`${getAgentApiUrl()}/shutdown`, { method: 'POST' });
+                const data = await res.json();
+                if (data.error) {
+                    alert("Lỗi: " + data.error);
+                } else {
+                    alert("Robot đang tắt nguồn...");
+                }
+            } catch (err) {
+                alert("Không thể kết nối đến Agent Server để tắt nguồn: " + err);
+            }
+        }
+
 
         async function saveRobotMap() {
             const mode = document.getElementById('boot-mode').value;
