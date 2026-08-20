@@ -1099,7 +1099,19 @@
                 if (data.error) {
                     alert("Save failed: " + data.error);
                 } else {
-                    alert("Success: " + data.message);
+                    // Trigger downloads if backend returned the files
+                    if (data.yaml_b64 && data.pgm_b64) {
+                        const aYaml = document.createElement('a');
+                        aYaml.href = "data:text/yaml;base64," + data.yaml_b64;
+                        aYaml.download = "active_map.yaml";
+                        aYaml.click();
+                        
+                        const aPgm = document.createElement('a');
+                        aPgm.href = "data:image/x-portable-graymap;base64," + data.pgm_b64;
+                        aPgm.download = "active_map.pgm";
+                        aPgm.click();
+                    }
+                    alert("Success: " + data.message + "\n\nFiles have also been downloaded to your laptop.");
                 }
             } catch (err) {
                 alert("Failed to contact Agent Server to save map");
