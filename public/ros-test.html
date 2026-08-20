@@ -1306,26 +1306,7 @@
         /** ==========================================
          * ĐỌC FILE MAPPING (.YAML & .PGM)
          * ========================================== */
-        document.getElementById('mapFiles').addEventListener('change', async (e) => {
-            const files = e.target.files;
-            let yamlFile = null;
-            let pgmFile = null;
-
-            for (let f of files) {
-                if (f.name.endsWith('.yaml')) yamlFile = f;
-                if (f.name.endsWith('.pgm')) pgmFile = f;
-            }
-
-            if (yamlFile) await parseYAML(yamlFile);
-            if (pgmFile) await parsePGM(pgmFile);
-
-            const scaleFitX = container.clientWidth / IMAGE_WIDTH;
-            const scaleFitY = container.clientHeight / IMAGE_HEIGHT;
-            scale = Math.min(scaleFitX, scaleFitY) * 0.9;
-            translateX = (container.clientWidth - IMAGE_WIDTH * scale) / 2;
-            translateY = (container.clientHeight - IMAGE_HEIGHT * scale) / 2;
-            applyTransform();
-        });
+        // Removed manual map upload listener
 
         async function parseYAML(file) {
             const text = await file.text();
