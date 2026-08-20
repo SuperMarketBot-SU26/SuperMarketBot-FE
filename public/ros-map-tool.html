@@ -480,6 +480,13 @@
                 <option value="Shelf">🛍️ Shelf (Quầy kệ)</option>
             </select>
         </div>
+        
+        <div style="margin-bottom: 16px;">
+            <label style="display: block; color: #cbd5e1; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">Gán vào Kệ Hàng (Tùy chọn):</label>
+            <select id="wp-edit-shelf" style="width: 100%; background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; outline: none; cursor: pointer;">
+                <option value="">-- Không gán kệ --</option>
+            </select>
+        </div>
 
         <div style="display: flex; gap: 12px; margin-bottom: 16px;">
             <div style="flex: 1;">
@@ -528,10 +535,10 @@
     <script src="https://cdn.jsdelivr.net/npm/eventemitter2@6.4.9/lib/eventemitter2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
     <script>
-        // Edit mode flag (can be enabled via ?edit=true URL param or postMessage)
+        // Edit mode flag (enabled by default unless explicitly set to ?edit=false)
         const urlParams = new URLSearchParams(window.location.search);
-        window.isEditMode = urlParams.get('edit') === 'true';
-
+        window.isEditMode = urlParams.get('edit') !== 'false';
+        
         if (window.isEditMode) {
             document.body.classList.add('edit-mode');
         }
@@ -629,7 +636,24 @@
             document.getElementById('wp-edit-y').value = wp.y;
             document.getElementById('wp-edit-dwell').value = wp.dwellTimeSeconds !== undefined ? wp.dwellTimeSeconds : 30;
             document.getElementById('wp-edit-blocked').checked = wp.isBlocked || false;
-
+            
+            const shelfSelect = document.getElementById('wp-edit-shelf');
+            shelfSelect.innerHTML = '<option value="">-- Không gán kệ --</option>';
+            window.allShelves.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.shelfId;
+                opt.text = s.shelfName + (s.aisleName ? ` (${s.aisleName})` : '');
+                shelfSelect.appendChild(opt);
+            });
+            
+            // Tìm kệ đang được gán cho node này (nếu có)
+            const mappedShelf = window.allShelves.find(s => s.nodeId === wp.id);
+            if (mappedShelf) {
+                shelfSelect.value = mappedShelf.shelfId;
+            } else {
+                shelfSelect.value = "";
+            }
+            
             document.getElementById('wp-modal-overlay').style.display = 'block';
             document.getElementById('wp-modal').style.display = 'block';
         }
@@ -647,12 +671,32 @@
                 waypoints[index].nodeType = document.getElementById('wp-edit-type').value;
                 waypoints[index].x = parseFloat(document.getElementById('wp-edit-x').value) || waypoints[index].x;
                 waypoints[index].y = parseFloat(document.getElementById('wp-edit-y').value) || waypoints[index].y;
-                waypoints[index].dwellTimeSeconds = parseInt(document.getElementById('wp-edit-dwell').value) || 0;
+                waypoints[index].dwellTimeSeconds = parseFloat(document.getElementById('wp-edit-dwell').value) || 30;
                 waypoints[index].isBlocked = document.getElementById('wp-edit-blocked').checked;
-
-                closeWpModal();
-                renderUI(); // Render lại tên và vị trí
-
+                
+                const selectedShelfId = document.getElementById('wp-edit-shelf').value;
+                if (selectedShelfId && waypoints[index].id) {
+                    const baseUrl = window.SMB_ENV?.BE_URL !== undefined ? window.SMB_ENV.BE_URL : 'http://localhost:5000';
+                    fetch(`${baseUrl}/api/v1/shelves/${selectedShelfId}/map-node/${waypoints[index].id}`, {
+                        method: 'PUT',
+                        headers: getFetchHeaders()
+                    }).then(res => {
+                        if (res.ok) {
+                            console.log(`Mapped Node ${waypoints[index].id} to Shelf ${selectedShelfId}`);
+                            // Cập nhật local state
+                            const oldShelf = window.allShelves.find(s => s.nodeId === waypoints[index].id);
+                            if (oldShelf) oldShelf.nodeId = null;
+                            const newShelf = window.allShelves.find(s => s.shelfId == selectedShelfId);
+                            if (newShelf) newShelf.nodeId = waypoints[index].id;
+                        }
+                    }).catch(e => console.error("Error mapping shelf:", e));
+                } else if (selectedShelfId && !waypoints[index].id) {
+                    alert("Node này chưa có ID (Chưa lưu lên Server). Vui lòng nhấn 'Lưu Waypoint Lên Server' trước, sau đó mới gán Kệ hàng!");
+                }
+                
+                renderUI();
+                closeWpModal(); 
+                
                 const toast = document.getElementById('toast');
                 toast.innerText = '✅ Cập nhật Config thành công!';
                 toast.style.background = '#3b82f6';
@@ -1431,6 +1475,21 @@
         window.currentMapHeight = 0;
         window.currentMapEdges = [];
         window.currentMapSemanticObjects = [];
+        window.allShelves = [];
+
+        async function fetchAllShelves() {
+            try {
+                const baseUrl = window.SMB_ENV?.BE_URL !== undefined ? window.SMB_ENV.BE_URL : 'http://localhost:5000';
+                const response = await fetch(baseUrl + '/api/v1/shelves', {
+                    headers: getFetchHeaders()
+                });
+                if (response.ok) {
+                    window.allShelves = await response.json();
+                }
+            } catch(e) {
+                console.warn('Cannot fetch shelves:', e);
+            }
+        }
 
         function getFetchHeaders() {
             const token = localStorage.getItem('accessToken');
@@ -1533,6 +1592,12 @@
                 btn.disabled = false;
             }
         }
+
+        // Auto-fetch active map from BE on startup
+        window.addEventListener('DOMContentLoaded', async () => {
+            await fetchAllShelves();
+            fetchActiveMapFromBE().catch(e => console.warn('Auto fetch map failed:', e));
+        });
 
     </script>
 </body>

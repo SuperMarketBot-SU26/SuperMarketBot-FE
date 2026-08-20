@@ -31,12 +31,14 @@ export function ProductInfoCard({ product }) {
           {product?.productName}
         </h2>
         <div className="mt-1 rounded-lg bg-smb-surface-container px-4 py-3 space-y-0">
-          <InfoRow label="Mã sản phẩm" value={`#${product?.productId}`} />
           <InfoRow
             label="Giá bán"
             value={`${formatVND(product?.unitPrice)} đ`}
           />
-          <InfoRow label="Loại sản phẩm" value={`#${product?.productTypeId}`} />
+          <InfoRow
+            label="Loại sản phẩm"
+            value={product?.productTypeName || `ID: ${product?.productTypeId}`}
+          />
           <InfoRow label="Trạng thái" value={statusLabel(product?.status)} />
         </div>
       </div>

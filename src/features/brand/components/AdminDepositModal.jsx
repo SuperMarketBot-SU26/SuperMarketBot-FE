@@ -26,8 +26,8 @@ export default function AdminDepositModal({ open, brand, onClose, onSuccess }) {
     setSubmitting(true)
     try {
       const result = await adminDepositBrand(brand.brandId, {
-        amountVnd,
-        note: note.trim() || undefined,
+        amount: amountVnd,
+        referenceNo: note.trim() || undefined,
       })
       onSuccess?.(result)
       setAmount('')

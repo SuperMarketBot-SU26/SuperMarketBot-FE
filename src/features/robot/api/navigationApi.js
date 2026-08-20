@@ -41,8 +41,8 @@
 
 import client from '../../../api/client'
 
-const NAV_ENDPOINT = '/Navigation'
-const ROBOTS_ENDPOINT = '/Robots'
+const NAV_ENDPOINT = '/api/Navigation'
+const ROBOTS_ENDPOINT = '/api/Robots'
 const V1_NAV_ENDPOINT = '/api/v1/navigation'
 
 /* ── Polyline routing (web/mobile display) ──────────────────────────────── */
@@ -104,6 +104,11 @@ export const getActiveRobotMission = async (robotCode) => {
   return res.data
 }
 
+export const getActiveCampaigns = async () => {
+  const { data } = await client.get('/api/v1/ad-campaigns', { params: { Status: 'Active', PageSize: 50 } })
+  return data?.items ?? data ?? []
+}
+
 /* ── Point-to-point navigate ─────────────────────────────────────────────── */
 
 /**
@@ -132,15 +137,18 @@ export const publishNavigate = async (payload) => {
 /* backward-compatible alias used by older code */
 export const navigate = (payload) => navigateRobot(payload)
 
-/* ── Emergency stop ─────────────────────────────────────────────────────── */
+/* ── Emergency stop & Navigation Control ─────────────────────────────────── */
 
 /**
  * Cancel current navigation / emergency stop.
  *
  * @param {string} robotCode
+ * @param {string} [reason]
  */
-export const cancelRobotNavigation = async (robotCode) => {
-  const res = await client.post(`${V1_NAV_ENDPOINT}/robots/${encodeURIComponent(robotCode)}/cancel`)
+export const cancelRobotNavigation = async (robotCode, reason = 'Admin cancelled') => {
+  const res = await client.post(`${V1_NAV_ENDPOINT}/robots/${encodeURIComponent(robotCode)}/cancel`, null, {
+    params: { reason },
+  })
   return res.data
 }
 
@@ -151,6 +159,11 @@ export const pauseRobotNavigation = async (robotCode) => {
 
 export const resumeRobotNavigation = async (robotCode) => {
   const res = await client.post(`${V1_NAV_ENDPOINT}/robots/${encodeURIComponent(robotCode)}/resume`)
+  return res.data
+}
+
+export const getRobotMissionState = async (robotCode) => {
+  const res = await client.get(`/api/v1/robot-operations/missions/${encodeURIComponent(robotCode)}/active`)
   return res.data
 }
 

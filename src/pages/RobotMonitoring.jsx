@@ -11,6 +11,7 @@ import {
 import {
   useRobotFleet,
   useMapAndRoutes,
+  useActiveMission,
 } from '../features/robot/hooks'
 
 export function RobotMonitoring() {
@@ -19,6 +20,8 @@ export function RobotMonitoring() {
 
   const [selectedRobotCode, setSelectedRobotCode] = useState(null)
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
+
+  const { missionState } = useActiveMission(selectedRobotCode, 5000)
 
   const handleSelectRobot = useCallback((robot) => {
     setSelectedRobotCode(robot.robotCode)
@@ -56,7 +59,13 @@ export function RobotMonitoring() {
             <div className="flex flex-1 gap-4 min-h-0 overflow-hidden">
               {/* Map — takes all available height */}
               <div className="flex-1 min-h-0 rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest overflow-hidden">
-                <FleetMap />
+                <FleetMap
+                  robots={robots}
+                  poses={poses}
+                  map={map}
+                  missionState={missionState}
+                  selectedRobotCode={selectedRobotCode}
+                />
               </div>
               {/* Sidebar panel — fixed width, internal scroll */}
               <div className="w-80 shrink-0 flex flex-col min-h-0 overflow-hidden rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest">

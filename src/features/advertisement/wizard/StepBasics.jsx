@@ -184,12 +184,12 @@ export function StepBasics({ state, onChange, brandOptions, onNext, errors, basi
         <div>
           <h3 className="text-base font-semibold text-smb-on-surface">Hình Thức Phát Quảng Cáo</h3>
           <p className="text-xs text-smb-on-surface-variant">
-            Admin quyết định robot phát ad theo lộ trình hay dừng lại ở zone/kệ.
+            Quảng cáo toàn bộ siêu thị — robot phát ad khi dừng ở khu vực hoặc kệ hàng.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           {[
-            { value: 'Route', label: 'Tuyến Đường', icon: 'route', desc: 'Robot đi theo lộ trình, phát ad khi di chuyển' },
+            { value: 'Route', label: 'Tuyến Đường', icon: 'route', desc: 'Quảng cáo toàn bộ siêu thị' },
             { value: 'Zone', label: 'Khu Vực / Kệ', icon: 'grid_view', desc: 'Robot dừng lại ở zone/kệ để phát ad' },
             { value: 'Both', label: 'Cả Hai', icon: 'sync', desc: 'Robot đi lộ trình và dừng ở zone để phát ad' },
           ].map((opt) => (

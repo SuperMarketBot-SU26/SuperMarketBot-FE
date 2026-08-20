@@ -12,7 +12,7 @@ import {
 } from '../api/targetingApi'
 
 const TABS = [
-  { key: 'route', label: 'Tuyến Đường', icon: 'route' },
+  { key: 'route',  label: 'Tuyến Đường', icon: 'route' },
   { key: 'zone',  label: 'Khu Vực',     icon: 'grid_view' },
   { key: 'shelf', label: 'Kệ Hàng',     icon: 'inventory_2' },
 ]
@@ -225,11 +225,14 @@ export function StepTargeting({
   const priceShelf = selectedPkg?.priceShelf ?? 0
 
   // Toggle handlers — Route/Zone/Shelf là 3 lựa chọn độc lập, không overlap.
-  const toggleRoute = (id) => {
-    const next = state.targeting.routeIds.includes(id)
-      ? state.targeting.routeIds.filter((x) => x !== id)
-      : [...state.targeting.routeIds, id]
-    onChange({ routeIds: next, semanticObjectId: state.targeting.semanticObjectId })
+  // Route toggle: select all routes or deselect all
+  const toggleRoute = () => {
+    if (state.targeting.routeIds.length > 0) {
+      onChange({ routeIds: [], semanticObjectId: state.targeting.semanticObjectId })
+    } else {
+      // Select all routes
+      onChange({ routeIds: [...routes.map((r) => r.id)], semanticObjectId: state.targeting.semanticObjectId })
+    }
   }
   const toggleZone = (id) => {
     const next = state.targeting.zoneIds.includes(id)
@@ -258,8 +261,7 @@ export function StepTargeting({
       <header>
         <h2 className="text-xl font-semibold text-smb-on-surface">Bước 2 · Targeting</h2>
         <p className="mt-1 text-sm text-smb-on-surface-variant">
-          Chọn ít nhất <strong>1</strong> loại quảng cáo: tuyến đường, khu vực hoặc kệ hàng.
-          Các loại là <strong>độc lập</strong> — kết hợp tuỳ <em>deliveryMode</em> đã chọn ở Bước 1.
+          Chọn ít nhất <strong>1</strong> loại quảng cáo: khu vực hoặc kệ hàng.
         </p>
       </header>
 
@@ -274,12 +276,10 @@ export function StepTargeting({
         {/* Mode chip */}
         <div className="flex items-center gap-1 rounded-lg bg-smb-primary-container/10 px-3 py-1.5 text-xs font-medium text-smb-primary-container">
           <Icon name={
-            deliveryMode === 'Route' ? 'route' :
             deliveryMode === 'Zone'  ? 'grid_view' :
             'sync'
           } className="text-[14px]" />
           <span>{
-            deliveryMode === 'Route' ? 'Chỉ Tuyến Đường' :
             deliveryMode === 'Zone'  ? 'Chỉ Khu Vực / Kệ' :
             'Cả Hai'
           }</span>
@@ -332,15 +332,22 @@ export function StepTargeting({
       ) : (
         <>
           {activeTab === 'route' && (
-            <MultiPanel
-              title="Chọn tuyến đường"
-              icon="route"
-              items={routes}
-              selectedIds={state.targeting.routeIds}
-              onToggle={toggleRoute}
-              searchPlaceholder="Tìm tuyến theo tên..."
-              pricePerItem={priceRoute}
-            />
+            routes.length === 0
+              ? <p className="py-8 text-center text-sm text-smb-on-surface-variant">Không có tuyến đường nào trên bản đồ</p>
+              : <MultiPanel
+                  title="Chọn tuyến đường"
+                  icon="route"
+                  items={routes}
+                  selectedIds={state.targeting.routeIds}
+                  onToggle={(id) => {
+                    const next = state.targeting.routeIds.includes(id)
+                      ? state.targeting.routeIds.filter((x) => x !== id)
+                      : [...state.targeting.routeIds, id]
+                    onChange({ routeIds: next, semanticObjectId: state.targeting.semanticObjectId })
+                  }}
+                  searchPlaceholder="Tìm tuyến đường theo tên..."
+                  pricePerItem={priceRoute}
+                />
           )}
           {activeTab === 'zone' && (
             <MultiPanel

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import Sidebar from '../components/Sidebar'
@@ -114,6 +114,7 @@ export function ProductManagement() {
   const [fetchError, setFetchError] = useState(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState('')
 
   // Create/Edit modal state
   const [modalOpen, setModalOpen] = useState(false)
@@ -203,7 +204,9 @@ export function ProductManagement() {
       !search || p.productName.toLowerCase().includes(search.toLowerCase())
     const matchStatus =
       statusFilter === 'all' || p.status.toLowerCase() === statusFilter
-    return matchSearch && matchStatus
+    const matchType =
+      !typeFilter || p.productTypeId === Number(typeFilter)
+    return matchSearch && matchStatus && matchType
   })
 
   const counts = {
@@ -261,7 +264,7 @@ export function ProductManagement() {
         .filter((p) => p.productId !== excludeProductId)
         .map((p) => ({
           value: String(p.productId),
-          label: `#${p.productId} — ${p.productName}`,
+          label: p.productName,
         }))
       setSubstituteOptions(options)
     } catch {
@@ -377,18 +380,12 @@ export function ProductManagement() {
     }
   }
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       key: 'imageUrl',
       label: '',
       width: '56px',
       render: (val) => {
-        // Run every image URL through `buildImageUrl` so Cloudinary URLs get
-        // optimization transforms and bare local paths (e.g.
-        // `uploads/products/abc.jpg`) get the `/` prefix needed to traverse
-        // the Vite dev proxy. `buildImageUrl` returns a placeholder when the
-        // URL is null/empty/known-legacy — render the icon placeholder in
-        // those cases so the table cell always looks consistent.
         const src = val ? buildImageUrl(val, { width: 96, height: 96, crop: 'fill', quality: 'auto', format: 'auto' }) : ''
         return src ? (
           <img
@@ -436,11 +433,14 @@ export function ProductManagement() {
       key: 'productTypeId',
       label: 'Loại',
       align: 'center',
-      render: (val) => (
-        <span className="inline-flex items-center rounded-lg bg-smb-surface-container px-2 py-0.5 text-xs font-mono font-medium text-smb-on-surface-variant">
-          #{val}
-        </span>
-      ),
+      render: (val) => {
+        const type = productTypes.find((t) => t.productTypeId === val)
+        return (
+          <span className="inline-flex items-center rounded-lg bg-smb-surface-container px-2 py-0.5 text-xs font-medium text-smb-on-surface-variant">
+            {type?.typeName || `#${val}`}
+          </span>
+        )
+      },
     },
     {
       key: 'actions',
@@ -462,7 +462,7 @@ export function ProductManagement() {
         </div>
       ),
     },
-  ]
+  ], [productTypes])
 
   // ── Filter tab config ─────────────────────────────────────────
   const filterTabs = [
@@ -508,6 +508,22 @@ export function ProductManagement() {
                   onChange={(e) => setSearch(e.target.value)}
                   className="w-64 rounded-xl border border-smb-outline-variant/60 bg-smb-surface-container-lowest pl-9 pr-4 py-2 text-sm text-smb-on-surface placeholder:text-smb-on-surface-variant/50 focus:border-smb-primary-container focus:outline-none focus:ring-2 focus:ring-smb-primary-container/20 transition-all"
                 />
+              </div>
+
+              {/* Type Filter */}
+              <div className="relative">
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  className="rounded-xl border border-smb-outline-variant/60 bg-smb-surface-container-lowest px-4 py-2 text-sm text-smb-on-surface outline-none focus:border-smb-primary-container focus:ring-2 focus:ring-smb-primary-container/20 transition-all"
+                >
+                  <option value="">Tất cả Loại Sản Phẩm</option>
+                  {productTypes.map((t) => (
+                    <option key={t.productTypeId} value={t.productTypeId}>
+                      {t.typeName}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex items-center gap-2">
@@ -677,7 +693,7 @@ export function ProductManagement() {
                 disabled={productTypesLoading}
                 options={productTypes.map((t) => ({
                   value: String(t.productTypeId),
-                  label: `#${t.productTypeId} · ${t.typeName}${t.subcategoryId != null ? ` · sub #${t.subcategoryId}` : ''}`,
+                  label: t.typeName,
                 }))}
               />
             </FormField>

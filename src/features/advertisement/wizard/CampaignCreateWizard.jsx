@@ -129,6 +129,9 @@ export function CampaignCreateWizard() {
       const newId = res?.adCampaignId ?? res?.id
       wizard.setCreatedId(newId)
 
+      // Reset wizard TRƯỚC KHI navigate, để lần sau vào là form trắng
+      wizard.reset()
+
       // Upload pending resources sau khi tạo campaign thành công
       if (pendingFiles.length > 0) {
         toast.info(`Đang upload ${pendingFiles.length} resource...`)
@@ -148,6 +151,7 @@ export function CampaignCreateWizard() {
           }
         }
         toast.success(`Đã upload ${pendingFiles.length} resource!`)
+        setPendingFiles([])
       }
 
       navigate(`/advertisement/detail/${newId}`)
@@ -248,6 +252,7 @@ export function CampaignCreateWizard() {
             hasProducts={hasProducts}
             onBack={goBack}
             onNext={goNext}
+            pendingFiles={pendingFiles}
             onUploadFiles={(files) => setPendingFiles(files)}
           />
         )}

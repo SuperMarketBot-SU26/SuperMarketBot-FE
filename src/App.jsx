@@ -14,10 +14,13 @@ import BrandWallet from './pages/BrandWallet'
 import Forbidden from './pages/Forbidden'
 import Login from './pages/Login'
 import ProductManagement from './pages/ProductManagement'
+import { ProductTypeManagement } from './pages/ProductTypeManagement'
+import HealthTagManagement from './pages/HealthTagManagement'
 import ProductDetail from './pages/ProductDetail'
 import AccountManagement from './pages/AccountManagement'
 import Register from './pages/Register'
 import RobotMonitoring from './pages/RobotMonitoring'
+import ShelfManagement from './pages/ShelfManagement'
 
 import { AuthProvider } from './features/auth/AuthContext'
 import ProtectedRoute from './features/auth/ProtectedRoute'
@@ -149,6 +152,22 @@ function App() {
               }
             />
             <Route
+              path="/product-types"
+              element={
+                <ProtectedRoute>
+                  <ProductTypeManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/health-tags"
+              element={
+                <ProtectedRoute>
+                  <HealthTagManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/products/:id"
               element={
                 <ProtectedRoute>
@@ -177,6 +196,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <RobotMonitoring />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/shelf-management"
+              element={
+                <ProtectedRoute>
+                  <ShelfManagement />
                 </ProtectedRoute>
               }
             />
