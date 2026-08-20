@@ -257,16 +257,7 @@
             bottom: 30px;
         }
 
-        /* Edit mode classes */
-        body:not(.edit-mode) .sidebar,
-        body:not(.edit-mode) .right-sidebar {
-            display: none;
-        }
 
-        body.edit-mode .sidebar,
-        body.edit-mode .right-sidebar {
-            display: flex;
-        }
     </style>
     <script src="/config.js"></script>
 </head>
@@ -312,9 +303,7 @@
             <div style="font-size: 0.8rem; color: #fff; margin-bottom: 12px;">
                 Tải bản đồ từ Backend hoặc Upload thủ công (.pgm + .yaml).
             </div>
-            <button onclick="fetchActiveMapFromBE()"
-                style="width: 100%; background: #38bdf8; margin-bottom: 12px; color: #0f172a;">🌐 Tải từ Backend
-                C#</button>
+
             <div style="font-size: 0.75rem; text-align: center; margin-bottom: 8px; color: var(--text-muted);">Hoặc
                 upload thủ công</div>
             <input type="file" id="mapFiles" multiple accept=".pgm,.yaml"
@@ -366,16 +355,7 @@
                     id="val-wy">-</span></div>
         </div>
 
-        <div class="card" style="border-color: #10b981;">
-            <div class="card-title" style="color: #10b981;">5. Cloud Sync (Backend)</div>
-            <div style="font-size: 0.8rem; color: #fff; margin-bottom: 12px;">
-                Đồng bộ dữ liệu trực tiếp lên Database.
-            </div>
-            <button onclick="syncMapFilesToBE()" style="width: 100%; background: #10b981; margin-bottom: 8px;">☁️ Lưu
-                Bản Đồ Lên Server</button>
-            <button onclick="syncWaypointsToBE()" style="width: 100%; background: #0ea5e9;">☁️ Lưu Waypoint Lên
-                Server</button>
-        </div>
+
 
         <div class="card" style="border-color: #f59e0b;">
             <div class="card-title" style="color: #f59e0b;">6. Export Mission</div>
@@ -528,24 +508,9 @@
     <script src="https://cdn.jsdelivr.net/npm/eventemitter2@6.4.9/lib/eventemitter2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
     <script>
-        // Edit mode flag (can be enabled via ?edit=true URL param or postMessage)
-        const urlParams = new URLSearchParams(window.location.search);
-        window.isEditMode = urlParams.get('edit') === 'true';
-
-        if (window.isEditMode) {
-            document.body.classList.add('edit-mode');
-        }
-
-        window.addEventListener('message', (event) => {
-            if (event.data && event.data.type === 'SET_EDIT_MODE') {
-                window.isEditMode = event.data.isEditing;
-                if (window.isEditMode) {
-                    document.body.classList.add('edit-mode');
-                } else {
-                    document.body.classList.remove('edit-mode');
-                }
-            }
-        });
+        // For the standalone test page, Edit mode is ALWAYS enabled
+        window.isEditMode = true;
+        document.body.classList.add('edit-mode');
 
         // Config & State
         let RESOLUTION = 0.05;
@@ -1306,233 +1271,7 @@
             URL.revokeObjectURL(url);
         }
 
-        async function syncWaypointsToBE() {
-            if (!window.currentMapId) {
-                alert("Không xác định được Map ID (Chưa tải từ BE).");
-                return;
-            }
-            const btn = document.querySelector('button[onclick="syncWaypointsToBE()"]');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '⏳ Đang lưu...';
-            btn.disabled = true;
-            try {
-                const nodes = waypoints.map((wp, i) => ({
-                    nodeId: (wp.id && typeof wp.id === 'number') ? wp.id : null,
-                    xCoord: wp.x,
-                    yCoord: wp.y,
-                    nodeName: wp.name || `Node ${i + 1}`,
-                    nodeType: wp.nodeType || 'Waypoint',
-                    nodeRole: wp.role || 'ad',
-                    isBlocked: wp.isBlocked || false
-                }));
 
-                const baseUrl = window.SMB_ENV?.BE_URL !== undefined ? window.SMB_ENV.BE_URL : 'http://localhost:5000';
-                const url = baseUrl + `/api/v1/maps/${window.currentMapId}/waypoints`;
-
-                const headers = getFetchHeaders();
-                headers['Content-Type'] = 'application/json';
-
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: headers,
-                    body: JSON.stringify(nodes)
-                });
-                if (!response.ok) {
-                    let errText = response.statusText;
-                    try {
-                        const errData = await response.json();
-                        errText = errData.message || errData.error || errText;
-                        if (errData.errors) errText += ' ' + JSON.stringify(errData.errors);
-                    } catch (e) { }
-                    throw new Error(`HTTP ${response.status} - ${errText}`);
-                }
-                const result = await response.json();
-
-                const totalSaved = (result.nodesCreated || 0) + (result.nodesUpdated || 0);
-                const toast = document.getElementById('toast');
-                toast.innerText = `✅ Sync thành công! Đã lưu ${totalSaved} nodes.`;
-                toast.style.background = '#10b981';
-                toast.classList.add('show');
-                setTimeout(() => toast.classList.remove('show'), 3000);
-            } catch (err) {
-                console.error(err);
-                alert("❌ Lỗi khi sync waypoints: " + err.message);
-            } finally {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            }
-        }
-
-        async function syncMapFilesToBE() {
-            const files = document.getElementById('mapFiles').files;
-            if (!files || files.length === 0) {
-                alert("Vui lòng chọn file .pgm và .yaml trước.");
-                return;
-            }
-            let yamlFile = null;
-            let pgmFile = null;
-            for (let f of files) {
-                if (f.name.endsWith('.yaml')) yamlFile = f;
-                if (f.name.endsWith('.pgm')) pgmFile = f;
-            }
-            if (!yamlFile || !pgmFile) {
-                alert("Cần đủ cả 2 file: .yaml và .pgm");
-                return;
-            }
-
-            const btn = document.querySelector('button[onclick="syncMapFilesToBE()"]');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '⏳ Đang upload...';
-            btn.disabled = true;
-
-            const formData = new FormData();
-            formData.append('mapYaml', yamlFile);
-            formData.append('mapImage', pgmFile);
-
-            try {
-                const baseUrl = window.SMB_ENV?.BE_URL !== undefined ? window.SMB_ENV.BE_URL : 'http://localhost:5000';
-                // Add ?floorId=1 for upload-slam-bundle
-                const url = baseUrl + '/api/v1/maps/upload-slam-bundle?floorId=1';
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: getFetchHeaders(),
-                    body: formData
-                });
-                if (!response.ok) {
-                    let errText = response.statusText;
-                    try {
-                        const errData = await response.json();
-                        errText = errData.message || errData.error || errText;
-                        if (errData.errors) errText += ' ' + JSON.stringify(errData.errors);
-                    } catch (e) { }
-                    throw new Error(`HTTP ${response.status} - ${errText}`);
-                }
-                const result = await response.json();
-
-                window.currentMapId = result.mapId;
-
-                const toast = document.getElementById('toast');
-                toast.innerText = `✅ Upload bản đồ mới thành công! (Map ID: ${result.mapId})`;
-                toast.style.background = '#10b981';
-                toast.classList.add('show');
-                setTimeout(() => toast.classList.remove('show'), 3000);
-            } catch (err) {
-                console.error(err);
-                alert("❌ Lỗi khi upload bản đồ: " + err.message);
-            } finally {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            }
-        }
-
-        window.currentMapId = null;
-        window.currentMapName = "Supermarket Map";
-        window.currentMapWidth = 0;
-        window.currentMapHeight = 0;
-        window.currentMapEdges = [];
-        window.currentMapSemanticObjects = [];
-
-        function getFetchHeaders() {
-            const token = localStorage.getItem('accessToken');
-            const headers = {
-                'ngrok-skip-browser-warning': 'true'
-            };
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
-            return headers;
-        }
-
-        async function fetchActiveMapFromBE() {
-            const btn = document.querySelector('button[onclick="fetchActiveMapFromBE()"]');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '⏳ Đang tải...';
-            btn.disabled = true;
-
-            try {
-                // If using Vite dev server, empty BE_URL uses proxy. Otherwise hits BE directly.
-                const baseUrl = window.SMB_ENV?.BE_URL !== undefined ? window.SMB_ENV.BE_URL : 'http://localhost:5000';
-                const url = baseUrl + '/api/v1/maps/active?floorId=1';
-
-                const response = await fetch(url, {
-                    headers: getFetchHeaders()
-                });
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-                const data = await response.json();
-                console.log("Map Data from BE:", data);
-
-                window.currentMapId = data.mapId;
-                window.currentMapName = data.mapName || "Supermarket Map";
-                window.currentMapWidth = data.widthMeters || 0;
-                window.currentMapHeight = data.heightMeters || 0;
-                window.currentMapEdges = data.edges || [];
-                window.currentMapSemanticObjects = data.semanticObjects || [];
-
-                RESOLUTION = data.resolution || 0.05;
-                ORIGIN_X = data.originX || 0;
-                ORIGIN_Y = data.originY || 0;
-
-                document.getElementById('val-res').innerText = RESOLUTION;
-                document.getElementById('val-ox').innerText = ORIGIN_X;
-                document.getElementById('val-oy').innerText = ORIGIN_Y;
-
-                // Load Waypoints
-                if (data.nodes && Array.isArray(data.nodes)) {
-                    waypoints = data.nodes.map(n => ({
-                        id: n.nodeId,
-                        x: n.xCoord,
-                        y: n.yCoord,
-                        heading: n.headingYaw || 0, // load heading if exists
-                        name: n.nodeName || `Node ${n.nodeId}`,
-                        role: n.nodeRole || 'ad',
-                        nodeType: n.nodeType || 'Waypoint',
-                        isBlocked: n.isBlocked || false,
-                        dwellTimeSeconds: 30
-                    }));
-                }
-
-                // Load Image
-                if (data.floorplanImageUrl) {
-                    let imgUrl = data.floorplanImageUrl;
-                    if (imgUrl.startsWith('/')) {
-                        imgUrl = baseUrl + imgUrl;
-                    }
-
-                    const img = new Image();
-                    img.onload = () => {
-                        IMAGE_WIDTH = img.width;
-                        IMAGE_HEIGHT = img.height;
-                        mapCanvas.width = IMAGE_WIDTH;
-                        mapCanvas.height = IMAGE_HEIGHT;
-
-                        document.getElementById('val-size').innerText = `${IMAGE_WIDTH}x${IMAGE_HEIGHT}`;
-                        ctxMap.clearRect(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
-                        ctxMap.drawImage(img, 0, 0);
-
-                        translateX = (container.clientWidth - IMAGE_WIDTH) / 2;
-                        translateY = (container.clientHeight - IMAGE_HEIGHT) / 2;
-                        applyTransform();
-
-                        const toast = document.getElementById('toast');
-                        toast.innerText = '✅ Đã tải bản đồ từ BE!';
-                        toast.style.background = '#10b981';
-                        toast.classList.add('show');
-                        setTimeout(() => toast.classList.remove('show'), 3000);
-                    };
-                    img.src = imgUrl;
-                } else {
-                    applyTransform();
-                }
-
-            } catch (err) {
-                console.error("Fetch BE error:", err);
-                alert("Lỗi khi tải Map từ BE: " + err.message);
-            } finally {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            }
-        }
 
     </script>
 </body>
