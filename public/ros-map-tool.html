@@ -415,10 +415,9 @@
             <button onclick="fetchActiveMapFromBE()"
                 style="width: 100%; background: #38bdf8; margin-bottom: 12px; color: #0f172a;">🌐 Tải từ Backend
                 C#</button>
-            <div style="font-size: 0.75rem; text-align: center; margin-bottom: 8px; color: var(--text-muted);">Hoặc
-                upload thủ công</div>
-            <input type="file" id="mapFiles" multiple accept=".pgm,.yaml"
-                style="width: 100%; box-sizing: border-box;" />
+            <div style="font-size: 0.8rem; color: #fff; margin-bottom: 4px;">
+                Bản đồ được tự động tải từ Backend cho robot.
+            </div>
 
             <div id="amcl-upload-section"
                 style="display: none; margin-top: 12px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 12px;">
@@ -1169,6 +1168,7 @@
                 const data = await res.json();
                 if (data.error) throw new Error(data.error);
 
+                loadMapFromBackend(); // Automatically update UI with uploaded map
                 toast.innerText = '✅ Map Uploaded to Robot!';
                 toast.style.background = '#10b981';
                 setTimeout(() => toast.classList.remove('show'), 2000);
