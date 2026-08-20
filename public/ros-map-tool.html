@@ -540,6 +540,7 @@
                     <option value="/pose">/pose (SLAM)</option>
                     <option value="/amcl_pose">/amcl_pose (Nav2)</option>
                     <option value="/odom">/odom (Raw)</option>
+                    <option value="/scan">/scan (Freq Check Only)</option>
                 </select>
             </div>
 
@@ -1573,6 +1574,7 @@
             const topicName = document.getElementById('ros-pose-topic').value.trim();
             let msgType = 'geometry_msgs/PoseWithCovarianceStamped';
             if (topicName.includes('odom')) msgType = 'nav_msgs/Odometry';
+            if (topicName.includes('scan')) msgType = 'sensor_msgs/LaserScan';
 
             poseSubscriber = new ROSLIB.Topic({
                 ros: ros,
