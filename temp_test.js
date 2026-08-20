@@ -1,649 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SuperMarketBot - Map Mockup</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-dark: #0f172a;
-            --panel-bg: rgba(30, 41, 59, 0.7);
-            --accent: #3b82f6;
-            --accent-hover: #2563eb;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --grid-color: rgba(255, 255, 255, 0.05);
-        }
-
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            height: 100vh;
-            display: flex;
-            overflow: hidden;
-            /* Disable text selection while dragging */
-            user-select: none;
-        }
-
-        /* Sidebar */
-        .sidebar,
-        .right-sidebar {
-            width: 350px;
-            background: var(--panel-bg);
-            backdrop-filter: blur(12px);
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-            z-index: 10;
-            box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
-            overflow-y: auto;
-        }
-
-        .sidebar {
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .right-sidebar {
-            border-left: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: -4px 0 24px rgba(0, 0, 0, 0.2);
-        }
-
-        .header {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .header-title {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .header-icon {
-            width: 12px;
-            height: 12px;
-            background: #10b981;
-            border-radius: 50%;
-            box-shadow: 0 0 12px #10b981;
-            animation: pulse 2s infinite;
-        }
-
-        .global-status {
-            font-size: 0.75rem;
-            padding: 4px 10px;
-            border-radius: 12px;
-            background: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-            border: 1px solid rgba(239, 68, 68, 0.4);
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .global-status.connected {
-            background: rgba(16, 185, 129, 0.2);
-            color: #10b981;
-            border-color: rgba(16, 185, 129, 0.4);
-        }
-
-        .card {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
-            padding: 16px;
-            transition: transform 0.2s ease;
-        }
-
-        .card-title {
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-muted);
-            margin-bottom: 12px;
-            font-weight: 500;
-        }
-
-        .data-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-            font-size: 0.95rem;
-        }
-
-        .value {
-            font-family: monospace;
-            color: #38bdf8;
-            font-weight: 600;
-        }
-
-        .input-group {
-            display: flex;
-            gap: 8px;
-            margin-top: 12px;
-        }
-
-        input[type="number"],
-        input[type="text"] {
-            width: 100%;
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-family: monospace;
-            outline: none;
-        }
-
-        input[type="file"] {
-            font-family: 'Inter', sans-serif;
-            font-size: 0.85rem;
-            padding: 10px;
-        }
-
-        button {
-            background: var(--accent);
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        button:hover {
-            background: var(--accent-hover);
-        }
-
-        /* Mode Switcher */
-        .mode-switcher {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-
-        .mode-label {
-            flex: 1;
-            text-align: center;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 8px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            transition: all 0.2s;
-        }
-
-        .mode-label input {
-            display: none;
-        }
-
-        .mode-label:has(input:checked) {
-            background: var(--accent);
-            border-color: var(--accent-hover);
-            font-weight: bold;
-        }
-
-        /* Map Container */
-        .map-container {
-            flex: 1;
-            position: relative;
-            background: radial-gradient(circle at center, #1e293b 0%, var(--bg-dark) 100%);
-            overflow: hidden;
-            cursor: grab;
-        }
-
-        .map-container.draw-mode {
-            cursor: crosshair;
-        }
-
-        .map-container:active:not(.draw-mode) {
-            cursor: grabbing;
-        }
-
-        canvas {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 4px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-            transform-origin: top left;
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
-
-        @keyframes pulse {
-            0% {
-                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
-            }
-
-            70% {
-                box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
-            }
-
-            100% {
-                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
-            }
-        }
-
-        .toast {
-            position: fixed;
-            bottom: -100px;
-            left: calc(50% + 170px);
-            transform: translateX(-50%);
-            background: rgba(16, 185, 129, 0.9);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 30px;
-            font-weight: 500;
-            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
-            transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            z-index: 100;
-            pointer-events: none;
-        }
-
-        .toast.show {
-            bottom: 30px;
-        }
-
-        /* --- LOG PANEL CSS --- */
-        .log-panel {
-            position: absolute;
-            bottom: -250px;
-            left: 0;
-            right: 0;
-            height: 250px;
-            background: rgba(15, 23, 42, 0.95);
-            backdrop-filter: blur(8px);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            border-left: 1px solid rgba(255, 255, 255, 0.1);
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px 8px 0 0;
-            transition: bottom 0.3s ease;
-            display: flex;
-            flex-direction: column;
-            z-index: 50;
-        }
-
-        .log-panel.open {
-            bottom: 0;
-        }
-
-        .log-header {
-            padding: 8px 16px;
-            background: rgba(255, 255, 255, 0.05);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            border-radius: 8px 8px 0 0;
-            user-select: none;
-        }
-
-        .log-toggle-btn {
-            position: absolute;
-            top: -32px;
-            right: 24px;
-            background: rgba(15, 23, 42, 0.95);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-bottom: none;
-            color: #a1a1aa;
-            padding: 4px 16px;
-            border-radius: 8px 8px 0 0;
-            cursor: pointer;
-            font-size: 0.8rem;
-            backdrop-filter: blur(8px);
-        }
-
-        .log-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 12px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 0.75rem;
-            color: #d1d5db;
-        }
-
-        .log-line {
-            margin-bottom: 4px;
-            word-wrap: break-word;
-        }
-
-        .log-debug {
-            color: #9ca3af;
-        }
-
-        .log-info {
-            color: #f8fafc;
-        }
-
-        .log-warn {
-            color: #fde047;
-        }
-
-        .log-error {
-            color: #ef4444;
-            font-weight: bold;
-        }
-
-        .log-fatal {
-            color: #b91c1c;
-            font-weight: bold;
-            text-decoration: underline;
-        }
-    </style>
-    <script src="/config.js"></script>
-</head>
-
-<body>
-
-    <div class="sidebar">
-        <div class="header">
-            <div class="header-title">
-                <div class="header-icon"></div>
-                SMB Fleet
-            </div>
-            <div class="global-status" id="global-ros-status">
-                <span style="font-size: 10px;">🔴</span> OFFLINE
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-title">1. Connect to Robot (ROS 2)</div>
-            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">
-                Quản lý ROS 2 Process và kết nối WebSocket (Rosbridge).
-            </div>
-
-            <div class="data-row" style="margin-bottom: 12px;">
-                <span style="font-size: 0.85rem;">Boot Mode:</span>
-                <select id="boot-mode"
-                    style="width: 150px; padding: 4px; font-size: 0.8rem; background: #1f2937; color: #fff; border: 1px solid #374151; border-radius: 4px; outline: none; cursor: pointer;"
-                    onchange="toggleMapUploadUI()">
-                    <option value="slam">SLAM (Mapping)</option>
-                    <option value="amcl">AMCL (Static Map)</option>
-                </select>
-            </div>
-
-            <div class="input-group" style="margin-bottom: 8px;">
-                <button id="btn-agent-start" onclick="startRobotOS()" style="width: 50%; background: #3b82f6;">🚀 Boot
-                    Robot OS</button>
-                <button id="btn-agent-stop" onclick="stopRobotOS()" style="width: 50%; background: #64748b;">🛑
-                    Shutdown</button>
-            </div>
-
-            <div class="input-group">
-                <input type="text" id="ros-ws-url" value="ws://snake.local:9090" placeholder="ws://snake.local:9090">
-                <button id="btn-ros-connect" onclick="connectROS()" style="background: #10b981;">Connect</button>
-            </div>
-            <div class="data-row" style="margin-top: 8px;">
-                <span>OS Status:</span><span class="value" id="val-agent-status"
-                    style="color: #64748b;">Checking...</span>
-            </div>
-            <div class="data-row">
-                <span>WS Status:</span><span class="value" id="val-ros-status"
-                    style="color: #ef4444;">Disconnected</span>
-            </div>
-        </div>
-
-        <div class="card" style="border-color: #f59e0b;">
-            <div class="card-title" style="color: #f59e0b;">2. Tải Bản Đồ & Waypoint</div>
-            <div style="font-size: 0.8rem; color: #fff; margin-bottom: 12px;">
-                Tải bản đồ từ Backend hoặc Upload thủ công (.pgm + .yaml).
-            </div>
-
-            <div style="font-size: 0.75rem; text-align: center; margin-bottom: 8px; color: var(--text-muted);">Hoặc
-                upload thủ công</div>
-            <input type="file" id="mapFiles" multiple accept=".pgm,.yaml"
-                style="width: 100%; box-sizing: border-box;" />
-
-            <div id="amcl-upload-section"
-                style="display: none; margin-top: 12px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 12px;">
-                <div style="font-size: 0.8rem; color: #f59e0b; margin-bottom: 8px;">Upload Map to Robot (AMCL)</div>
-                <input type="file" id="amclMapFiles" multiple accept=".pgm,.yaml"
-                    style="width: 100%; box-sizing: border-box; margin-bottom: 8px;" />
-                <button onclick="uploadMapToRobot()" style="width: 100%; background: #f59e0b; color: #0f172a;">Upload to
-                    Robot</button>
-            </div>
-        </div>
-
-        <div class="card" style="border-color: var(--accent);">
-            <div class="card-title" style="color: var(--accent);">3. Navigation Control</div>
-
-            <!-- Chuyển đổi Mode công cụ -->
-            <div class="mode-switcher" style="flex-wrap: wrap;">
-                <label class="mode-label" style="flex-basis: 45%;">
-                    <input type="radio" name="toolMode" value="pan" checked> 🖐️ Pan Map
-                </label>
-                <label class="mode-label"
-                    style="flex-basis: 45%; background-color: rgba(244, 63, 94, 0.2); border-color: rgba(244, 63, 94, 0.5);">
-                    <input type="radio" name="toolMode" value="draw"> 🎯 Tạo WP
-                </label>
-                <label class="mode-label"
-                    style="flex-basis: 45%; background-color: rgba(16, 185, 129, 0.2); border-color: rgba(16, 185, 129, 0.5);">
-                    <input type="radio" name="toolMode" value="initialpose"> 📍 Initial Pose
-                </label>
-                <label class="mode-label"
-                    style="flex-basis: 45%; background-color: rgba(245, 158, 11, 0.2); border-color: rgba(245, 158, 11, 0.5);">
-                    <input type="radio" name="toolMode" value="navgoal"> 🚀 Nav Goal
-                </label>
-            </div>
-
-            <div style="font-size: 0.85rem; color: #fff; margin-bottom: 12px; line-height: 1.4;">
-                <span id="instruction-pan">
-                    🖱️ <b>Kéo thả chuột (Drag):</b> Di chuyển bản đồ<br>
-                    🔍 <b>Lăn chuột (Scroll):</b> Phóng to / Thu nhỏ<br>
-                    ❌ <b>Click chuột phải (Right Click):</b> Xóa Waypoint
-                </span>
-                <span id="instruction-draw" style="display:none; color: #fecdd3;">
-                    🎯 <b>Giữ chuột trái & Kéo (Click & Drag):</b> Đặt Waypoint lưu vào bộ nhớ để xuất file YAML.<br>
-                    ❌ <b>Click chuột phải (Right Click):</b> Xóa Waypoint
-                </span>
-                <span id="instruction-initialpose" style="display:none; color: #d1fae5;">
-                    📍 <b>Giữ chuột trái & Kéo:</b> Cập nhật vị trí bắt đầu (Initial Pose) cho AMCL trên ROS 2.
-                </span>
-                <span id="instruction-navgoal" style="display:none; color: #fef3c7;">
-                    🚀 <b>Giữ chuột trái & Kéo:</b> Ra lệnh cho Robot tự động chạy tới điểm này (Gửi /goal_pose).
-                </span>
-            </div>
-            <div class="data-row"><span>👉 ROS Map X:</span><span class="value" style="color: #f43f5e;"
-                    id="val-wx">-</span></div>
-            <div class="data-row"><span>👉 ROS Map Y:</span><span class="value" style="color: #f43f5e;"
-                    id="val-wy">-</span></div>
-        </div>
-
-
-
-        <div class="card" style="border-color: #f59e0b;">
-            <div class="card-title" style="color: #f59e0b;">6. Export Mission</div>
-            <button style="width: 100%; background: #f59e0b; margin-top: 8px;" onclick="exportWaypointsYAML()">⬇️ Tải
-                xuống YAML (Local)</button>
-        </div>
-    </div>
-
-    <div class="map-container" id="mapContainer">
-        <!-- Layer 1: Bản đồ gốc (sẽ bị scale mờ/pixelate) -->
-        <canvas id="mapCanvas" width="800" height="600"></canvas>
-        <!-- Layer 2: Vector UI (Luôn sắc nét, kích thước 1:1 với màn hình) -->
-        <canvas id="uiCanvas" style="position: absolute; top: 0; left: 0; pointer-events: none;"></canvas>
-
-        <!-- LOG PANEL -->
-        <div class="log-panel" id="logPanel">
-            <div class="log-toggle-btn" onclick="toggleLogPanel()" id="logToggleBtn">
-                Terminal Logs 🔼
-            </div>
-            <div class="log-header" onclick="toggleLogPanel()">
-                <div style="font-weight: 600; font-size: 0.85rem;">/rosout (ROS 2 System Logs)</div>
-                <button onclick="clearLogs(); event.stopPropagation();"
-                    style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 2px 8px; font-size: 0.75rem; color: #fff; cursor: pointer;">Clear</button>
-            </div>
-            <div class="log-content" id="logContent">
-                <div class="log-line log-info">[System] Waiting for ROS 2 connection...</div>
-            </div>
-        </div>
-    </div>
-
-    <div class="right-sidebar">
-        <div class="card">
-            <div class="card-title">Map Parameters</div>
-            <div class="data-row"><span>Resolution</span><span class="value" id="val-res">0.05</span></div>
-            <div class="data-row"><span>Origin X</span><span class="value" id="val-ox">-10.00</span></div>
-            <div class="data-row"><span>Origin Y</span><span class="value" id="val-oy">-10.00</span></div>
-            <div class="data-row"><span>Image Size</span><span class="value" id="val-size">800x600</span></div>
-            <div class="data-row"><span>Zoom Level</span><span class="value" id="val-zoom">100%</span></div>
-        </div>
-
-        <div class="card">
-            <div class="card-title">4. ROBOT TELEMETRY (ROS 2)</div>
-            <div style="font-size: 0.8rem; color: #a1a1aa; margin-bottom: 8px;">
-                Tự động cập nhật vị trí xe theo thời gian thực (1-2 Hz).
-            </div>
-
-            <div class="data-row">
-                <span style="font-size: 0.85rem;">Pose Topic:</span>
-                <select id="ros-pose-topic"
-                    style="width: 130px; padding: 4px; font-size: 0.8rem; background: #1f2937; color: #fff; border: 1px solid #374151; border-radius: 4px; outline: none; cursor: pointer;">
-                    <option value="/odom_relay">/odom_relay (Wheels)</option>
-                    <option value="/pose">/pose (SLAM)</option>
-                    <option value="/amcl_pose">/amcl_pose (Nav2)</option>
-                    <option value="/odom">/odom (Raw)</option>
-                    <option value="/scan">/scan (LiDAR)</option>
-                </select>
-            </div>
-
-            <div class="data-row" style="margin-top: 10px;">
-                <span>Live X:</span><span class="value" id="live-rx" style="color: #38bdf8;">0.000</span>
-            </div>
-            <div class="data-row">
-                <span>Live Y:</span><span class="value" id="live-ry" style="color: #38bdf8;">0.000</span>
-            </div>
-            <div class="data-row" style="margin-top: 5px; border-top: 1px dashed #334155; padding-top: 5px;">
-                <span>Freq:</span><span class="value" id="live-hz" style="color: #10b981; font-weight: 600;">0 Hz</span>
-            </div>
-
-            <div class="data-row"
-                style="margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px;">
-                <label style="font-size: 0.85rem; display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" id="toggle-live-map" onchange="toggleLiveMap()"> Show Live Map (/map)
-                </label>
-            </div>
-            <div class="data-row" style="margin-top: 5px;">
-                <label style="font-size: 0.85rem; display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" id="toggle-live-scan" onchange="toggleLiveScan()"> Show Live Scan (/scan)
-                </label>
-            </div>
-        </div>
-    </div>
-
-    <div class="toast" id="toast">✅ Đã lưu Waypoint!</div>
-
-    <!-- Waypoint Edit Modal -->
-    <div id="wp-modal-overlay"
-        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 999; transition: all 0.3s ease;"
-        onclick="closeWpModal()"></div>
-    <div id="wp-modal"
-        style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1e293b; padding: 28px; border-radius: 12px; border: 1px solid #334155; z-index: 1000; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); min-width: 380px; font-family: 'Inter', sans-serif;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style="margin: 0; color: #38bdf8; font-size: 1.2rem; font-weight: 600;">⚙️ Config Waypoint</h3>
-            <button onclick="closeWpModal()"
-                style="background: transparent; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer; padding: 0;">&times;</button>
-        </div>
-
-        <input type="hidden" id="wp-edit-index">
-
-        <div style="margin-bottom: 16px;">
-            <label
-                style="display: block; color: #cbd5e1; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">Name
-                (Hiển thị trên bản đồ):</label>
-            <input type="text" id="wp-edit-name"
-                style="width: 100%; background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; outline: none; transition: border-color 0.2s;"
-                onfocus="this.style.borderColor='#38bdf8'" onblur="this.style.borderColor='#475569'">
-        </div>
-
-        <div style="margin-bottom: 16px;">
-            <label
-                style="display: block; color: #cbd5e1; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">Role
-                (Nhiệm vụ):</label>
-            <select id="wp-edit-role"
-                style="width: 100%; background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; outline: none; cursor: pointer;">
-                <option value="ad">📺 ad (Quảng cáo)</option>
-                <option value="pickup">📦 pickup (Lấy hàng)</option>
-                <option value="dropoff">🚚 dropoff (Giao hàng)</option>
-                <option value="nav">➡️ nav (Đi ngang qua)</option>
-            </select>
-        </div>
-
-        <div style="margin-bottom: 16px;">
-            <label
-                style="display: block; color: #cbd5e1; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">Type
-                (Phân loại Node):</label>
-            <select id="wp-edit-type"
-                style="width: 100%; background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; outline: none; cursor: pointer;">
-                <option value="Waypoint">📍 Waypoint (Điểm dừng)</option>
-                <option value="Charger">⚡ Charger (Sạc)</option>
-                <option value="Intersection">🛣️ Intersection (Ngã tư)</option>
-                <option value="Shelf">🛍️ Shelf (Quầy kệ)</option>
-            </select>
-        </div>
-
-        <div style="display: flex; gap: 12px; margin-bottom: 16px;">
-            <div style="flex: 1;">
-                <label
-                    style="display: block; color: #cbd5e1; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">Tọa
-                    độ X:</label>
-                <input type="number" id="wp-edit-x" step="0.01"
-                    style="width: 100%; background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; outline: none;">
-            </div>
-            <div style="flex: 1;">
-                <label
-                    style="display: block; color: #cbd5e1; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">Tọa
-                    độ Y:</label>
-                <input type="number" id="wp-edit-y" step="0.01"
-                    style="width: 100%; background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; outline: none;">
-            </div>
-        </div>
-
-        <div style="margin-bottom: 16px;">
-            <label
-                style="display: block; color: #cbd5e1; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">Dwell
-                Time (Thời gian chờ - Giây):</label>
-            <input type="number" id="wp-edit-dwell"
-                style="width: 100%; background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; outline: none; transition: border-color 0.2s;"
-                min="0" onfocus="this.style.borderColor='#38bdf8'" onblur="this.style.borderColor='#475569'">
-        </div>
-
-        <div style="margin-bottom: 24px; display: flex; align-items: center; gap: 8px;">
-            <input type="checkbox" id="wp-edit-blocked" style="width: 16px; height: 16px; cursor: pointer;">
-            <label for="wp-edit-blocked"
-                style="color: #ef4444; font-size: 0.9rem; font-weight: 500; cursor: pointer;">Bị chặn (Is
-                Blocked)</label>
-        </div>
-
-        <div style="display: flex; justify-content: flex-end; gap: 12px;">
-            <button class="btn"
-                style="background: transparent; border: 1px solid #475569; color: #cbd5e1; padding: 8px 20px; font-weight: 500; font-size: 0.95rem;"
-                onclick="closeWpModal()">Hủy</button>
-            <button class="btn"
-                style="background: #38bdf8; color: #0f172a; padding: 8px 24px; font-weight: 600; font-size: 0.95rem; border: none; box-shadow: 0 4px 6px -1px rgba(56, 189, 248, 0.3);"
-                onclick="saveWpModal()">Lưu Thay Đổi</button>
-        </div>
-    </div>
-
-    <!-- Nạp thư viện roslibjs -->
-    <script src="https://cdn.jsdelivr.net/npm/eventemitter2@6.4.9/lib/eventemitter2.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
-    <script>
         // For the standalone test page, Edit mode is ALWAYS enabled
         window.isEditMode = true;
         document.body.classList.add('edit-mode');
@@ -668,7 +22,6 @@
         let waypoints = [];
         let draftWaypoint = null; // Biến lưu tạm waypoint đang kéo hướng
         let pgmImageData = null;
-        let latestScan = null;
 
         // --- CSS Transform Variables cho PAN & ZOOM ---
         let scale = 1.0;
@@ -696,59 +49,6 @@
                 }
             });
         });
-
-        /** ==========================================
-         * LOG PANEL FUNCTIONS
-         * ========================================== */
-        let logSubscriber = null;
-
-        function toggleLogPanel() {
-            const panel = document.getElementById('logPanel');
-            const btn = document.getElementById('logToggleBtn');
-            panel.classList.toggle('open');
-            if (panel.classList.contains('open')) {
-                btn.innerText = 'Terminal Logs 🔽';
-                // scroll to bottom
-                const content = document.getElementById('logContent');
-                content.scrollTop = content.scrollHeight;
-            } else {
-                btn.innerText = 'Terminal Logs 🔼';
-            }
-        }
-
-        function clearLogs() {
-            document.getElementById('logContent').innerHTML = '';
-        }
-
-        function appendLog(msg) {
-            const content = document.getElementById('logContent');
-            const line = document.createElement('div');
-            line.className = 'log-line';
-
-            // rcl_interfaces/msg/Log levels: 10=DEBUG, 20=INFO, 30=WARN, 40=ERROR, 50=FATAL
-            let levelClass = 'log-info';
-            let levelStr = 'INFO';
-            if (msg.level === 10) { levelClass = 'log-debug'; levelStr = 'DEBUG'; }
-            else if (msg.level === 30) { levelClass = 'log-warn'; levelStr = 'WARN'; }
-            else if (msg.level === 40) { levelClass = 'log-error'; levelStr = 'ERROR'; }
-            else if (msg.level >= 50) { levelClass = 'log-fatal'; levelStr = 'FATAL'; }
-
-            const time = new Date().toLocaleTimeString();
-            line.classList.add(levelClass);
-            line.innerText = `[${time}] [${levelStr}] [${msg.name}]: ${msg.msg}`;
-
-            content.appendChild(line);
-
-            // keep only last 200 lines to prevent lag
-            if (content.childNodes.length > 200) {
-                content.removeChild(content.firstChild);
-            }
-
-            // auto scroll if at bottom
-            if (content.scrollHeight - content.scrollTop <= content.clientHeight + 50) {
-                content.scrollTop = content.scrollHeight;
-            }
-        }
 
         /** ==========================================
          * TÍNH TOÁN TỌA ĐỘ
@@ -931,18 +231,18 @@
             try {
                 const url = new URL(wsUrl.replace('ws://', 'http://'));
                 return `http://${url.hostname}:5000/api/robot`;
-            } catch (e) {
+            } catch(e) {
                 return "http://192.168.0.100:5000/api/robot";
             }
         }
-
+        
         async function checkAgentStatus() {
             try {
                 const res = await fetch(`${getAgentApiUrl()}/status`);
                 const data = await res.json();
                 const statusEl = document.getElementById('val-agent-status');
                 if (!statusEl) return;
-
+                
                 if (data.status === 'running') {
                     statusEl.innerText = 'Running';
                     statusEl.style.color = '#10b981';
@@ -952,13 +252,13 @@
                 }
             } catch (err) {
                 const statusEl = document.getElementById('val-agent-status');
-                if (statusEl) {
+                if(statusEl) {
                     statusEl.innerText = 'Unreachable';
                     statusEl.style.color = '#64748b';
                 }
             }
         }
-
+        
         setInterval(checkAgentStatus, 3000);
         checkAgentStatus();
 
@@ -968,7 +268,7 @@
             statusEl.innerText = 'Booting...';
             statusEl.style.color = '#f59e0b';
             try {
-                const res = await fetch(`${getAgentApiUrl()}/start`, {
+                const res = await fetch(`${getAgentApiUrl()}/start`, { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ mode: mode })
@@ -992,7 +292,7 @@
             statusEl.style.color = '#f59e0b';
             try {
                 await fetch(`${getAgentApiUrl()}/stop`, { method: 'POST' });
-                if (ros) ros.close();
+                if(ros) ros.close();
                 setTimeout(checkAgentStatus, 1500);
             } catch (err) {
                 alert("Failed to contact Agent Server");
@@ -1002,58 +302,58 @@
         function toggleMapUploadUI() {
             const mode = document.getElementById('boot-mode').value;
             const uploadSection = document.getElementById('amcl-upload-section');
-            if (uploadSection) {
+            if(uploadSection) {
                 uploadSection.style.display = mode === 'amcl' ? 'block' : 'none';
             }
         }
-
+        
         async function uploadMapToRobot() {
             const files = document.getElementById('amclMapFiles').files;
             if (files.length !== 2) {
                 alert("Please select BOTH the .yaml and .pgm file to upload to the robot.");
                 return;
             }
-
+            
             let yamlFile, pgmFile;
-            for (let i = 0; i < files.length; i++) {
-                if (files[i].name.endsWith('.yaml')) yamlFile = files[i];
-                if (files[i].name.endsWith('.pgm')) pgmFile = files[i];
+            for(let i=0; i<files.length; i++) {
+                if(files[i].name.endsWith('.yaml')) yamlFile = files[i];
+                if(files[i].name.endsWith('.pgm')) pgmFile = files[i];
             }
-
-            if (!yamlFile || !pgmFile) {
+            
+            if(!yamlFile || !pgmFile) {
                 alert("Need one .yaml and one .pgm file.");
                 return;
             }
-
+            
             const toBase64 = file => new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
                 reader.onload = () => resolve(reader.result);
                 reader.onerror = error => reject(error);
             });
-
+            
             try {
                 const toast = document.getElementById('toast');
                 toast.innerText = '⏳ Uploading to robot...';
                 toast.style.background = '#f59e0b';
                 toast.classList.add('show');
-
+                
                 const yamlB64 = await toBase64(yamlFile);
                 const pgmB64 = await toBase64(pgmFile);
-
+                
                 const res = await fetch(`${getAgentApiUrl()}/upload_map`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ yaml_b64: yamlB64, pgm_b64: pgmB64 })
                 });
-
+                
                 const data = await res.json();
-                if (data.error) throw new Error(data.error);
-
+                if(data.error) throw new Error(data.error);
+                
                 toast.innerText = '✅ Map Uploaded to Robot!';
                 toast.style.background = '#10b981';
                 setTimeout(() => toast.classList.remove('show'), 2000);
-            } catch (e) {
+            } catch(e) {
                 alert("Upload failed: " + e.message);
                 document.getElementById('toast').classList.remove('show');
             }
@@ -1449,26 +749,25 @@
             ctxUI.strokeStyle = '#38bdf8';
             ctxUI.lineWidth = 3;
             ctxUI.stroke();
-
+            
             // Vẽ LaserScan
             if (latestScan && document.getElementById('toggle-live-scan') && document.getElementById('toggle-live-scan').checked) {
                 ctxUI.fillStyle = '#ef4444';
                 const angle_min = latestScan.angle_min;
                 const angle_inc = latestScan.angle_increment;
                 const ranges = latestScan.ranges;
-
+                
                 for (let i = 0; i < ranges.length; i++) {
                     const r = ranges[i];
                     if (r < latestScan.range_min || r > latestScan.range_max) continue;
-                    // LiDAR is mounted at -90 degrees in URDF (-1.5708 rad)
-                    const LIDAR_YAW_OFFSET = -1.5708;
-                    const angle = robotHeading + LIDAR_YAW_OFFSET + angle_min + i * angle_inc;
+                    
+                    const angle = robotHeading + angle_min + i * angle_inc;
                     const lx = robotMapX + r * Math.cos(angle);
                     const ly = robotMapY + r * Math.sin(angle);
-
+                    
                     const px = mapToPixel(lx, ly);
                     const screenPx = pixelToScreen(px.x, px.y);
-
+                    
                     ctxUI.fillRect(screenPx.x - 1, screenPx.y - 1, 2, 2);
                 }
             }
@@ -1500,7 +799,7 @@
             if (hzInterval) clearInterval(hzInterval);
             msgCount = 0;
             document.getElementById('live-hz').innerText = '0 Hz';
-
+            
             hzInterval = setInterval(() => {
                 document.getElementById('live-hz').innerText = msgCount + ' Hz';
                 if (msgCount === 0) {
@@ -1513,17 +812,17 @@
 
             poseSubscriber.subscribe(function (message) {
                 msgCount++; // Increment message counter for Hz
-
+                
                 const now = Date.now();
                 if (now - lastDrawTime > 500) {
                     if (msgType !== 'sensor_msgs/LaserScan') {
                         robotMapX = message.pose.pose.position.x;
                         robotMapY = message.pose.pose.position.y;
                         const q = message.pose.pose.orientation;
-                        if (q) {
+                        if(q) {
                             robotHeading = Math.atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
                         }
-
+                        
                         document.getElementById('live-rx').innerText = robotMapX.toFixed(3);
                         document.getElementById('live-ry').innerText = robotMapY.toFixed(3);
                         renderUI();
@@ -1540,8 +839,6 @@
             if (!isChecked && mapSubscriber) {
                 mapSubscriber.unsubscribe();
                 mapSubscriber = null;
-                pgmImageData = null;
-                ctxMap.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
                 return;
             }
             if (isChecked) {
@@ -1559,35 +856,35 @@
                     ORIGIN_Y = info.origin.position.y;
                     IMAGE_WIDTH = info.width;
                     IMAGE_HEIGHT = info.height;
-
+                    
                     document.getElementById('val-res').innerText = RESOLUTION.toFixed(3);
                     document.getElementById('val-ox').innerText = ORIGIN_X.toFixed(2);
                     document.getElementById('val-oy').innerText = ORIGIN_Y.toFixed(2);
                     document.getElementById('val-size').innerText = `${IMAGE_WIDTH}x${IMAGE_HEIGHT}`;
-
+                    
                     mapCanvas.width = IMAGE_WIDTH;
                     mapCanvas.height = IMAGE_HEIGHT;
-
+                    
                     pgmImageData = ctxMap.createImageData(IMAGE_WIDTH, IMAGE_HEIGHT);
                     const data = pgmImageData.data;
                     const mapData = msg.data;
-
+                    
                     for (let i = 0; i < mapData.length; i++) {
                         const x = i % IMAGE_WIDTH;
                         const y = Math.floor(i / IMAGE_WIDTH);
                         const flippedY = IMAGE_HEIGHT - 1 - y;
                         const idx = (flippedY * IMAGE_WIDTH + x) * 4;
-
+                        
                         const val = mapData[i];
                         if (val === -1) {
-                            data[idx] = 15; data[idx + 1] = 23; data[idx + 2] = 42; data[idx + 3] = 255; // Unknown
+                            data[idx] = 15; data[idx+1] = 23; data[idx+2] = 42; data[idx+3] = 255; // Unknown
                         } else if (val === 0) {
-                            data[idx] = 51; data[idx + 1] = 65; data[idx + 2] = 85; data[idx + 3] = 255; // Free space
+                            data[idx] = 51; data[idx+1] = 65; data[idx+2] = 85; data[idx+3] = 255; // Free space
                         } else if (val === 100) {
-                            data[idx] = 56; data[idx + 1] = 189; data[idx + 2] = 248; data[idx + 3] = 255; // Obstacle
+                            data[idx] = 56; data[idx+1] = 189; data[idx+2] = 248; data[idx+3] = 255; // Obstacle
                         } else {
                             const b = 51 + (val / 100.0) * 100;
-                            data[idx] = b; data[idx + 1] = b; data[idx + 2] = b; data[idx + 3] = 255;
+                            data[idx] = b; data[idx+1] = b; data[idx+2] = b; data[idx+3] = 255;
                         }
                     }
                     ctxMap.putImageData(pgmImageData, 0, 0);
@@ -1597,6 +894,7 @@
         }
 
         let scanSubscriber = null;
+        let latestScan = null;
         function toggleLiveScan() {
             if (!ros) return;
             const isChecked = document.getElementById('toggle-live-scan').checked;
@@ -1616,7 +914,6 @@
                 });
                 scanSubscriber.subscribe((msg) => {
                     latestScan = msg;
-                    renderUI();
                 });
             }
         }
@@ -1657,7 +954,3 @@
 
 
 
-    </script>
-</body>
-
-</html>
