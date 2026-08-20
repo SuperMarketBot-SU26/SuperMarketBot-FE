@@ -370,7 +370,7 @@
                 <span style="font-size: 0.85rem;">Boot Mode:</span>
                 <select id="boot-mode"
                     style="width: 150px; padding: 4px; font-size: 0.8rem; background: #1f2937; color: #fff; border: 1px solid #374151; border-radius: 4px; outline: none; cursor: pointer;"
-                    >
+                    onchange="toggleMapUploadUI()">
                     <option value="slam">SLAM (Mapping)</option>
                     <option value="amcl">AMCL (Static Map)</option>
                 </select>
@@ -407,6 +407,9 @@
             <input type="file" id="mapFiles" multiple accept=".pgm,.yaml"
                 style="width: 100%; box-sizing: border-box;" />
 
+            <div id="amcl-upload-section"
+                style="display: none; margin-top: 12px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 12px;">
+                <div style="font-size: 0.8rem; color: #f59e0b; margin-bottom: 8px;">Upload Map to Robot (AMCL)</div>
                 <input type="file" id="amclMapFiles" multiple accept=".pgm,.yaml"
                     style="width: 100%; box-sizing: border-box; margin-bottom: 8px;" />
                 <button onclick="uploadMapToRobot()" style="width: 100%; background: #f59e0b; color: #0f172a;">Upload to
@@ -1020,8 +1023,20 @@
             }
         }
 
+        function toggleMapUploadUI() {
+            const mode = document.getElementById('boot-mode').value;
+            const uploadSection = document.getElementById('amcl-upload-section');
+            if (uploadSection) {
+                uploadSection.style.display = mode === 'amcl' ? 'block' : 'none';
+            }
         }
 
+        async function uploadMapToRobot() {
+            const files = document.getElementById('amclMapFiles').files;
+            if (files.length !== 2) {
+                alert("Please select BOTH the .yaml and .pgm file to upload to the robot.");
+                return;
+            }
 
             let yamlFile, pgmFile;
             for (let i = 0; i < files.length; i++) {
