@@ -378,32 +378,32 @@
             </div>
 
             <div class="data-row" style="margin-bottom: 12px;">
-                <span style="font-size: 0.85rem;">Boot Mode:</span>
+                <span style="font-size: 0.85rem;">Chế độ Boot:</span>
                 <select id="boot-mode"
                     style="width: 150px; padding: 4px; font-size: 0.8rem; background: #1f2937; color: #fff; border: 1px solid #374151; border-radius: 4px; outline: none; cursor: pointer;"
                     onchange="toggleMapUploadUI()">
-                    <option value="slam">SLAM (Mapping)</option>
-                    <option value="amcl">AMCL (Static Map)</option>
+                    <option value="slam">SLAM (Vẽ Bản Đồ)</option>
+                    <option value="amcl">AMCL (Bản Đồ Tĩnh)</option>
                 </select>
             </div>
 
             <div class="input-group" style="margin-bottom: 8px; display: flex; gap: 4px;">
                 <button id="btn-agent-start" onclick="startRobotOS()" style="flex: 1; background: #3b82f6; padding: 6px;">🚀 Boot</button>
                 <button id="btn-agent-stop" onclick="stopRobotOS()" style="flex: 1; background: #64748b; padding: 6px;">🛑 Stop</button>
-                <button id="btn-agent-save" onclick="saveRobotMap()" style="flex: 1; background: #10b981; padding: 6px;" title="Save current SLAM map to active_map">💾 Save Map</button>
+                <button id="btn-agent-save" onclick="saveRobotMap()" style="flex: 1; background: #10b981; padding: 6px;" title="Save current SLAM map to active_map">💾 Lưu Bản Đồ</button>
             </div>
 
             <div class="input-group">
                 <input type="text" id="ros-ws-url" value="ws://snake.local:9090" placeholder="ws://snake.local:9090">
-                <button id="btn-ros-connect" onclick="connectROS()" style="background: #10b981;">Connect</button>
+                <button id="btn-ros-connect" onclick="connectROS()" style="background: #10b981;">Kết Nối</button>
             </div>
             <div class="data-row" style="margin-top: 8px;">
-                <span>OS Status:</span><span class="value" id="val-agent-status"
+                <span>Trạng thái OS:</span><span class="value" id="val-agent-status"
                     style="color: #64748b;">Checking...</span>
             </div>
             <div class="data-row">
-                <span>WS Status:</span><span class="value" id="val-ros-status"
-                    style="color: #ef4444;">Disconnected</span>
+                <span>Trạng thái WS:</span><span class="value" id="val-ros-status"
+                    style="color: #ef4444;">Ngắt Kết Nốied</span>
             </div>
         </div>
 
@@ -421,7 +421,7 @@
 
             <div id="amcl-upload-section"
                 style="display: none; margin-top: 12px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 12px;">
-                <div style="font-size: 0.8rem; color: #f59e0b; margin-bottom: 8px;">Upload Map to Robot (AMCL)</div>
+                <div style="font-size: 0.8rem; color: #f59e0b; margin-bottom: 8px;">Tải Bản Đồ Lên Robot (AMCL)</div>
                 <input type="file" id="amclMapFiles" multiple accept=".pgm,.yaml"
                     style="width: 100%; box-sizing: border-box; margin-bottom: 8px;" />
                 <button onclick="uploadMapToRobot()" style="width: 100%; background: #f59e0b; color: #0f172a;">Upload to
@@ -435,7 +435,7 @@
             <!-- Chuyển đổi Mode công cụ -->
             <div class="mode-switcher" style="flex-wrap: wrap;">
                 <label class="mode-label" style="flex-basis: 45%;">
-                    <input type="radio" name="toolMode" value="pan" checked> 🖐️ Pan Map
+                    <input type="radio" name="toolMode" value="pan" checked> 🖐️ Kéo Bản Đồ
                 </label>
                 <label class="mode-label"
                     style="flex-basis: 45%; background-color: rgba(244, 63, 94, 0.2); border-color: rgba(244, 63, 94, 0.5);">
@@ -443,11 +443,11 @@
                 </label>
                 <label class="mode-label"
                     style="flex-basis: 45%; background-color: rgba(16, 185, 129, 0.2); border-color: rgba(16, 185, 129, 0.5);">
-                    <input type="radio" name="toolMode" value="initialpose"> 📍 Initial Pose
+                    <input type="radio" name="toolMode" value="initialpose"> 📍 Vị Trí Ban Đầu
                 </label>
                 <label class="mode-label"
                     style="flex-basis: 45%; background-color: rgba(245, 158, 11, 0.2); border-color: rgba(245, 158, 11, 0.5);">
-                    <input type="radio" name="toolMode" value="navgoal"> 🚀 Nav Goal
+                    <input type="radio" name="toolMode" value="navgoal"> 🚀 Mục Tiêu Di Chuyển
                 </label>
             </div>
 
@@ -462,15 +462,15 @@
                     ❌ <b>Click chuột phải (Right Click):</b> Xóa Waypoint
                 </span>
                 <span id="instruction-initialpose" style="display:none; color: #d1fae5;">
-                    📍 <b>Giữ chuột trái & Kéo:</b> Cập nhật vị trí bắt đầu (Initial Pose) cho AMCL trên ROS 2.
+                    📍 <b>Giữ chuột trái & Kéo:</b> Cập nhật vị trí bắt đầu (Vị Trí Ban Đầu) cho AMCL trên ROS 2.
                 </span>
                 <span id="instruction-navgoal" style="display:none; color: #fef3c7;">
                     🚀 <b>Giữ chuột trái & Kéo:</b> Ra lệnh cho Robot tự động chạy tới điểm này (Gửi /goal_pose).
                 </span>
             </div>
-            <div class="data-row"><span>👉 ROS Map X:</span><span class="value" style="color: #f43f5e;"
+            <div class="data-row"><span>👉 Tọa độ X:</span><span class="value" style="color: #f43f5e;"
                     id="val-wx">-</span></div>
-            <div class="data-row"><span>👉 ROS Map Y:</span><span class="value" style="color: #f43f5e;"
+            <div class="data-row"><span>👉 Tọa độ Y:</span><span class="value" style="color: #f43f5e;"
                     id="val-wy">-</span></div>
         </div>
 
@@ -509,7 +509,7 @@
                     style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 2px 8px; font-size: 0.75rem; color: #fff; cursor: pointer;">Clear</button>
             </div>
             <div class="log-content" id="logContent">
-                <div class="log-line log-info">[System] Waiting for ROS 2 connection...</div>
+                <div class="log-line log-info">[System] Đang chờ kết nối ROS 2...</div>
             </div>
         </div>
     </div>
@@ -517,50 +517,50 @@
     <div class="right-sidebar">
         <div class="card">
             <div class="card-title">Map Parameters</div>
-            <div class="data-row"><span>Resolution</span><span class="value" id="val-res">0.05</span></div>
-            <div class="data-row"><span>Origin X</span><span class="value" id="val-ox">-10.00</span></div>
-            <div class="data-row"><span>Origin Y</span><span class="value" id="val-oy">-10.00</span></div>
-            <div class="data-row"><span>Image Size</span><span class="value" id="val-size">800x600</span></div>
-            <div class="data-row"><span>Zoom Level</span><span class="value" id="val-zoom">100%</span></div>
+            <div class="data-row"><span>Độ phân giải</span><span class="value" id="val-res">0.05</span></div>
+            <div class="data-row"><span>Gốc X</span><span class="value" id="val-ox">-10.00</span></div>
+            <div class="data-row"><span>Gốc Y</span><span class="value" id="val-oy">-10.00</span></div>
+            <div class="data-row"><span>Kích thước Ảnh</span><span class="value" id="val-size">800x600</span></div>
+            <div class="data-row"><span>Mức Thu phóng</span><span class="value" id="val-zoom">100%</span></div>
         </div>
 
         <div class="card">
-            <div class="card-title">4. ROBOT TELEMETRY (ROS 2)</div>
+            <div class="card-title">4. THÔNG TIN ROBOT (ROS 2)</div>
             <div style="font-size: 0.8rem; color: #a1a1aa; margin-bottom: 8px;">
                 Tự động cập nhật vị trí xe theo thời gian thực (1-2 Hz).
             </div>
 
             <div class="data-row">
-                <span style="font-size: 0.85rem;">Pose Topic:</span>
+                <span style="font-size: 0.85rem;">Topic Vị trí:</span>
                 <select id="ros-pose-topic"
                     style="width: 130px; padding: 4px; font-size: 0.8rem; background: #1f2937; color: #fff; border: 1px solid #374151; border-radius: 4px; outline: none; cursor: pointer;">
-                    <option value="/odom_relay">/odom_relay (Wheels)</option>
+                    <option value="/odom_relay">/odom_relay (Bánh xe)</option>
                     <option value="/pose">/pose (SLAM)</option>
                     <option value="/amcl_pose">/amcl_pose (Nav2)</option>
-                    <option value="/odom">/odom (Raw)</option>
-                    <option value="/scan">/scan (Freq Check Only)</option>
+                    <option value="/odom">/odom (Thô)</option>
+                    <option value="/scan">/scan (Chỉ Kiểm tra Tần số)</option>
                 </select>
             </div>
 
             <div class="data-row" style="margin-top: 10px;">
-                <span>Live X:</span><span class="value" id="live-rx" style="color: #38bdf8;">0.000</span>
+                <span>Vị trí X:</span><span class="value" id="live-rx" style="color: #38bdf8;">0.000</span>
             </div>
             <div class="data-row">
-                <span>Live Y:</span><span class="value" id="live-ry" style="color: #38bdf8;">0.000</span>
+                <span>Vị trí Y:</span><span class="value" id="live-ry" style="color: #38bdf8;">0.000</span>
             </div>
             <div class="data-row" style="margin-top: 5px; border-top: 1px dashed #334155; padding-top: 5px;">
-                <span>Freq:</span><span class="value" id="live-hz" style="color: #10b981; font-weight: 600;">0 Hz</span>
+                <span>Tần số:</span><span class="value" id="live-hz" style="color: #10b981; font-weight: 600;">0 Hz</span>
             </div>
 
             <div class="data-row"
                 style="margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px;">
                 <label style="font-size: 0.85rem; display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" id="toggle-live-map" onchange="toggleLiveMap()"> Show Live Map (/map)
+                    <input type="checkbox" id="toggle-live-map" onchange="toggleLiveMap()"> Hiện Bản Đồ Trực Tiếp (/map)
                 </label>
             </div>
             <div class="data-row" style="margin-top: 5px;">
                 <label style="font-size: 0.85rem; display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" id="toggle-live-scan" onchange="toggleLiveScan()"> Show Live Scan (/scan)
+                    <input type="checkbox" id="toggle-live-scan" onchange="toggleLiveScan()"> Hiện Quét Trực Tiếp (/scan)
                 </label>
             </div>
         </div>
@@ -1025,7 +1025,7 @@
                 if (!statusEl) return;
 
                 if (data.status === 'running') {
-                    statusEl.innerText = 'Running';
+                    statusEl.innerText = 'Đang chạy';
                     statusEl.style.color = '#10b981';
                 } else if (data.status === 'starting') {
                     statusEl.innerText = 'Starting...';
@@ -1086,7 +1086,7 @@
         async function saveRobotMap() {
             const mode = document.getElementById('boot-mode').value;
             if (mode !== 'slam') {
-                alert("You can only save a map while running in SLAM (Mapping) mode!");
+                alert("You can only save a map while running in SLAM (Vẽ Bản Đồ) mode!");
                 return;
             }
             
@@ -1110,10 +1110,10 @@
                         aPgm.download = "active_map.pgm";
                         aPgm.click();
                     }
-                    alert("Success: " + data.message + "\n\nFiles have also been downloaded to your laptop.");
+                    alert("Thành công: " + data.message + "\n\nCác file cũng đã được tải xuống laptop của bạn.");
                 }
             } catch (err) {
-                alert("Failed to contact Agent Server to save map");
+                alert("Không thể kết nối với Agent Server để lưu bản đồ");
             }
         }
 
@@ -1128,7 +1128,7 @@
         async function uploadMapToRobot() {
             const files = document.getElementById('amclMapFiles').files;
             if (files.length !== 2) {
-                alert("Please select BOTH the .yaml and .pgm file to upload to the robot.");
+                alert("Vui lòng chọn CẢ HAI file .yaml và .pgm để tải lên robot.");
                 return;
             }
 
@@ -1139,7 +1139,7 @@
             }
 
             if (!yamlFile || !pgmFile) {
-                alert("Need one .yaml and one .pgm file.");
+                alert("Cần một file .yaml và một file .pgm.");
                 return;
             }
 
@@ -1152,7 +1152,7 @@
 
             try {
                 const toast = document.getElementById('toast');
-                toast.innerText = '⏳ Uploading to robot...';
+                toast.innerText = '⏳ Đang tải lên robot...';
                 toast.style.background = '#f59e0b';
                 toast.classList.add('show');
 
@@ -1169,11 +1169,11 @@
                 if (data.error) throw new Error(data.error);
 
                 loadMapFromBackend(); // Automatically update UI with uploaded map
-                toast.innerText = '✅ Map Uploaded to Robot!';
+                toast.innerText = '✅ Đã tải Bản Đồ lên Robot!';
                 toast.style.background = '#10b981';
                 setTimeout(() => toast.classList.remove('show'), 2000);
             } catch (e) {
-                alert("Upload failed: " + e.message);
+                alert("Tải lên thất bại: " + e.message);
                 document.getElementById('toast').classList.remove('show');
             }
         }
@@ -1196,7 +1196,7 @@
                 return;
             }
 
-            statusEl.innerText = 'Connecting...';
+            statusEl.innerText = 'Đang kết nối...';
             statusEl.style.color = '#f59e0b';
             globalStatus.innerHTML = '<span style="font-size: 10px;">🟡</span> CONNECTING';
 
@@ -1205,9 +1205,9 @@
             });
 
             ros.on('connection', function () {
-                statusEl.innerText = 'Connected';
+                statusEl.innerText = 'Đã kết nối';
                 statusEl.style.color = '#10b981';
-                btn.innerText = 'Disconnect';
+                btn.innerText = 'Ngắt Kết Nối';
                 btn.style.background = '#ef4444';
 
                 globalStatus.classList.add('connected');
@@ -1227,7 +1227,7 @@
 
                 subscribeToRobotPose();
 
-                alert('✅ Kết nối ROS 2 thành công! Bạn có thể dùng chế độ Initial Pose hoặc Nav Goal.');
+                alert('✅ Kết nối ROS 2 thành công! Bạn có thể dùng chế độ Vị Trí Ban Đầu hoặc Mục Tiêu Di Chuyển.');
             });
 
             ros.on('error', function (error) {
@@ -1239,7 +1239,7 @@
             });
 
             ros.on('close', function () {
-                statusEl.innerText = 'Disconnected';
+                statusEl.innerText = 'Ngắt Kết Nốied';
                 statusEl.style.color = '#ef4444';
                 btn.innerText = 'Connect';
                 btn.style.background = '#10b981';
@@ -1318,7 +1318,7 @@
 
                     } else if (currentMode === 'initialpose') {
                         if (sendRosPose(initialPoseTopic, draftWaypoint.x, draftWaypoint.y, draftWaypoint.heading)) {
-                            toast.innerText = '📍 Đã cài đặt Initial Pose!';
+                            toast.innerText = '📍 Đã cài đặt Vị Trí Ban Đầu!';
                             toast.style.background = 'rgba(16, 185, 129, 0.9)';
                             toast.classList.add('show');
                         } else {
@@ -1326,7 +1326,7 @@
                         }
                     } else if (currentMode === 'navgoal') {
                         if (sendRosPose(goalPoseTopic, draftWaypoint.x, draftWaypoint.y, draftWaypoint.heading)) {
-                            toast.innerText = '🚀 Đã gửi Nav Goal! Robot đang di chuyển...';
+                            toast.innerText = '🚀 Đã gửi Mục Tiêu Di Chuyển! Robot đang di chuyển...';
                             toast.style.background = 'rgba(245, 158, 11, 0.9)'; // Màu cam
                             toast.classList.add('show');
                         } else {
