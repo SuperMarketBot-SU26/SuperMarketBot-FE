@@ -294,10 +294,10 @@
 
         .panel-controls {
             position: absolute;
-            top: -32px;
+            top: -38px;
             right: 24px;
             display: flex;
-            gap: 8px;
+            gap: 12px;
         }
 
         .log-toggle-btn {
@@ -305,10 +305,10 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-bottom: none;
             color: #a1a1aa;
-            padding: 4px 16px;
+            padding: 8px 20px;
             border-radius: 8px 8px 0 0;
             cursor: pointer;
-            font-size: 0.85rem;
+            font-size: 0.95rem;
             display: flex;
             align-items: center;
             gap: 6px;
@@ -319,10 +319,10 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-bottom: none;
             color: #fff;
-            padding: 4px 16px;
+            padding: 8px 20px;
             border-radius: 8px 8px 0 0;
             cursor: pointer;
-            font-size: 0.85rem;
+            font-size: 0.95rem;
             display: flex;
             align-items: center;
             gap: 6px;
@@ -578,11 +578,11 @@
         <!-- LOG PANEL -->
         <div class="log-panel" id="logPanel">
             <div class="panel-controls">
-                <div class="shutdown-btn" onclick="shutdownPi()" title="Tắt Nguồn Robot (Shutdown)">
-                    ⏻ Tắt Nguồn
-                </div>
                 <div class="log-toggle-btn" onclick="toggleLogPanel()" id="logToggleBtn">
                     Terminal Logs 🔼
+                </div>
+                <div class="shutdown-btn" onclick="shutdownPi()" title="Tắt Nguồn Robot (Shutdown)">
+                    ⏻ Tắt Nguồn
                 </div>
             </div>
             <div class="log-header" onclick="toggleLogPanel()">
