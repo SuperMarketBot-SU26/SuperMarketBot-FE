@@ -459,16 +459,12 @@
 
 
 
-        <div class="card" style="border-color: #f59e0b;">
-            <div class="card-title" style="color: #f59e0b;">6. Export Mission</div>
-            <button style="width: 100%; background: #f59e0b; margin-top: 8px;" onclick="exportWaypointsYAML()">⬇️ Tải
-                xuống YAML (Local)</button>
-        </div>
+        <!-- Removed Export Mission -->
     </div>
 
     <div class="map-container" id="mapContainer">
         <!-- Layer 1: Bản đồ gốc (sẽ bị scale mờ/pixelate) -->
-        <canvas id="mapCanvas" width="800" height="600"></canvas>
+        <canvas id="mapCanvas" width="800" height="600" style="image-rendering: pixelated;"></canvas>
         <!-- Layer 2: Vector UI (Luôn sắc nét, kích thước 1:1 với màn hình) -->
         <canvas id="uiCanvas" style="position: absolute; top: 0; left: 0; pointer-events: none;"></canvas>
 
