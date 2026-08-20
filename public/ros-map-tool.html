@@ -292,10 +292,15 @@
             user-select: none;
         }
 
-        .log-toggle-btn {
+        .panel-controls {
             position: absolute;
             top: -32px;
             right: 24px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .log-toggle-btn {
             background: rgba(15, 23, 42, 0.95);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-bottom: none;
@@ -303,8 +308,29 @@
             padding: 4px 16px;
             border-radius: 8px 8px 0 0;
             cursor: pointer;
-            font-size: 0.8rem;
-            backdrop-filter: blur(8px);
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .shutdown-btn {
+            background: #ef4444;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: none;
+            color: #fff;
+            padding: 4px 16px;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .shutdown-btn:hover {
+            background: #dc2626;
         }
 
         .log-content {
@@ -444,8 +470,6 @@
                 <button id="btn-agent-save" onclick="saveRobotMap()" style="flex: 1; background: #10b981; padding: 6px;" title="Save current SLAM map to active_map">💾 Lưu Bản Đồ</button>
             </div>
 
-            <div class="input-group" style="margin-bottom: 8px;">
-                <button id="btn-agent-shutdown" onclick="shutdownPi()" style="width: 100%; background: #ef4444; padding: 6px; font-weight: 600;">⚠️ TẮT NGUỒN ROBOT (SHUTDOWN) ⚠️</button>
             </div>
 
             <div class="input-group">
@@ -553,8 +577,13 @@
 
         <!-- LOG PANEL -->
         <div class="log-panel" id="logPanel">
-            <div class="log-toggle-btn" onclick="toggleLogPanel()" id="logToggleBtn">
-                Terminal Logs 🔼
+            <div class="panel-controls">
+                <div class="shutdown-btn" onclick="shutdownPi()" title="Tắt Nguồn Robot (Shutdown)">
+                    ⏻ Tắt Nguồn
+                </div>
+                <div class="log-toggle-btn" onclick="toggleLogPanel()" id="logToggleBtn">
+                    Terminal Logs 🔼
+                </div>
             </div>
             <div class="log-header" onclick="toggleLogPanel()">
                 <div style="font-weight: 600; font-size: 0.85rem;">/rosout (ROS 2 System Logs)</div>
