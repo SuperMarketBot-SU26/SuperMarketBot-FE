@@ -504,6 +504,25 @@
                 <button onclick="uploadMapToRobot()" style="width: 100%; background: #f59e0b; color: #0f172a;">Upload to
                     Robot</button>
             </div>
+
+            <div id="map-edit-section" style="margin-top: 12px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 12px;">
+                <button id="btn-edit-map" onclick="toggleMapEditMode()" style="width: 100%; background: #a855f7; color: #fff; margin-bottom: 8px;">✏️ Chỉnh Sửa Bản Đồ</button>
+                <div id="edit-tools" style="display: none; flex-direction: column; gap: 6px;">
+                    <div style="display: flex; gap: 4px;">
+                        <button onclick="setBrush('draw')" id="btn-draw" style="flex: 1; background: #64748b; padding: 4px;">🖋️ Vẽ Cản</button>
+                        <button onclick="setBrush('erase')" id="btn-erase" style="flex: 1; background: #334155; padding: 4px;">🧽 Xoá (Trống)</button>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: #ccc;">
+                        <span>Cỡ cọ:</span>
+                        <input type="range" id="brush-size" min="1" max="20" value="5" style="flex: 1;" oninput="document.getElementById('brush-val').innerText = this.value + 'px'">
+                        <span id="brush-val" style="min-width: 30px;">5px</span>
+                    </div>
+                    <div style="display: flex; gap: 4px; margin-top: 4px;">
+                        <button onclick="saveEditedMap()" style="flex: 1; background: #10b981; padding: 4px; font-weight: bold; color: #0f172a;">💾 Cập Nhật Robot</button>
+                        <button onclick="toggleMapEditMode()" style="flex: 1; background: #ef4444; padding: 4px; color: #fff;">❌ Huỷ</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="card" style="border-color: var(--accent);">
@@ -2101,6 +2120,136 @@
             fetchActiveMapFromBE().catch(e => console.warn('Auto fetch map failed:', e));
         });
 
+        // --- MAP EDITING (PENGUIN) ---
+        let isMapEditMode = false;
+        let mapBrushMode = 'draw'; // 'draw' or 'erase'
+        let isDrawingMap = false;
+
+        function toggleMapEditMode() {
+            isMapEditMode = !isMapEditMode;
+            document.getElementById('edit-tools').style.display = isMapEditMode ? 'flex' : 'none';
+            document.getElementById('btn-edit-map').style.background = isMapEditMode ? '#d8b4fe' : '#a855f7';
+            
+            if (isMapEditMode) {
+                // Disable waypoint edit mode if active
+                if (window.isEditMode) {
+                    window.isEditMode = false; 
+                    document.getElementById('wp-edit-btn').style.background = '#38bdf8';
+                }
+            }
+        }
+
+        function setBrush(mode) {
+            mapBrushMode = mode;
+            document.getElementById('btn-draw').style.background = mode === 'draw' ? '#475569' : '#64748b';
+            document.getElementById('btn-erase').style.background = mode === 'erase' ? '#475569' : '#334155';
+        }
+
+        function drawOnMap(e) {
+            if (!isMapEditMode || !isDrawingMap) return;
+            const containerRect = container.getBoundingClientRect();
+            const mouseX = e.clientX - containerRect.left;
+            const mouseY = e.clientY - containerRect.top;
+            
+            const xImage = (mouseX - translateX) / scale;
+            const yImage = (mouseY - translateY) / scale;
+            
+            const brushSize = parseInt(document.getElementById('brush-size').value);
+            
+            ctxMap.fillStyle = mapBrushMode === 'draw' ? 'black' : 'white';
+            ctxMap.beginPath();
+            ctxMap.arc(xImage, yImage, brushSize, 0, Math.PI * 2);
+            ctxMap.fill();
+        }
+
+        container.addEventListener('mousedown', (e) => {
+            if (isMapEditMode && e.button === 0) {
+                isDrawingMap = true;
+                drawOnMap(e);
+                e.stopPropagation(); // Try to prevent pan
+            }
+        }, { capture: true });
+
+        container.addEventListener('mousemove', (e) => {
+            if (isDrawingMap && isMapEditMode) {
+                drawOnMap(e);
+                e.stopPropagation();
+            }
+        }, { capture: true });
+
+        container.addEventListener('mouseup', () => {
+            isDrawingMap = false;
+        }, { capture: true });
+        
+        container.addEventListener('mouseleave', () => {
+            isDrawingMap = false;
+        }, { capture: true });
+
+        async function saveEditedMap() {
+            if (!confirm('Bạn có chắc muốn lưu bản đồ đã chỉnh sửa lên Robot? (Sẽ tải lại Navigation)')) return;
+            
+            // 1. Convert Canvas to PGM Binary
+            const imageData = ctxMap.getImageData(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
+            const data = imageData.data;
+            
+            // PGM Header: P5\n Width Height\n 255\n
+            const header = `P5\n${IMAGE_WIDTH} ${IMAGE_HEIGHT}\n255\n`;
+            const encoder = new TextEncoder();
+            const headerBytes = encoder.encode(header);
+            
+            // Pixel data
+            const pixelBytes = new Uint8Array(IMAGE_WIDTH * IMAGE_HEIGHT);
+            for (let i = 0; i < IMAGE_WIDTH * IMAGE_HEIGHT; i++) {
+                // Read red channel (since we draw black/white/gray, R=G=B)
+                let r = data[i * 4];
+                // Free space (white) = 254 in standard ROS PGM, Obstacle (black) = 000, Unknown (gray) = 205
+                if (r > 250) r = 254; 
+                pixelBytes[i] = r;
+            }
+            
+            // Combine header and pixels
+            const pgmBuffer = new Uint8Array(headerBytes.length + pixelBytes.length);
+            pgmBuffer.set(headerBytes, 0);
+            pgmBuffer.set(pixelBytes, headerBytes.length);
+            
+            // Convert to Base64
+            let binaryString = "";
+            for (let i = 0; i < pgmBuffer.byteLength; i++) {
+                binaryString += String.fromCharCode(pgmBuffer[i]);
+            }
+            const base64Pgm = window.btoa(binaryString);
+            
+            // DEBUGGING: trigger download of PGM locally
+            try {
+                const blob = new Blob([pgmBuffer], { type: "application/octet-stream" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = 'debug_edited_map.pgm'; a.click();
+            } catch(e) { console.warn("Could not download debug PGM", e); }
+            
+            try {
+                const btn = document.querySelector('#edit-tools button[onclick="saveEditedMap()"]');
+                const orig = btn.innerText;
+                btn.innerText = 'Đang lưu...';
+                
+                const response = await fetch('http://' + window.location.hostname + ':5000/api/robot/update_pgm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pgm_base64: base64Pgm })
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    alert('Lưu thành công! ' + result.message);
+                    toggleMapEditMode();
+                } else {
+                    alert('Lỗi: ' + result.error);
+                }
+                if (btn) btn.innerText = orig;
+            } catch (err) {
+                alert('Lỗi mạng: ' + err.message);
+            }
+        }
     </script>
 </body>
 
