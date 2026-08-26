@@ -142,10 +142,46 @@
             </div>
         </div>
 
-        <div class="card" style="flex: 1; display: flex; flex-direction: column;">
-            <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 12px; text-transform: uppercase; font-weight: 600;">Live Objects Detected</div>
-            <div id="objects-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem; padding-right: 4px;">
-                <div style="color: #64748b; text-align: center; margin-top: 40px; font-style: italic;">Waiting for AI payload...</div>
+        <div class="card" style="flex: 1; display: flex; flex-direction: column; background: rgba(59, 130, 246, 0.05); border-color: #3b82f6;">
+            <div style="color: #3b82f6; font-size: 0.85rem; margin-bottom: 12px; text-transform: uppercase; font-weight: 600;">HSV Color Calibration</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Adjust sliders to isolate the cardboard background (White = Empty Space).</div>
+            
+            <div style="flex: 1; overflow-y: auto; padding-right: 8px; display: flex; flex-direction: column; gap: 12px;">
+                <!-- HUE -->
+                <div>
+                    <div class="data-row" style="margin-bottom: 4px;">
+                        <span style="color: #f8fafc; font-size: 0.85rem;">Hue (H)</span>
+                        <span class="value" style="font-size: 0.85rem; color: #a855f7;" id="val-h"><span id="val-h-min">0</span> - <span id="val-h-max">30</span></span>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="range" id="h-min" min="0" max="179" value="0" style="flex: 1;" oninput="updateHsvConfig()">
+                        <input type="range" id="h-max" min="0" max="179" value="30" style="flex: 1;" oninput="updateHsvConfig()">
+                    </div>
+                </div>
+                <!-- SATURATION -->
+                <div>
+                    <div class="data-row" style="margin-bottom: 4px;">
+                        <span style="color: #f8fafc; font-size: 0.85rem;">Saturation (S)</span>
+                        <span class="value" style="font-size: 0.85rem; color: #a855f7;" id="val-s"><span id="val-s-min">50</span> - <span id="val-s-max">255</span></span>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="range" id="s-min" min="0" max="255" value="50" style="flex: 1;" oninput="updateHsvConfig()">
+                        <input type="range" id="s-max" min="0" max="255" value="255" style="flex: 1;" oninput="updateHsvConfig()">
+                    </div>
+                </div>
+                <!-- VALUE -->
+                <div>
+                    <div class="data-row" style="margin-bottom: 4px;">
+                        <span style="color: #f8fafc; font-size: 0.85rem;">Value (V)</span>
+                        <span class="value" style="font-size: 0.85rem; color: #a855f7;" id="val-v"><span id="val-v-min">50</span> - <span id="val-v-max">255</span></span>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="range" id="v-min" min="0" max="255" value="50" style="flex: 1;" oninput="updateHsvConfig()">
+                        <input type="range" id="v-max" min="0" max="255" value="255" style="flex: 1;" oninput="updateHsvConfig()">
+                    </div>
+                </div>
+                
+                <button onclick="resetHsv()" style="margin-top: 12px; padding: 8px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; cursor: pointer; font-size: 0.85rem;">↺ Reset Default</button>
             </div>
         </div>
     </div>
@@ -330,6 +366,53 @@
             } catch (e) {
                 console.error("Failed to parse JSON payload:", e);
             }
+        }
+        
+        let hsvTopic = null;
+
+        function updateHsvConfig() {
+            const hMin = parseInt(document.getElementById('h-min').value);
+            const hMax = parseInt(document.getElementById('h-max').value);
+            const sMin = parseInt(document.getElementById('s-min').value);
+            const sMax = parseInt(document.getElementById('s-max').value);
+            const vMin = parseInt(document.getElementById('v-min').value);
+            const vMax = parseInt(document.getElementById('v-max').value);
+            
+            // Ensure min <= max
+            document.getElementById('val-h-min').innerText = Math.min(hMin, hMax);
+            document.getElementById('val-h-max').innerText = Math.max(hMin, hMax);
+            document.getElementById('val-s-min').innerText = Math.min(sMin, sMax);
+            document.getElementById('val-s-max').innerText = Math.max(sMin, sMax);
+            document.getElementById('val-v-min').innerText = Math.min(vMin, vMax);
+            document.getElementById('val-v-max').innerText = Math.max(vMin, vMax);
+            
+            if (ros && ros.isConnected) {
+                if (!hsvTopic) {
+                    hsvTopic = new ROSLIB.Topic({
+                        ros: ros,
+                        name: '/shelf/hsv_config',
+                        messageType: 'std_msgs/msg/String'
+                    });
+                }
+                
+                const payload = {
+                    hMin: Math.min(hMin, hMax), hMax: Math.max(hMin, hMax),
+                    sMin: Math.min(sMin, sMax), sMax: Math.max(sMin, sMax),
+                    vMin: Math.min(vMin, vMax), vMax: Math.max(vMin, vMax)
+                };
+                
+                hsvTopic.publish(new ROSLIB.Message({ data: JSON.stringify(payload) }));
+            }
+        }
+        
+        function resetHsv() {
+            document.getElementById('h-min').value = 0;
+            document.getElementById('h-max').value = 30;
+            document.getElementById('s-min').value = 50;
+            document.getElementById('s-max').value = 255;
+            document.getElementById('v-min').value = 50;
+            document.getElementById('v-max').value = 255;
+            updateHsvConfig();
         }
     </script>
 </body>
