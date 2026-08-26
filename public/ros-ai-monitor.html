@@ -108,6 +108,11 @@
         <div class="card" style="border-color: #ec4899; background: rgba(236, 72, 153, 0.05);">
             <div style="color: #ec4899; font-size: 0.85rem; margin-bottom: 16px; text-transform: uppercase; font-weight: 600;">Shelf Analysis</div>
             
+            <div class="data-row" style="margin-bottom: 12px;">
+                <span style="color: var(--text-muted);">Target Shelf:</span>
+                <span class="value" id="val-shelf" style="color: #f8fafc; font-size: 0.95rem; text-align: right; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Target Shelf Name">Waiting...</span>
+            </div>
+
             <div class="data-row" style="margin-bottom: 16px;">
                 <span style="color: var(--text-muted);">Stock Status:</span>
                 <span class="badge" id="val-status">UNKNOWN</span>
@@ -267,6 +272,7 @@
             try {
                 const data = JSON.parse(msg.data);
                 
+                document.getElementById('val-shelf').innerText = data.shelfCategory || `Shelf ${data.shelfId}`;
                 document.getElementById('val-density').innerText = `${data.densityPct}%`;
                 document.getElementById('val-products').innerText = data.totalObjects;
                 document.getElementById('val-empty').innerText = data.totalEmptySlots;
