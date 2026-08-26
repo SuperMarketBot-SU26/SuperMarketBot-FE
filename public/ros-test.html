@@ -637,6 +637,22 @@
                 </label>
             </div>
         </div>
+
+        <div class="card" style="border-color: #ec4899; margin-top: 24px;">
+            <div class="card-title" style="color: #ec4899;">5. CAMERA STREAM</div>
+            <div style="font-size: 0.8rem; color: #a1a1aa; margin-bottom: 8px;">
+                Livestream từ Pi 5 Camera.
+            </div>
+            <div style="width: 100%; aspect-ratio: 16/9; background: #0f172a; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                <img id="camera-stream-img" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;" />
+                <span id="camera-placeholder" style="color: #64748b; font-size: 0.85rem;">Bật công tắc để xem</span>
+            </div>
+            <div class="data-row" style="margin-top: 10px;">
+                <label style="font-size: 0.85rem; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" id="toggle-camera" onchange="toggleCameraStream()"> Bật Camera (/camera/image_raw/compressed)
+                </label>
+            </div>
+        </div>
     </div>
 
     <div class="toast" id="toast">✅ Đã lưu Waypoint!</div>
@@ -1746,6 +1762,53 @@
                 scanSubscriber.subscribe((msg) => {
                     latestScan = msg;
                     renderUI();
+                });
+            }
+        }
+
+        let cameraSubscriber = null;
+        function toggleCameraStream() {
+            const isChecked = document.getElementById('toggle-camera').checked;
+            const imgEl = document.getElementById('camera-stream-img');
+            const placeholderEl = document.getElementById('camera-placeholder');
+
+            if (!ros) {
+                alert("Vui lòng kết nối ROS 2 trước!");
+                document.getElementById('toggle-camera').checked = false;
+                return;
+            }
+
+            if (!isChecked && cameraSubscriber) {
+                cameraSubscriber.unsubscribe();
+                cameraSubscriber = null;
+                imgEl.style.display = 'none';
+                placeholderEl.style.display = 'block';
+                return;
+            }
+            if (isChecked) {
+                imgEl.style.display = 'block';
+                placeholderEl.style.display = 'none';
+                cameraSubscriber = new ROSLIB.Topic({
+                    ros: ros,
+                    name: '/camera/image_raw/compressed',
+                    messageType: 'sensor_msgs/msg/CompressedImage'
+                });
+                cameraSubscriber.subscribe((msg) => {
+                    let base64Str = "";
+                    if (typeof msg.data === 'string') {
+                        base64Str = msg.data;
+                    } else if (Array.isArray(msg.data) || msg.data instanceof Uint8Array) {
+                        const uintArray = new Uint8Array(msg.data);
+                        let binary = '';
+                        const chunkSize = 8192;
+                        for (let i = 0; i < uintArray.length; i += chunkSize) {
+                            binary += String.fromCharCode.apply(null, uintArray.subarray(i, i + chunkSize));
+                        }
+                        base64Str = btoa(binary);
+                    }
+                    if (base64Str) {
+                        imgEl.src = "data:image/jpeg;base64," + base64Str;
+                    }
                 });
             }
         }

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuperMarketBot - Shelf Patrol AI Monitor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --panel-bg: rgba(30, 41, 59, 0.7);
+            --accent: #3b82f6;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+        body {
+            margin: 0; padding: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+        /* Layout */
+        .sidebar {
+            width: 380px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            border-right: 1px solid rgba(255,255,255,0.1);
+            overflow-y: auto;
+            box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+        }
+        .main-content {
+            flex: 1;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            position: relative;
+            background: radial-gradient(circle at center, #1e293b 0%, var(--bg-dark) 100%);
+        }
+        
+        .header {
+            font-size: 1.25rem; font-weight: 600; display: flex; align-items: center; gap: 12px;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 16px;
+        }
+        .data-row {
+            display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.95rem; align-items: center;
+        }
+        .value { color: #38bdf8; font-weight: 600; font-family: monospace; font-size: 1.1rem; }
+        
+        /* Camera */
+        .camera-container {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+        .camera-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .badge {
+            padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: bold;
+        }
+        .badge.well-stocked { background: rgba(16,185,129,0.2); color: #10b981; border: 1px solid rgba(16,185,129,0.4); }
+        .badge.normal { background: rgba(56,189,248,0.2); color: #38bdf8; border: 1px solid rgba(56,189,248,0.4); }
+        .badge.low-stock { background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid rgba(245,158,11,0.4); }
+        .badge.out-of-stock { background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.4); }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/eventemitter2@6.4.9/lib/eventemitter2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="header">
+            <span style="font-size: 1.5rem;">🤖</span> Shelf Patrol AI
+        </div>
+        
+        <div class="card">
+            <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 12px; text-transform: uppercase; font-weight: 600;">Connection</div>
+            <input type="text" id="ros-ws-url" value="ws://snake.local:9090" style="width:100%; padding: 10px; margin-bottom: 12px; border-radius: 6px; background: rgba(0,0,0,0.3); color: white; border: 1px solid rgba(255,255,255,0.1); box-sizing: border-box; outline: none; font-family: monospace;">
+            <button onclick="connectROS()" style="width: 100%; padding: 10px; background: #10b981; color: #0f172a; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.2s;">Connect to Robot</button>
+            <div class="data-row" style="margin-top: 16px;">
+                <span style="font-size: 0.85rem;">Status:</span>
+                <span id="ros-status" style="color: #ef4444; font-weight: bold; font-size: 0.85rem; padding: 4px 10px; background: rgba(239,68,68,0.1); border-radius: 12px; border: 1px solid rgba(239,68,68,0.3);">Disconnected</span>
+            </div>
+        </div>
+
+        <div class="card" style="border-color: #ec4899; background: rgba(236, 72, 153, 0.05);">
+            <div style="color: #ec4899; font-size: 0.85rem; margin-bottom: 16px; text-transform: uppercase; font-weight: 600;">Shelf Analysis</div>
+            
+            <div class="data-row" style="margin-bottom: 16px;">
+                <span style="color: var(--text-muted);">Stock Status:</span>
+                <span class="badge" id="val-status">UNKNOWN</span>
+            </div>
+            
+            <div class="data-row">
+                <span>Density (Fullness):</span>
+                <span class="value" id="val-density">0%</span>
+            </div>
+            
+            <div style="width: 100%; height: 6px; background: rgba(0,0,0,0.3); border-radius: 3px; margin-bottom: 16px; overflow: hidden;">
+                <div id="density-bar" style="height: 100%; width: 0%; background: #10b981; transition: width 0.3s ease, background 0.3s ease;"></div>
+            </div>
+
+            <div class="data-row">
+                <span>Total Products:</span>
+                <span class="value" id="val-products" style="color: #10b981;">0</span>
+            </div>
+            <div class="data-row">
+                <span>Empty Slots:</span>
+                <span class="value" id="val-empty" style="color: #ef4444;">0</span>
+            </div>
+            
+            <div class="data-row" style="margin-top: 16px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 16px;">
+                <span style="font-size: 0.8rem; color: var(--text-muted);">AI Inference Time:</span>
+                <span class="value" id="val-inference" style="font-size: 0.8rem; color: #a855f7;">0 ms</span>
+            </div>
+        </div>
+
+        <div class="card" style="flex: 1; display: flex; flex-direction: column;">
+            <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 12px; text-transform: uppercase; font-weight: 600;">Live Objects Detected</div>
+            <div id="objects-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem; padding-right: 4px;">
+                <div style="color: #64748b; text-align: center; margin-top: 40px; font-style: italic;">Waiting for AI payload...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 8px;">
+            <div>
+                <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Live Camera Feed</h2>
+                <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 4px;">YOLO bounding boxes are drawn natively on the Raspberry Pi</div>
+            </div>
+            <div style="display: flex; gap: 12px;">
+                <a href="/ros-test.html" style="text-decoration: none; padding: 10px 20px; background: rgba(255,255,255,0.1); color: white; border-radius: 6px; font-weight: 500; transition: background 0.2s;">⬅️ Back to Map</a>
+                <button onclick="toggleCamera()" id="btn-camera" style="padding: 10px 24px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s;">▶️ Start Camera</button>
+            </div>
+        </div>
+        
+        <div class="camera-container">
+            <div id="cam-placeholder" style="text-align: center; color: #64748b;">
+                <div style="font-size: 3rem; margin-bottom: 16px;">📷</div>
+                <div>Camera Disabled.<br>Click "Start Camera" to view live feed.</div>
+            </div>
+            <img id="camera-stream" src="" style="display: none;" />
+        </div>
+    </div>
+
+    <script>
+        let ros = null;
+        let imageTopic = null;
+        let analysisTopic = null;
+        let isCameraEnabled = false;
+
+        function connectROS() {
+            const url = document.getElementById('ros-ws-url').value;
+            const statusEl = document.getElementById('ros-status');
+            
+            if (ros) {
+                ros.close();
+            }
+
+            statusEl.style.color = '#eab308';
+            statusEl.style.background = 'rgba(234,179,8,0.1)';
+            statusEl.style.borderColor = 'rgba(234,179,8,0.3)';
+            statusEl.innerText = 'Connecting...';
+
+            ros = new ROSLIB.Ros({ url: url });
+
+            ros.on('connection', () => {
+                statusEl.style.color = '#10b981';
+                statusEl.style.background = 'rgba(16,185,129,0.1)';
+                statusEl.style.borderColor = 'rgba(16,185,129,0.3)';
+                statusEl.innerText = 'Connected';
+                
+                // Subscribe to AI Analysis
+                analysisTopic = new ROSLIB.Topic({
+                    ros: ros,
+                    name: '/shelf/analysis',
+                    messageType: 'std_msgs/msg/String'
+                });
+                
+                analysisTopic.subscribe(handleAnalysisPayload);
+            });
+
+            ros.on('error', (err) => {
+                statusEl.style.color = '#ef4444';
+                statusEl.style.background = 'rgba(239,68,68,0.1)';
+                statusEl.style.borderColor = 'rgba(239,68,68,0.3)';
+                statusEl.innerText = 'Error';
+                console.error(err);
+            });
+
+            ros.on('close', () => {
+                statusEl.style.color = '#ef4444';
+                statusEl.style.background = 'rgba(239,68,68,0.1)';
+                statusEl.style.borderColor = 'rgba(239,68,68,0.3)';
+                statusEl.innerText = 'Disconnected';
+                if (isCameraEnabled) toggleCamera();
+            });
+        }
+
+        function toggleCamera() {
+            const btn = document.getElementById('btn-camera');
+            const img = document.getElementById('camera-stream');
+            const placeholder = document.getElementById('cam-placeholder');
+
+            if (!isCameraEnabled) {
+                if (!ros || !ros.isConnected) {
+                    alert('Vui lòng kết nối với ROS 2 trước!');
+                    return;
+                }
+                
+                imageTopic = new ROSLIB.Topic({
+                    ros: ros,
+                    name: '/camera/image_raw/compressed',
+                    messageType: 'sensor_msgs/msg/CompressedImage'
+                });
+
+                imageTopic.subscribe((msg) => {
+                    // rosbridge_server automatically converts byte arrays to base64 strings!
+                    // If you encounter raw byte arrays, we would need to convert them, but native_imx500_stream publishes as base64 string directly
+                    if (msg.format === 'jpeg' || msg.format === 'jpg') {
+                        img.src = "data:image/jpeg;base64," + msg.data;
+                    }
+                });
+
+                btn.style.background = '#ef4444';
+                btn.innerHTML = '⏹️ Stop Camera';
+                img.style.display = 'block';
+                placeholder.style.display = 'none';
+                isCameraEnabled = true;
+            } else {
+                if (imageTopic) {
+                    imageTopic.unsubscribe();
+                    imageTopic = null;
+                }
+                btn.style.background = '#3b82f6';
+                btn.innerHTML = '▶️ Start Camera';
+                img.style.display = 'none';
+                placeholder.style.display = 'block';
+                isCameraEnabled = false;
+            }
+        }
+
+        function handleAnalysisPayload(msg) {
+            try {
+                const data = JSON.parse(msg.data);
+                
+                document.getElementById('val-density').innerText = `${data.densityPct}%`;
+                document.getElementById('val-products').innerText = data.totalObjects;
+                document.getElementById('val-empty').innerText = data.totalEmptySlots;
+                document.getElementById('val-inference').innerText = `${data.inferenceTimeMs} ms`;
+                
+                const statusEl = document.getElementById('val-status');
+                statusEl.innerText = data.stockStatus;
+                statusEl.className = 'badge';
+                
+                const bar = document.getElementById('density-bar');
+                bar.style.width = `${data.densityPct}%`;
+
+                if (data.stockStatus === 'Well Stocked') {
+                    statusEl.classList.add('well-stocked');
+                    bar.style.background = '#10b981';
+                } else if (data.stockStatus === 'Normal') {
+                    statusEl.classList.add('normal');
+                    bar.style.background = '#38bdf8';
+                } else if (data.stockStatus === 'Low Stock') {
+                    statusEl.classList.add('low-stock');
+                    bar.style.background = '#f59e0b';
+                } else {
+                    statusEl.classList.add('out-of-stock');
+                    bar.style.background = '#ef4444';
+                }
+
+                // Render objects list
+                const listEl = document.getElementById('objects-list');
+                listEl.innerHTML = '';
+                if (data.detectedObjects && data.detectedObjects.length > 0) {
+                    data.detectedObjects.forEach(obj => {
+                        const row = document.createElement('div');
+                        row.style.display = 'flex';
+                        row.style.justifyContent = 'space-between';
+                        row.style.padding = '10px 12px';
+                        row.style.background = obj.isEmptySlot ? 'rgba(239,68,68,0.1)' : 'rgba(0,0,0,0.3)';
+                        row.style.border = obj.isEmptySlot ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(255,255,255,0.05)';
+                        row.style.borderRadius = '6px';
+                        
+                        let name = obj.label;
+                        if (obj.isEmptySlot) {
+                            name = '⚠️ Empty Slot';
+                        }
+                        
+                        row.innerHTML = `
+                            <span style="${obj.isEmptySlot ? 'color: #ef4444; font-weight: 500;' : 'color: #f8fafc;'}">${name}</span>
+                            <span style="color: ${obj.isEmptySlot ? '#ef4444' : '#38bdf8'}; font-family: monospace; font-weight: bold;">${(obj.confidence * 100).toFixed(0)}%</span>
+                        `;
+                        listEl.appendChild(row);
+                    });
+                } else {
+                    listEl.innerHTML = '<div style="color: #64748b; text-align: center; margin-top: 40px; font-style: italic;">No objects detected</div>';
+                }
+
+            } catch (e) {
+                console.error("Failed to parse JSON payload:", e);
+            }
+        }
+    </script>
+</body>
+</html>
