@@ -116,14 +116,15 @@ export function SemanticObjectEditor({
 
       {/* Body */}
       <div className="space-y-3 px-4 py-3">
-        {/* Metadata */}
+        {/* Metadata & Calibration */}
         {(object.xMin != null || object.yMin != null) && (
           <div className="grid grid-cols-2 gap-1.5 rounded-lg bg-smb-surface-container p-2.5 text-[10px]">
-            <MetaField label="X" value={object.xMin?.toFixed(1)} unit="m" />
-            <MetaField label="Y" value={object.yMin?.toFixed(1)} unit="m" />
-            {object.xMax != null && <MetaField label="Rộng" value={(object.xMax - object.xMin)?.toFixed(1)} unit="m" />}
-            {object.yMax != null && <MetaField label="Cao" value={(object.yMax - object.yMin)?.toFixed(1)} unit="m" />}
-            {object.productTypeId && <MetaField label="Type ID" value={String(object.productTypeId)} />}
+            <MetaField label="Tọa độ X" value={object.xMin?.toFixed(2)} unit="m" />
+            <MetaField label="Tọa độ Y" value={object.yMin?.toFixed(2)} unit="m" />
+            <MetaField label="Góc Yaw (Heading)" value={object.headingYaw != null ? `${object.headingYaw}°` : '0° (90° mặt kệ)'} />
+            <MetaField label="Cự ly chụp" value={object.standOffDistance != null ? `${object.standOffDistance}m` : '1.0m'} />
+            {object.xMax != null && <MetaField label="Rộng kệ" value={(object.xMax - object.xMin)?.toFixed(1)} unit="m" />}
+            {object.productTypeId && <MetaField label="Loại ID" value={String(object.productTypeId)} />}
           </div>
         )}
 
