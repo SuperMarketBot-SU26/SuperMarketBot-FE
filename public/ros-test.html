@@ -64,7 +64,7 @@
         .text-purple { color: var(--accent-purple); }
 
         .sidebar, .right-sidebar {
-            width: 350px;
+            width: 380px;
             background: rgba(15, 23, 42, 0.85);
             backdrop-filter: blur(12px);
             padding: 20px;
@@ -166,10 +166,10 @@
             align-items: center;
             justify-content: center;
             gap: 6px;
-            padding: 8px 16px;
+            padding: 8px 10px;
             border-radius: 6px;
             font-weight: 500;
-            font-size: 14px;
+            font-size: 13px;
             cursor: pointer;
             border: none;
             transition: all 0.2s;
@@ -201,7 +201,7 @@
         .mode-label {
             background: var(--bg-surface);
             border: 1px solid var(--border-subtle);
-            padding: 8px;
+            padding: 8px 4px;
             border-radius: 6px;
             cursor: pointer;
             font-size: 12px;
@@ -329,11 +329,9 @@
                 Quản lý ROS 2 Process và kết nối WebSocket (Rosbridge).
             </div>
 
-            <div class="data-row" style="margin-bottom: 12px;">
-                <span style="font-size: 14px;">Chế độ Boot:</span>
-                <select id="boot-mode"
-                    
-                    onchange="toggleMapUploadUI()">
+            <div class="data-row" style="margin-bottom: 12px; gap: 12px;">
+                <span style="font-size: 14px; white-space: nowrap;">Chế độ Boot:</span>
+                <select id="boot-mode" onchange="toggleMapUploadUI()" style="width: auto; flex: 1;">
                     <option value="slam">SLAM (Vẽ Bản Đồ)</option>
                     <option value="amcl">AMCL (Bản Đồ Tĩnh)</option>
                 </select>
