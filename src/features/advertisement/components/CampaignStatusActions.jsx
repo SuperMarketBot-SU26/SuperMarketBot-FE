@@ -3,10 +3,11 @@ import Button from '../../../components/ui/Button'
 import { ConfirmModal } from '../../../components/ConfirmModal'
 
 const STATUS_CONFIG = {
-  Inactive:  { label: 'Không Hoạt Động', icon: 'cancel',           color: 'danger'    },
+  Draft:     { label: 'Bản Thảo (Draft)', icon: 'edit_note',       color: 'neutral'  },
+  Inactive:  { label: 'Không Hoạt Động', icon: 'cancel',           color: 'danger'   },
   Active:    { label: 'Hoạt Động',        icon: 'check_circle',    color: 'success'  },
   Paused:    { label: 'Tạm Dừng',         icon: 'pause_circle',    color: 'warning'  },
-  Canceled:  { label: 'Đã Hủy',           icon: 'block',           color: 'danger'    },
+  Canceled:  { label: 'Đã Hủy',           icon: 'block',           color: 'danger'   },
   Completed: { label: 'Hoàn Thành',       icon: 'task_alt',        color: 'neutral'  },
 }
 
@@ -14,7 +15,7 @@ const colorMap = {
   success: 'bg-green-100 text-green-700 border-green-200',
   warning: 'bg-amber-100 text-amber-700 border-amber-200',
   danger:  'bg-red-100 text-red-700 border-red-200',
-  neutral: 'bg-gray-100 text-gray-600 border-gray-200',
+  neutral: 'bg-gray-100 text-gray-700 border-gray-200',
 }
 
 export function CampaignStatusActions({ status, completionStatus, onActivate, onPause, onCancel, onComplete, onViewLogs, loading }) {
@@ -23,9 +24,6 @@ export function CampaignStatusActions({ status, completionStatus, onActivate, on
   const handleConfirm = async () => {
     if (!confirmAction) return
     const result = await confirmAction.handler()
-    // Close the modal whether the action succeeded or failed — the parent
-    // already surfaces the error via its own banner, so the modal closing
-    // prevents an unhandled promise rejection from bubbling up.
     setConfirmAction(null)
     return result
   }
@@ -33,11 +31,11 @@ export function CampaignStatusActions({ status, completionStatus, onActivate, on
   const config = STATUS_CONFIG[status] || { label: status, icon: 'help', color: 'neutral' }
   const isEnded = completionStatus?.isExpired || completionStatus?.isCompleted
 
-  // Actions are available for: Inactive, Active, Paused (and not ended)
-  const isActionable = ['Inactive', 'Active', 'Paused'].includes(status) && !isEnded
+  // Actions are available for: Draft, Inactive, Active, Paused (and not ended)
+  const isActionable = ['Draft', 'Inactive', 'Active', 'Paused'].includes(status) && !isEnded
   const isActive     = status === 'Active'
   const isPaused     = status === 'Paused'
-  const isInactive   = status === 'Inactive'
+  const isInactive   = status === 'Inactive' || status === 'Draft'
   const isCompletable = status === 'Active' && !isEnded
 
   return (

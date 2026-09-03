@@ -33,6 +33,7 @@ const TABS = [
 ]
 
 const STATUS_LABELS = {
+  Draft:     'Bản Thảo (Draft)',
   Inactive:  'Không Hoạt Động',
   Active:    'Hoạt Động',
   Paused:    'Tạm Dừng',
@@ -163,21 +164,12 @@ export function CampaignDetail() {
       setSaveError('Tên chiến dịch không được để trống.')
       return
     }
-    if (!editForm.startDate || !editForm.endDate) {
-      setSaveError('Ngày bắt đầu và kết thúc là bắt buộc.')
-      return
-    }
-    if (new Date(editForm.endDate) <= new Date(editForm.startDate)) {
-      setSaveError('Ngày kết thúc phải sau ngày bắt đầu.')
-      return
-    }
 
     setSaving(true)
     try {
       await updateCampaign(campaignId, {
         campaignName: editForm.campaignName.trim(),
-        startDate: new Date(editForm.startDate).toISOString(),
-        endDate: new Date(editForm.endDate).toISOString(),
+        description: editForm.description?.trim() || null,
         // Giữ nguyên targeting — tab Targeting đã có UI riêng (TargetingManager)
         routeIds: data?.routeIds ?? null,
         zoneIds: data?.zoneIds ?? null,
@@ -258,9 +250,8 @@ export function CampaignDetail() {
                       Brand: <strong className="text-smb-on-surface">{data.brandName ?? '—'}</strong>
                       {' · '}
                       Package: <strong className="text-smb-on-surface">{data.packageName ?? '—'}</strong>
-                      {data.startDate && data.endDate && (
-                        <> · {new Date(data.startDate).toLocaleDateString('vi-VN')} → {new Date(data.endDate).toLocaleDateString('vi-VN')}</>
-                      )}
+                      {' · '}
+                      Thời gian: <span className="italic text-smb-on-surface-variant">Theo ngân sách (Tự động dừng khi hết Budget)</span>
                     </p>
                   </div>
                   <CampaignStatusActions
@@ -296,7 +287,6 @@ export function CampaignDetail() {
                                     {(billingResult.prorataMultiplier * 100).toFixed(1)}%
                                   </p>
                                 )}
-                                <p>Số dư ví: <strong className="text-smb-on-surface">{billingResult.remainingWalletBalance?.toLocaleString('vi-VN')}₫</strong></p>
                               </>
                             )}
                             {billingResult.refundedAmount !== undefined && (
@@ -379,22 +369,7 @@ export function CampaignDetail() {
                             disabled={isLocked}
                           />
 
-                          <div className="grid grid-cols-2 gap-4">
-                            <Input
-                              label="Ngày Bắt Đầu"
-                              type="date"
-                              value={editForm.startDate}
-                              onChange={(e) => setEditForm((p) => ({ ...p, startDate: e.target.value }))}
-                              disabled={isLocked}
-                            />
-                            <Input
-                              label="Ngày Kết Thúc"
-                              type="date"
-                              value={editForm.endDate}
-                              onChange={(e) => setEditForm((p) => ({ ...p, endDate: e.target.value }))}
-                              disabled={isLocked}
-                            />
-                          </div>
+
 
                           {isLocked && (
                             <div className="flex items-start gap-2 rounded-lg border border-smb-primary-container/30 bg-smb-primary-container/5 p-3">
@@ -443,9 +418,9 @@ export function CampaignDetail() {
                       campaign={data}
                       campaignId={campaignId}
                       status={data?.status}
-                      priceRoute={data?.priceRoute}
-                      priceZone={data?.priceZone}
-                      priceShelf={data?.priceShelf}
+                      priceRoute={data?.routeUnitPrice ?? data?.priceRoute ?? data?.package?.routeUnitPrice ?? data?.package?.priceRoute}
+                      priceZone={data?.zoneUnitPrice ?? data?.priceZone ?? data?.package?.zoneUnitPrice ?? data?.package?.priceZone}
+                      priceShelf={data?.shelfUnitPrice ?? data?.priceShelf ?? data?.package?.shelfUnitPrice ?? data?.package?.priceShelf}
                       onChanged={refreshData}
                     />
                   )}

@@ -53,17 +53,21 @@ export function StepReview({ state, brandOptions, selectedPackage, effectiveTarg
   const zoneCount  = target.zoneIds?.length  ?? 0
   const shelfCount = target.shelfIds?.length ?? 0
 
+  const routeUnitPrice = pkg?.routeUnitPrice ?? pkg?.priceRoute ?? pkg?.routeFee ?? 0
+  const zoneUnitPrice  = pkg?.zoneUnitPrice  ?? pkg?.priceZone  ?? pkg?.zoneFee  ?? 0
+  const shelfUnitPrice = pkg?.shelfUnitPrice ?? pkg?.priceShelf ?? pkg?.shelfFee ?? 0
+
   const totalTargetingFee =
-    routeCount * (pkg?.priceRoute ?? 0) +
-    zoneCount  * (pkg?.priceZone  ?? 0) +
-    shelfCount * (pkg?.priceShelf ?? 0)
+    routeCount * routeUnitPrice +
+    zoneCount  * zoneUnitPrice +
+    shelfCount * shelfUnitPrice
 
   return (
     <section className="space-y-6">
       <header>
         <h2 className="text-xl font-semibold text-smb-on-surface">Bước 4 · Review & Tạo</h2>
         <p className="mt-1 text-sm text-smb-on-surface-variant">
-          Kiểm tra lại toàn bộ thông tin trước khi tạo. Chiến dịch sau khi tạo sẽ ở trạng thái <strong>Inactive</strong>.
+          Kiểm tra lại toàn bộ thông tin trước khi tạo. Chiến dịch sau khi tạo sẽ ở trạng thái <strong>Draft</strong>.
         </p>
       </header>
 
@@ -75,6 +79,7 @@ export function StepReview({ state, brandOptions, selectedPackage, effectiveTarg
             <h3 className="font-semibold text-smb-on-surface">Thông Tin Cơ Bản</h3>
           </div>
           <Row label="Tên chiến dịch" value={state.basics.campaignName || '—'} bold />
+          <Row label="Mô tả" value={state.basics.description || '—'} />
           <Row label="Brand" value={brandName} />
           <Row
             label="Package"
@@ -84,7 +89,7 @@ export function StepReview({ state, brandOptions, selectedPackage, effectiveTarg
                 : '—'
             }
           />
-          <Row label="Thời gian" value={`${formatDate(state.basics.startDate)} → ${formatDate(state.basics.endDate)}`} />
+          <Row label="Thời gian chạy" value="Theo ngân sách (Tự động dừng khi hết Budget)" />
           <Row
             label="Hình thức phát"
             value={
@@ -108,19 +113,49 @@ export function StepReview({ state, brandOptions, selectedPackage, effectiveTarg
             const showShelf = deliveryMode !== 'Route' && shelfCount > 0
             const hasAny = showRoute || showZone || showShelf
             if (!hasAny) {
-              return <p className="text-sm text-smb-on-surface-variant">Chưa chọn targeting nào.</p>
+              return <p className="text-sm text-smb-on-surface-variant">Chưa chọn targeting nào. (Có thể thiết lập ở bước tiếp theo hoặc khi kích hoạt.)</p>
             }
             return (
               <>
-                {showRoute && <PricingRow icon="route"       label="Tuyến đường" count={routeCount} pricePerItem={pkg?.priceRoute ?? 0} />}
-                {showZone  && <PricingRow icon="grid_view"   label="Khu vực"    count={zoneCount}  pricePerItem={pkg?.priceZone  ?? 0} />}
-                {showShelf && <PricingRow icon="inventory_2" label="Kệ hàng"    count={shelfCount} pricePerItem={pkg?.priceShelf ?? 0} />}
+                {showRoute && <PricingRow icon="route"       label="Tuyến đường" count={routeCount} pricePerItem={routeUnitPrice} />}
+                {showZone  && <PricingRow icon="grid_view"   label="Khu vực"    count={zoneCount}  pricePerItem={zoneUnitPrice} />}
+                {showShelf && <PricingRow icon="inventory_2" label="Kệ hàng"    count={shelfCount} pricePerItem={shelfUnitPrice} />}
               </>
             )
           })()}
           <div className="mt-2 flex items-center justify-between border-t border-smb-outline-variant pt-2 text-sm">
             <span className="font-medium text-smb-on-surface">Tổng phí targeting</span>
             <strong className="text-smb-primary-container">{formatVND(totalTargetingFee)} đ</strong>
+          </div>
+        </div>
+
+        {/* Banner & Video Preview */}
+        <div className="rounded-2xl border border-smb-outline-variant bg-smb-surface-container-lowest p-5 lg:col-span-2">
+          <div className="mb-3 flex items-center gap-2">
+            <Icon name="perm_media" className="text-[20px] text-smb-primary-container" />
+            <h3 className="font-semibold text-smb-on-surface">Banner & Video</h3>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <p className="text-xs font-semibold text-smb-on-surface-variant mb-2">Banner Quảng Cáo:</p>
+              {state.basics.bannerUrl ? (
+                <div className="border border-smb-outline-variant rounded-lg overflow-hidden max-h-48 flex items-center justify-center bg-black/5 p-2">
+                  <img src={state.basics.bannerUrl} alt="Banner Preview" className="max-h-40 object-contain mx-auto" />
+                </div>
+              ) : (
+                <p className="text-sm text-smb-on-surface-variant italic">Chưa có banner.</p>
+              )}
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-smb-on-surface-variant mb-2">Video Quảng Cáo:</p>
+              {state.basics.videoUrl ? (
+                <div className="border border-smb-outline-variant rounded-lg overflow-hidden max-h-48 flex items-center justify-center bg-black/5 p-2">
+                  <video src={state.basics.videoUrl} controls className="max-h-40 object-contain mx-auto" />
+                </div>
+              ) : (
+                <p className="text-sm text-smb-on-surface-variant italic">Chưa có video.</p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -143,20 +178,20 @@ export function StepReview({ state, brandOptions, selectedPackage, effectiveTarg
         </div>
       </div>
 
-      {/* Activation fee notice */}
+      {/* Maximum Budget Notice */}
       <div className="rounded-2xl border border-smb-primary-container/30 bg-smb-primary-container/5 p-5">
         <div className="mb-3 flex items-center gap-2">
           <Icon name="payments" className="text-[20px] text-smb-primary-container" />
-          <h3 className="font-semibold text-smb-on-surface">Phí Khởi Tạo (Charge Khi Kích Hoạt)</h3>
+          <h3 className="font-semibold text-smb-on-surface">Ngân Sách Chiến Dịch</h3>
         </div>
         <Row
-          label="Gói cố định (PricePackage)"
-          value={pkg ? `${formatVND(pkg.pricePackage)} đ` : '—'}
+          label="Ngân sách phân bổ (Budget)"
+          value={pkg ? `${formatVND(pkg.budget)} đ` : '—'}
           bold
         />
         <p className="mt-3 flex items-start gap-2 text-xs text-smb-on-surface-variant">
           <Icon name="info" className="mt-0.5 text-[14px]" />
-          Số tiền này <strong>chưa charge lúc tạo</strong>. Phí chỉ phát sinh khi bạn bấm <strong>Kích Hoạt</strong> sau khi tạo xong.
+          Ngân sách này là giới hạn chi tiêu tối đa của chiến dịch. Chiến dịch sẽ tự động tạm dừng khi tổng chi tiêu chạm hạn mức này.
         </p>
       </div>
 

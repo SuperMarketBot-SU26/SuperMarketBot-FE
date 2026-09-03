@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { getCampaignLogs } from '../api/adCampaignApi'
+import { getCampaignLogs, getCampaign } from '../api/adCampaignApi'
 import { useAdLogEnrichment } from '../../../hooks/useAdLogEnrichment'
 
 function Icon({ name, className = '' }) {
@@ -164,6 +164,7 @@ const formatDateTime = (val) => {
 
 export function CampaignLogsTab({ campaignId }) {
   const [logs, setLogs] = useState([])
+  const [campaign, setCampaign] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [pageNumber, setPageNumber] = useState(1)
@@ -175,22 +176,18 @@ export function CampaignLogsTab({ campaignId }) {
   const { enrichLog, isReady } = useAdLogEnrichment(logs, campaignId)
 
   useEffect(() => {
+    if (!campaignId) return
+    getCampaign(campaignId).then(setCampaign).catch(() => {})
+  }, [campaignId])
+
+  useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError(null)
     getCampaignLogs(campaignId, pageNumber, pageSize)
       .then((data) => {
         if (cancelled) return
-        // Debug: log shape nếu items có vẻ lạ
-        if (import.meta.env.DEV) {
-          // eslint-disable-next-line no-console
-          console.debug('[CampaignLogs] response:', data)
-        }
         const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : []
-        if (items.length > 0 && import.meta.env.DEV) {
-          // eslint-disable-next-line no-console
-          console.debug('[CampaignLogs] first item keys:', Object.keys(items[0]))
-        }
         setLogs(items)
         setTotalPages(data?.totalPages ?? 1)
         setTotalCount(data?.totalCount ?? items.length)
@@ -202,6 +199,13 @@ export function CampaignLogsTab({ campaignId }) {
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [campaignId, pageNumber, pageSize])
+
+  const formatVnd = (n) => {
+    if (n == null || n === 0 || n === '') return '0 đ'
+    const num = Number(n)
+    if (Number.isNaN(num)) return '0 đ'
+    return num.toLocaleString('vi-VN') + ' đ'
+  }
 
   return (
     <div className="space-y-4">
@@ -217,6 +221,33 @@ export function CampaignLogsTab({ campaignId }) {
           </span>
         </div>
       </div>
+
+      {/* Budget Summary Cards */}
+      {campaign && (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-smb-outline-variant bg-smb-surface-container-lowest p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-smb-on-surface-variant">Ngân Sách Gói (Tối Đa)</p>
+            <p className="mt-1 text-lg font-bold text-smb-primary-container tabular-nums">
+              {formatVnd(campaign.packageBudget ?? campaign.package?.budget)}
+            </p>
+            <p className="text-xs text-smb-on-surface-variant">Gói {campaign.packageName ?? 'Standard'}</p>
+          </div>
+          <div className="rounded-xl border border-smb-outline-variant bg-smb-surface-container-lowest p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-smb-on-surface-variant">Đã Chi Tiêu</p>
+            <p className="mt-1 text-lg font-bold text-amber-600 tabular-nums">
+              {formatVnd(campaign.totalSpent)}
+            </p>
+            <p className="text-xs text-smb-on-surface-variant">Phát sinh từ khi kích hoạt</p>
+          </div>
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800">Ngân Sách Còn Lại</p>
+            <p className="mt-1 text-lg font-bold text-emerald-600 tabular-nums">
+              {formatVnd(campaign.remainingBudget ?? Math.max(0, (campaign.packageBudget ?? 0) - (campaign.totalSpent ?? 0)))}
+            </p>
+            <p className="text-xs text-emerald-700 font-medium">Khả dụng cho chạy quảng cáo</p>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">

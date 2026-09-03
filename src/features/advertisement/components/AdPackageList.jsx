@@ -5,7 +5,7 @@ import { TableActions } from '../../../components/TableActions'
 import { Button } from '../../../components/ui/Button'
 import { ConfirmModal } from '../../../components/ConfirmModal'
 import { FormModal, FormField } from '../../../components/FormModal'
-import { getPackages, createPackage, updatePackage, deletePackage } from '../api/adPackageApi'
+import { getPackages, createPackage, updatePackage, updatePackageStatus, deletePackage } from '../api/adPackageApi'
 import { getErrorMessage } from '../../../api/client'
 import { toast } from 'react-toastify'
 
@@ -19,17 +19,17 @@ const statusLabel = (status) => ({
   Inactive: 'Không hoạt động',
 })[status] || status
 
-const mapStatusForApi = (status) => (status === 'active' ? 'Active' : 'Inactive')
 const mapStatusFromApi = (status) => (status === 'Active' ? 'active' : 'inactive')
 
 const EMPTY_FORM = {
   packageName: '',
-  pricePackage: '',
-  priceRoute: '',
-  priceZone: '',
-  priceShelf: '',
-  basePriceClick: '',
-  adScore: '',
+  description: '',
+  budget: '',
+  zoneUnitPrice: '',
+  shelfUnitPrice: '',
+  routeUnitPrice: '',
+  clickFee: '',
+  adScore: '50',
   status: 'Active',
 }
 
@@ -78,12 +78,13 @@ export function AdPackageList() {
   const openEdit = (pkg) => {
     setForm({
       packageName: pkg.packageName,
-      pricePackage: String(pkg.pricePackage),
-      priceRoute: String(pkg.priceRoute),
-      priceZone: String(pkg.priceZone),
-      priceShelf: String(pkg.priceShelf),
-      basePriceClick: String(pkg.basePriceClick),
-      adScore: String(pkg.adScore),
+      description: pkg.description || '',
+      budget: String(pkg.budget),
+      zoneUnitPrice: String(pkg.zoneUnitPrice ?? pkg.zoneFee ?? 0),
+      shelfUnitPrice: String(pkg.shelfUnitPrice ?? pkg.shelfFee ?? 0),
+      routeUnitPrice: String(pkg.routeUnitPrice ?? pkg.routeFee ?? 0),
+      clickFee: String(pkg.clickFee),
+      adScore: String(pkg.adScore ?? 50),
       status: pkg.status,
     })
     setModal({ type: 'edit', data: pkg })
@@ -95,14 +96,39 @@ export function AdPackageList() {
   }
 
   const handleSubmit = async () => {
+    // Basic client-side validation
+    if (!form.packageName.trim()) {
+      toast.error('Tên gói không được để trống.')
+      return
+    }
+    const budget = Number(form.budget)
+    if (isNaN(budget) || budget <= 0) {
+      toast.error('Ngân sách quảng cáo phải lớn hơn 0.')
+      return
+    }
+    const zoneUnitPrice = Number(form.zoneUnitPrice)
+    const shelfUnitPrice = Number(form.shelfUnitPrice)
+    const routeUnitPrice = Number(form.routeUnitPrice)
+    const clickFee = Number(form.clickFee)
+    if (isNaN(zoneUnitPrice) || zoneUnitPrice < 0 || isNaN(shelfUnitPrice) || shelfUnitPrice < 0 || isNaN(routeUnitPrice) || routeUnitPrice < 0 || isNaN(clickFee) || clickFee < 0) {
+      toast.error('Đơn giá quảng cáo không được âm.')
+      return
+    }
+    const adScore = Number(form.adScore)
+    if (isNaN(adScore) || adScore < 0) {
+      toast.error('Điểm ưu tiên (AdScore) không được âm.')
+      return
+    }
+
     const payload = {
       packageName: form.packageName.trim(),
-      pricePackage: Number(form.pricePackage),
-      priceRoute: Number(form.priceRoute),
-      priceZone: Number(form.priceZone),
-      priceShelf: Number(form.priceShelf),
-      basePriceClick: Number(form.basePriceClick),
-      adScore: Number(form.adScore),
+      description: form.description?.trim() || null,
+      budget,
+      zoneUnitPrice,
+      shelfUnitPrice,
+      routeUnitPrice,
+      clickFee,
+      adScore,
       ...(modal.type === 'edit' && { status: form.status }),
     }
 
@@ -140,18 +166,8 @@ export function AdPackageList() {
 
   const handleToggleStatus = async (pkg) => {
     const newStatus = pkg.status === 'Active' ? 'Inactive' : 'Active'
-    const payload = {
-      packageName: pkg.packageName,
-      pricePackage: pkg.pricePackage,
-      priceRoute: pkg.priceRoute,
-      priceZone: pkg.priceZone,
-      priceShelf: pkg.priceShelf,
-      basePriceClick: pkg.basePriceClick,
-      adScore: pkg.adScore,
-      status: newStatus,
-    }
     try {
-      const updated = await updatePackage(pkg.packageId, payload)
+      const updated = await updatePackageStatus(pkg.packageId, newStatus)
       setPackages((prev) =>
         prev.map((p) => (p.packageId === pkg.packageId ? updated : p))
       )
@@ -166,57 +182,67 @@ export function AdPackageList() {
   }
 
   const formatVND = (value) =>
-    Number(value).toLocaleString('vi-VN')
+    Number(value || 0).toLocaleString('vi-VN')
 
   const columns = [
     {
       key: 'packageName',
       label: 'Tên Gói',
       render: (val, row) => (
-        <div>
-          <p className="font-medium text-smb-on-surface">{val}</p>
-          <p className="mt-0.5 text-xs text-smb-on-surface-variant">{row.adScore} điểm ưu tiên</p>
+        <div className="max-w-[200px]">
+          <p className="font-medium text-smb-on-surface truncate">{val}</p>
+          {row.description && (
+            <p className="mt-0.5 text-xs text-smb-on-surface-variant line-clamp-2" title={row.description}>
+              {row.description}
+            </p>
+          )}
         </div>
       ),
     },
     {
-      key: 'pricePackage',
-      label: 'Giá Gói',
+      key: 'budget',
+      label: 'Ngân Sách',
       align: 'right',
       render: (val) => (
-        <span className="font-medium tabular-nums text-smb-on-surface">
+        <span className="font-semibold tabular-nums text-smb-primary-container">
           {formatVND(val)} đ
         </span>
       ),
     },
     {
-      key: 'priceRoute',
-      label: 'Giá/Route',
-      align: 'right',
+      key: 'adScore',
+      label: 'Độ Ưu Tiên',
+      align: 'center',
       render: (val) => (
-        <span className="tabular-nums text-smb-on-surface">
-          {formatVND(val)} đ
+        <span className="font-bold tabular-nums text-smb-primary">
+          {val ?? 50} pts
         </span>
       ),
     },
     {
-      key: 'priceZone',
-      label: 'Giá/Zone',
+      key: 'zoneUnitPrice',
+      label: 'Đơn Giá Zone',
       align: 'right',
-      render: (val) => <span className="tabular-nums text-smb-on-surface">{formatVND(val)} đ</span>,
+      render: (val, row) => <span className="tabular-nums text-smb-on-surface">{formatVND(val ?? row.zoneFee)} đ</span>,
     },
     {
-      key: 'priceShelf',
-      label: 'Giá/Shelf',
+      key: 'shelfUnitPrice',
+      label: 'Đơn Giá Kệ',
       align: 'right',
-      render: (val) => <span className="tabular-nums text-smb-on-surface">{formatVND(val)} đ</span>,
+      render: (val, row) => <span className="tabular-nums text-smb-on-surface">{formatVND(val ?? row.shelfFee)} đ</span>,
     },
     {
-      key: 'basePriceClick',
-      label: 'Giá/Click',
+      key: 'routeUnitPrice',
+      label: 'Đơn Giá Tuyến',
+      align: 'right',
+      render: (val, row) => <span className="tabular-nums text-smb-on-surface">{formatVND(val ?? row.routeFee)} đ</span>,
+    },
+    {
+      key: 'clickFee',
+      label: 'Phí Click',
       align: 'right',
       render: (val) => (
-        <span className="tabular-nums text-smb-on-surface">
+        <span className="tabular-nums text-smb-on-surface font-medium text-amber-600">
           {formatVND(val)} đ
         </span>
       ),
@@ -226,7 +252,7 @@ export function AdPackageList() {
       label: 'Chiến Dịch',
       align: 'center',
       render: (val) => (
-        <span className="text-sm text-smb-on-surface">{val ?? 0}</span>
+        <span className="text-sm text-smb-on-surface font-medium">{val ?? 0}</span>
       ),
     },
     {
@@ -327,6 +353,7 @@ export function AdPackageList() {
           title={modal.type === 'create' ? 'Tạo Gói Quảng Cáo Mới' : 'Chỉnh Sửa Gói Quảng Cáo'}
           onClose={closeModal}
           onSubmit={handleSubmit}
+          disabled={submitting}
         >
           {modal.type === 'edit' && (
             <FormField label="Trạng thái">
@@ -346,66 +373,109 @@ export function AdPackageList() {
               type="text"
               value={form.packageName}
               onChange={(e) => setForm((f) => ({ ...f, packageName: e.target.value }))}
-              placeholder="VD: Bạc, Vàng, Kim Cương..."
-              className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface placeholder:text-smb-outline focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary"
+              placeholder="VD: Basic, Standard, Premium..."
+              className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface placeholder:text-smb-on-surface-variant/40 focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary"
               required
             />
           </FormField>
 
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Giá gói (VNĐ)">
+          <FormField label="Mô tả gói">
+            <textarea
+              value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              placeholder="Nhập mô tả ngắn về gói quảng cáo này..."
+              rows={3}
+              maxLength={500}
+              className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface placeholder:text-smb-on-surface-variant/40 focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary resize-none"
+            />
+          </FormField>
+
+          <div className="grid grid-cols-3 gap-4">
+            <FormField label="Ngân sách quảng cáo (VNĐ)">
               <input
                 type="number"
-                value={form.pricePackage}
-                onChange={(e) => setForm((f) => ({ ...f, pricePackage: e.target.value }))}
-                placeholder="VD: 500000"
-                min={0}
-                className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface placeholder:text-smb-outline focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary"
+                value={form.budget}
+                onChange={(e) => setForm((f) => ({ ...f, budget: e.target.value }))}
+                placeholder="VD: 5000000"
+                min={0.01}
+                step="any"
+                className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface placeholder:text-smb-on-surface-variant/40 focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary"
                 required
               />
             </FormField>
-            <FormField label="Điểm ưu tiên (adScore)">
+            <FormField label="Điểm Ưu Tiên (AdScore)">
               <input
                 type="number"
                 value={form.adScore}
                 onChange={(e) => setForm((f) => ({ ...f, adScore: e.target.value }))}
-                placeholder="VD: 100"
+                placeholder="VD: 50, 100..."
                 min={0}
-                className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface placeholder:text-smb-outline focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary"
+                step="1"
+                className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface placeholder:text-smb-on-surface-variant/40 focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary"
                 required
               />
             </FormField>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Giá mỗi zone (VNĐ)">
-              <input type="number" value={form.priceZone} onChange={(e) => setForm((f) => ({ ...f, priceZone: e.target.value }))} min={0} required className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary" />
-            </FormField>
-            <FormField label="Giá mỗi shelf (VNĐ)">
-              <input type="number" value={form.priceShelf} onChange={(e) => setForm((f) => ({ ...f, priceShelf: e.target.value }))} min={0} required className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary" />
-            </FormField>
+          {/* Unit Prices Section */}
+          <div className="mt-4 border-t border-smb-outline-variant/60 pt-4">
+            <h4 className="mb-3 text-xs font-semibold text-smb-primary uppercase tracking-wider">
+              Đơn giá tùy chọn vị trí & tuyến đường (Unit Prices)
+            </h4>
+            <div className="grid grid-cols-3 gap-3">
+              <FormField label="Đơn giá Zone (VNĐ)">
+                <input
+                  type="number"
+                  value={form.zoneUnitPrice}
+                  onChange={(e) => setForm((f) => ({ ...f, zoneUnitPrice: e.target.value }))}
+                  placeholder="VD: 500000"
+                  min={0}
+                  step="any"
+                  className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary"
+                  required
+                />
+              </FormField>
+              <FormField label="Đơn giá Kệ (VNĐ)">
+                <input
+                  type="number"
+                  value={form.shelfUnitPrice}
+                  onChange={(e) => setForm((f) => ({ ...f, shelfUnitPrice: e.target.value }))}
+                  placeholder="VD: 300000"
+                  min={0}
+                  step="any"
+                  className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary"
+                  required
+                />
+              </FormField>
+              <FormField label="Đơn giá Tuyến (VNĐ)">
+                <input
+                  type="number"
+                  value={form.routeUnitPrice}
+                  onChange={(e) => setForm((f) => ({ ...f, routeUnitPrice: e.target.value }))}
+                  placeholder="VD: 200000"
+                  min={0}
+                  step="any"
+                  className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary"
+                  required
+                />
+              </FormField>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Giá mỗi route (VNĐ)">
+          {/* Usage-Based Click Fee Section */}
+          <div className="mt-4 border-t border-smb-outline-variant/60 pt-4">
+            <h4 className="mb-3 text-xs font-semibold text-amber-600 uppercase tracking-wider">
+              Phí phát sinh (Usage Fee)
+            </h4>
+            <FormField label="Phí Click (Đơn giá/Click - VNĐ)">
               <input
                 type="number"
-                value={form.priceRoute}
-                onChange={(e) => setForm((f) => ({ ...f, priceRoute: e.target.value }))}
-                placeholder="VD: 1500"
+                value={form.clickFee}
+                onChange={(e) => setForm((f) => ({ ...f, clickFee: e.target.value }))}
+                placeholder="VD: 5000"
                 min={0}
-                className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface placeholder:text-smb-outline focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary"
-                required
-              />
-            </FormField>
-            <FormField label="Giá mỗi click (VNĐ)">
-              <input
-                type="number"
-                value={form.basePriceClick}
-                onChange={(e) => setForm((f) => ({ ...f, basePriceClick: e.target.value }))}
-                placeholder="VD: 3000"
-                min={0}
-                className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface placeholder:text-smb-outline focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary"
+                step="any"
+                className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary"
                 required
               />
             </FormField>

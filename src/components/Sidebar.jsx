@@ -7,7 +7,7 @@ const navItems = [
   { icon: 'manage_accounts', label: 'Quản Lý Tài Khoản', path: '/accounts' },
   { icon: 'campaign', label: 'Chiến Dịch Quảng Cáo', path: '/' },
   { icon: 'sell', label: 'Gói Quảng Cáo', path: '/ad-packages' },
-  { icon: 'account_balance_wallet', label: 'Quản Lý Nhãn Hàng', path: '/brand-dashboard' },
+  { icon: 'storefront', label: 'Quản Lý Nhãn Hàng', path: '/brand-dashboard' },
   { icon: 'inventory_2', label: 'Quản Lý Sản Phẩm', path: '/products' },
   { icon: 'category', label: 'Quản Lý Loại Sản Phẩm', path: '/product-types' },
   { icon: 'label', label: 'Quản Lý Health Tag', path: '/health-tags' },

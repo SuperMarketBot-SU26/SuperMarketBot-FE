@@ -10,7 +10,7 @@ import AdPackageCreation from './pages/AdPackageCreation'
 import BrandDashboard from './pages/BrandDashboard'
 import BrandCreation from './pages/BrandCreation'
 import BrandUpdate from './pages/BrandUpdate'
-import BrandWallet from './pages/BrandWallet'
+
 import Forbidden from './pages/Forbidden'
 import Login from './pages/Login'
 import ProductManagement from './pages/ProductManagement'
@@ -95,14 +95,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/advertisement/brand-wallet"
-              element={
-                <ProtectedRoute>
-                  <BrandWallet />
-                </ProtectedRoute>
-              }
-            />
+
             <Route
               path="/ad-packages"
               element={

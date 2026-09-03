@@ -41,7 +41,7 @@ function normalizeProduct(p) {
   }
 }
 
-export function StepProducts({ state, onChange, hasProducts, onBack, onNext, pendingFiles = [], onUploadFiles }) {
+export function StepProducts({ state, onChange, hasProducts, onBack, onNext }) {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -91,36 +91,7 @@ export function StepProducts({ state, onChange, hasProducts, onBack, onNext, pen
 
   const clearAll = () => onChange({ productIds: [] })
 
-  // ── Banner/Video upload (tuỳ chọn) ────────────────────────────────
-  // Lưu file vào pendingFiles ở parent; upload thực sự diễn ra SAU khi tạo campaign (cần campaignId).
-  const fileInputRef = useRef(null)
 
-  const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files || [])
-    if (!files.length) return
-    const previews = files.map((file) => ({
-      file,
-      id: `temp-${Date.now()}-${Math.random()}`,
-      name: file.name,
-      size: file.size,
-      type: file.type.startsWith('video') ? 'Video' : 'Image',
-      previewUrl: URL.createObjectURL(file),
-    }))
-    onUploadFiles?.([...pendingFiles, ...previews])
-    if (fileInputRef.current) fileInputRef.current.value = ''
-  }
-
-  const removePending = (id) => {
-    const item = pendingFiles.find((f) => f.id === id)
-    if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl)
-    onUploadFiles?.(pendingFiles.filter((f) => f.id !== id))
-  }
-
-  const formatBytes = (bytes) => {
-    if (!bytes) return ''
-    const mb = bytes / 1024 / 1024
-    return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`
-  }
 
   const totalValue = useMemo(
     () => selectedItems.reduce((sum, p) => sum + p.price, 0),
@@ -287,84 +258,7 @@ export function StepProducts({ state, onChange, hasProducts, onBack, onNext, pen
         </div>
       )}
 
-      {/* Upload Resources (tuỳ chọn, upload sau khi tạo campaign) */}
-      <div className="rounded-2xl border border-dashed border-smb-outline-variant bg-smb-surface-container-lowest p-5">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Icon name="perm_media" className="text-[20px] text-smb-primary-container" />
-            <h3 className="font-semibold text-smb-on-surface">
-              Banner / Video cho chiến dịch
-              {pendingFiles.length > 0 && (
-                <span className="ml-2 rounded-full bg-smb-primary/10 px-2 py-0.5 text-xs font-bold text-smb-primary">
-                  {pendingFiles.length}
-                </span>
-              )}
-            </h3>
-          </div>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 rounded-lg border border-smb-primary-container bg-smb-primary-container/5 px-3 py-1.5 text-sm font-medium text-smb-primary-container hover:bg-smb-primary-container/10"
-          >
-            <Icon name="cloud_upload" className="text-[16px]" />
-            Chọn file
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,video/*"
-            multiple
-            hidden
-            onChange={handleFileSelect}
-          />
-        </div>
-        <p className="mb-3 text-xs text-smb-on-surface-variant">
-          Tuỳ chọn. File sẽ được upload ngay sau khi campaign được tạo thành công.
-        </p>
 
-        {pendingFiles.length > 0 ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {pendingFiles.map((f) => (
-              <div key={f.id} className="group relative rounded-xl border border-smb-outline-variant bg-smb-surface-container overflow-hidden">
-                <div className="relative h-24 flex items-center justify-center bg-black/5">
-                  {f.type === 'Video' ? (
-                    <video src={f.previewUrl} className="h-full w-full object-contain" />
-                  ) : (
-                    <img
-                      src={f.previewUrl}
-                      alt={f.name}
-                      className="h-full w-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.onerror = null
-                        e.currentTarget.src = '/placeholder.png'
-                      }}
-                    />
-                  )}
-                  <span className="absolute top-1.5 left-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white uppercase">
-                    {f.type}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => removePending(f.id)}
-                    className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-all"
-                  >
-                    <Icon name="close" className="text-sm" />
-                  </button>
-                </div>
-                <div className="p-1.5">
-                  <p className="truncate text-[11px] font-medium text-smb-on-surface">{f.name}</p>
-                  <p className="text-[10px] text-smb-on-surface-variant">{formatBytes(f.size)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 rounded-lg border border-smb-outline-variant bg-smb-surface-container-low px-3 py-2 text-xs text-smb-on-surface-variant">
-            <Icon name="info" className="text-[14px]" />
-            Chưa có file nào. Có thể upload sau khi tạo campaign.
-          </div>
-        )}
-      </div>
 
       <div className="flex items-center justify-between">
         <Button variant="secondary" icon="arrow_back" onClick={onBack}>

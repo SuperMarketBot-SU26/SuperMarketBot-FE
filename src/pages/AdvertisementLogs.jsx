@@ -321,6 +321,33 @@ export function AdvertisementLogs() {
               </Button>
             </div>
 
+            {/* Budget Summary Cards */}
+            {campaign && (
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border border-smb-outline-variant bg-smb-surface-container-lowest p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-smb-on-surface-variant">Ngân Sách Gói (Tối Đa)</p>
+                  <p className="mt-1 text-lg font-bold text-smb-primary-container tabular-nums">
+                    {formatVnd(campaign.packageBudget ?? campaign.package?.budget)}
+                  </p>
+                  <p className="text-xs text-smb-on-surface-variant">Gói {campaign.packageName ?? 'Standard'}</p>
+                </div>
+                <div className="rounded-xl border border-smb-outline-variant bg-smb-surface-container-lowest p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-smb-on-surface-variant">Đã Chi Tiêu</p>
+                  <p className="mt-1 text-lg font-bold text-amber-600 tabular-nums">
+                    {formatVnd(campaign.totalSpent)}
+                  </p>
+                  <p className="text-xs text-smb-on-surface-variant">Phát sinh từ khi kích hoạt</p>
+                </div>
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800">Ngân Sách Còn Lại</p>
+                  <p className="mt-1 text-lg font-bold text-emerald-600 tabular-nums">
+                    {formatVnd(campaign.remainingBudget ?? Math.max(0, (campaign.packageBudget ?? 0) - (campaign.totalSpent ?? 0)))}
+                  </p>
+                  <p className="text-xs text-emerald-700 font-medium">Khả dụng cho chạy quảng cáo</p>
+                </div>
+              </div>
+            )}
+
             {/* Action type filter (client-side) */}
             {actionTypes.length > 0 && (
               <div className="flex flex-wrap items-center gap-2 rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest p-3">

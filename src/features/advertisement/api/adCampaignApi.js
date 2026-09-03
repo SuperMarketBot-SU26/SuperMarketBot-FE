@@ -47,6 +47,22 @@ export const createCampaign = (payload) =>
 export const createCampaignWithProducts = (payload) =>
   client.post(`${ENDPOINT}/with-products`, payload).then((res) => res.data)
 
+export const uploadCampaignBanner = (file) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return client.post(`${ENDPOINT}/upload-banner`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then((res) => res.data)
+}
+
+export const uploadCampaignVideo = (file) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return client.post(`${ENDPOINT}/upload-video`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then((res) => res.data)
+}
+
 export const updateCampaign = (campaignId, payload) =>
   client.put(`${ENDPOINT}/${campaignId}`, payload).then((res) => res.data)
 
@@ -167,7 +183,17 @@ export const recordRobotEvent = (payload) =>
 //   performedBy?, performedByUserId?,   // populated from JWT when admin calls
 //   description?, createdAt
 // }
-// - For human-driven events (Impression, Click): memberId set, robotId null.
-// - For robot events (RoutePass): robotId + zoneId set, memberId null.
-// - For admin actions (AssignZone, Activate, ...): performedBy set if JWT present.
-// - performedByUserId is the admin's user id (FK to AspNetUsers).
+// ── Excel Import / Export ───────────────────────────────────────────────────
+export const downloadCampaignTemplate = () =>
+  client.get(`${ENDPOINT}/excel-template`, { responseType: 'blob' }).then((res) => res.data)
+
+export const importCampaignsExcel = (file) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return client.post(`${ENDPOINT}/import-excel`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then((res) => res.data)
+}
+
+export const exportCampaignsExcel = (params = {}) =>
+  client.get(`${ENDPOINT}/export-excel`, { params, responseType: 'blob' }).then((res) => res.data)

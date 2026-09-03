@@ -3,13 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import Navbar from '../components/Navbar'
 import Button from '../components/ui/Button'
-import { FormModal, FormField } from '../components/FormModal'
-import { getBrand, updateBrand, topUpWallet } from '../features/brand/api/brandApi'
-
-const formatVND = (value) =>
-  Number(value || 0).toLocaleString('vi-VN')
-
-const QUICK_AMOUNTS = [100_000, 500_000, 1_000_000, 5_000_000, 10_000_000]
+import { getBrand, updateBrand } from '../features/brand/api/brandApi'
 
 export function BrandUpdate() {
   const { id } = useParams()
@@ -28,15 +22,8 @@ export function BrandUpdate() {
   })
 
   const [stats, setStats] = useState([
-    { label: 'Số Dư Ví Hiện Tại', value: '—', color: 'info' },
     { label: 'Chiến Dịch Đang Chạy', value: 0, color: 'success' },
   ])
-
-  // Topup modal state
-  const [topupOpen, setTopupOpen] = useState(false)
-  const [topupAmount, setTopupAmount] = useState('')
-  const [topupSubmitting, setTopupSubmitting] = useState(false)
-  const [topupSuccess, setTopupSuccess] = useState(null)
 
   const fetchBrand = useCallback(async () => {
     setLoading(true)
@@ -50,11 +37,6 @@ export function BrandUpdate() {
       setForm(norm)
       setOriginalData(norm)
       setStats([
-        {
-          label: 'Số Dư Ví Hiện Tại',
-          value: `${formatVND(data.wallet)} đ`,
-          color: 'info',
-        },
         {
           label: 'Chiến Dịch Đang Chạy',
           value: data.activeCampaignCount ?? 0,
@@ -107,43 +89,6 @@ export function BrandUpdate() {
     }
   }
 
-  const closeTopup = () => {
-    setTopupOpen(false)
-    setTopupAmount('')
-    setTopupSuccess(null)
-  }
-
-  const handleTopupSubmit = async () => {
-    const raw = topupAmount.replace(/[.\s]/g, '')
-    const amount = Number(raw)
-
-    if (!raw || isNaN(amount) || amount <= 0) {
-      setTopupSuccess({ error: 'Số tiền nạp phải lớn hơn 0.' })
-      return
-    }
-    if (amount > 999_999_999) {
-      setTopupSuccess({ error: 'Số tiền nạp tối đa là 999.999.999 đ.' })
-      return
-    }
-
-    setTopupSubmitting(true)
-    setTopupSuccess(null)
-    try {
-      const result = await topUpWallet(Number(id), { amount })
-      setTopupSuccess({
-        ok: true,
-        message: `Nạp thành công ${formatVND(result.amountAdded)} đ!`,
-        detail: `Số dư trước: ${formatVND(result.previousBalance)} đ → Số dư mới: ${formatVND(result.newBalance)} đ`,
-      })
-      setTopupAmount('')
-      fetchBrand()
-    } catch (err) {
-      setTopupSuccess({ error: err?.response?.data?.error || err.message || 'Nạp tiền thất bại.' })
-    } finally {
-      setTopupSubmitting(false)
-    }
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-smb-surface">
@@ -188,7 +133,7 @@ export function BrandUpdate() {
             )}
 
             {/* Stats */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="max-w-xs">
               {stats.map((stat, idx) => (
                 <div
                   key={idx}
@@ -198,16 +143,6 @@ export function BrandUpdate() {
                     <p className="text-sm font-medium text-smb-on-surface-variant">{stat.label}</p>
                     <p className="mt-3 text-3xl font-bold text-smb-on-surface tabular-nums">{stat.value}</p>
                   </div>
-                  {idx === 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setTopupOpen(true)}
-                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700 transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">add_card</span>
-                      Nạp Tiền Ví
-                    </button>
-                  )}
                 </div>
               ))}
             </div>
@@ -286,87 +221,6 @@ export function BrandUpdate() {
           </div>
         </main>
       </div>
-
-      {/* Topup Modal */}
-      {topupOpen && (
-        <FormModal
-          title="Nạp Tiền Ví"
-          onClose={closeTopup}
-          onSubmit={handleTopupSubmit}
-          footer={
-            <div className="flex justify-end gap-3 pt-2">
-              <Button variant="secondary" type="button" onClick={closeTopup}>
-                {topupSuccess?.ok ? 'Đóng' : 'Hủy'}
-              </Button>
-              {!topupSuccess?.ok && (
-                <Button
-                  variant="primary"
-                  icon="add_card"
-                  type="submit"
-                  disabled={topupSubmitting}
-                >
-                  {topupSubmitting ? 'Đang xử lý...' : 'Xác Nhận Nạp Tiền'}
-                </Button>
-              )}
-            </div>
-          }
-        >
-          {topupSuccess?.error && (
-            <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-              {topupSuccess.error}
-            </div>
-          )}
-
-          {topupSuccess?.ok && (
-            <div className="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-700 space-y-1">
-              <p className="flex items-center gap-1.5 font-medium">
-                <span className="material-symbols-outlined text-[16px] text-green-600">check_circle</span>
-                {topupSuccess.message}
-              </p>
-              <p className="text-xs text-green-600/80">{topupSuccess.detail}</p>
-            </div>
-          )}
-
-          {!topupSuccess?.ok && (
-            <>
-              <FormField label="Số tiền nạp (VNĐ)">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="VD: 5.000.000"
-                  value={topupAmount}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/[^0-9]/g, '')
-                    if (raw === '') { setTopupAmount(''); return }
-                    const num = Number(raw)
-                    setTopupAmount(num.toLocaleString('vi-VN'))
-                  }}
-                  className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-4 py-2.5 text-sm text-smb-on-surface placeholder:text-smb-on-surface-variant/50 focus:border-smb-primary-container focus:outline-none focus:ring-2 focus:ring-smb-primary-container/20"
-                  autoFocus
-                />
-              </FormField>
-
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-smb-on-surface-variant">Nạp nhanh:</p>
-                <div className="flex flex-wrap gap-2">
-                  {QUICK_AMOUNTS.map((amount) => (
-                    <button
-                      key={amount}
-                      type="button"
-                      onClick={() => setTopupAmount(amount.toLocaleString('vi-VN'))}
-                      className="rounded-lg border border-smb-outline-variant bg-smb-surface-container px-3 py-1.5 text-xs font-medium text-smb-on-surface hover:bg-smb-primary-container/10 hover:border-smb-primary-container transition-colors"
-                    >
-                      {amount >= 1_000_000
-                        ? `${amount / 1_000_000}M`
-                        : `${amount / 1000}K`}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-        </FormModal>
-      )}
     </div>
   )
 }

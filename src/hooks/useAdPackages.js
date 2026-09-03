@@ -33,6 +33,17 @@ export const useUpdateAdPackage = (packageId) => {
   })
 }
 
+export const useUpdateAdPackageStatus = (packageId) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (status) => client.patch(`${endpoint}/${packageId}/status`, { status }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ad-packages'] })
+      qc.invalidateQueries({ queryKey: ['ad-packages', packageId] })
+    },
+  })
+}
+
 export const useDeleteAdPackage = () => {
   const qc = useQueryClient()
   return useMutation({

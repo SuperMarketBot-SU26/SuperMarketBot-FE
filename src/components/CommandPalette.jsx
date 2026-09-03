@@ -31,8 +31,7 @@ export function CommandPalette({ isOpen, onClose }) {
     { label: 'Quản Lý Chiến Dịch Quảng Cáo', path: '/advertisement', icon: 'campaign', category: 'Quảng Cáo' },
     { label: 'Tạo Chiến Dịch Mới', path: '/advertisement/create', icon: 'add_circle', category: 'Quảng Cáo' },
     { label: 'Quản Lý Gói Quảng Cáo', path: '/ad-packages', icon: 'inventory_2', category: 'Quảng Cáo' },
-    { label: 'Quản Lý Thương Hiệu Đối Tác', path: '/brand', icon: 'storefront', category: 'Đối Tác' },
-    { label: 'Ví Thương Hiệu & Giao Dịch', path: '/advertisement/brand-wallet', icon: 'account_balance_wallet', category: 'Đối Tác' },
+    { label: 'Quản Lý Thương Hiệu Đối Tác', path: '/brand-dashboard', icon: 'storefront', category: 'Đối Tác' },
     { label: 'Quản Lý Sản Phẩm Siêu Thị', path: '/products', icon: 'shopping_bag', category: 'Kho Hàng' },
     { label: 'Quản Lý Tài Khoản Hệ Thống', path: '/accounts', icon: 'manage_accounts', category: 'Hệ Thống' },
   ]

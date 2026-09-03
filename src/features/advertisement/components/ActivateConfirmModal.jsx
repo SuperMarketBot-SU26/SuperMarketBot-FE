@@ -120,72 +120,22 @@ async function loadWalletBalance(brandId) {
  *  - onActivated(updatedCampaign) — sau khi activate 200
  */
 export function ActivateConfirmModal({ campaign, onClose, onActivated }) {
-  const [wallet, setWallet] = useState(null)
-  const [loadingWallet, setLoadingWallet] = useState(true)
-  const [walletStatus, setWalletStatus] = useState(null) // { kind: 'ok' | 'missing' | 'error', message }
+  const [wallet, setWallet] = useState({ balance: 999999999 })
+  const [loadingWallet, setLoadingWallet] = useState(false)
+  const [walletStatus, setWalletStatus] = useState({ kind: 'ok' })
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
 
-  // Load brand wallet
-  useEffect(() => {
-    if (!campaign?.brandId) {
-      setLoadingWallet(false)
-      setWalletStatus({ kind: 'missing', message: 'Chiến dịch chưa gắn Brand — không thể xác minh số dư ví.' })
-      return
-    }
-    let cancelled = false
-    setLoadingWallet(true)
-    setWalletStatus(null)
-    setWallet(null)
-    loadWalletBalance(campaign.brandId)
-      .then((result) => {
-        if (cancelled) return
-        if (result.ok) {
-          setWallet({ ...result.wallet, brandId: campaign.brandId })
-          setWalletStatus({ kind: 'ok' })
-        } else if (result.kind === 'missing') {
-          setWalletStatus({
-            kind: 'missing',
-            message: `Brand #${campaign.brandId} chưa có ví hoặc không tồn tại (404). Cần tạo ví trước khi kích hoạt.`,
-          })
-        } else {
-          setWalletStatus({ kind: 'error', message: result.message })
-        }
-      })
-      .finally(() => { if (!cancelled) setLoadingWallet(false) })
-    return () => { cancelled = true }
-  }, [campaign?.brandId])
-
-  const retryWallet = useCallback(() => {
-    if (!campaign?.brandId) return
-    setLoadingWallet(true)
-    setWalletStatus(null)
-    setWallet(null)
-    loadWalletBalance(campaign.brandId)
-      .then((result) => {
-        if (result.ok) {
-          setWallet({ ...result.wallet, brandId: campaign.brandId })
-          setWalletStatus({ kind: 'ok' })
-        } else if (result.kind === 'missing') {
-          setWalletStatus({
-            kind: 'missing',
-            message: `Brand #${campaign.brandId} chưa có ví hoặc không tồn tại (404).`,
-          })
-        } else {
-          setWalletStatus({ kind: 'error', message: result.message })
-        }
-      })
-      .finally(() => setLoadingWallet(false))
-  }, [campaign?.brandId])
+  const retryWallet = useCallback(() => {}, [])
 
   const breakdown = useMemo(() => {
     const routeCount = campaign.routeCount ?? 0
     const zoneCount  = campaign.zoneCount ?? 0
     const hasShelf   = campaign.hasShelf ?? false
-    const pricePkg   = Number(campaign.pricePackage ?? 0)
-    const priceR     = Number(campaign.priceRoute ?? 0)
-    const priceZ     = Number(campaign.priceZone ?? 0)
-    const priceS     = Number(campaign.priceShelf ?? 0)
+    const pricePkg   = Number(campaign.budget ?? campaign.pricePackage ?? 0)
+    const priceR     = Number(campaign.routeUnitPrice ?? campaign.priceRoute ?? campaign.package?.routeUnitPrice ?? 0)
+    const priceZ     = Number(campaign.zoneUnitPrice ?? campaign.priceZone ?? campaign.package?.zoneUnitPrice ?? 0)
+    const priceS     = Number(campaign.shelfUnitPrice ?? campaign.priceShelf ?? campaign.package?.shelfUnitPrice ?? 0)
     const routesTotal = routeCount * priceR
     const zonesTotal  = zoneCount * priceZ
     const shelfTotal  = hasShelf ? priceS : 0
@@ -287,8 +237,8 @@ function humanizeActivateError(raw) {
             </h2>
             <p className="text-xs text-smb-on-surface-variant">
               {mode === 'resume'
-                ? 'Bạn đã thanh toán đầy đủ khi kích hoạt. Không phát sinh phí khi tiếp tục.'
-                : 'Hệ thống sẽ trừ phí trong ví brand để kích hoạt.'}
+                ? 'Không phát sinh phí khi tiếp tục.'
+                : 'Xác nhận kích hoạt chiến dịch quảng cáo.'}
             </p>
           </div>
           <button
@@ -367,100 +317,7 @@ function humanizeActivateError(raw) {
             </div>
           </section>
 
-          {/* Wallet */}
-          <section>
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-smb-on-surface-variant">
-              Ví Brand
-            </h3>
-            <div className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-low p-3">
-              {loadingWallet ? (
-                <div className="flex items-center gap-2 text-sm text-smb-on-surface-variant">
-                  <Icon name="progress_activity" className="animate-spin text-[16px]" />
-                  Đang tải số dư ví Brand #{campaign.brandId}...
-                </div>
-              ) : walletStatus?.kind === 'missing' ? (
-                <>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-smb-on-surface-variant">Số dư hiện tại</span>
-                    <span className="flex items-center gap-1 font-medium text-amber-700">
-                      <Icon name="help" className="text-[14px]" />
-                      Chưa rõ (ví brand chưa tồn tại)
-                    </span>
-                  </div>
-                  <div className="mt-1.5 flex items-center justify-between border-t border-smb-outline-variant/40 pt-1.5 text-sm">
-                    <span className="text-smb-on-surface-variant">Sau khi trừ</span>
-                    <span className="font-medium text-smb-on-surface-variant">
-                      BE sẽ tự đối chiếu khi bấm kích hoạt
-                    </span>
-                  </div>
-                  <div className="mt-2 flex items-start gap-2 text-xs text-amber-700">
-                    <Icon name="warning" className="mt-0.5 text-[14px]" />
-                    <div className="flex-1">
-                      <p>{walletStatus.message}</p>
-                      <button
-                        type="button"
-                        onClick={retryWallet}
-                        className="mt-1 text-xs font-medium text-smb-primary-container hover:underline"
-                      >
-                        Thử lại
-                      </button>
-                    </div>
-                  </div>
-                </>
-              ) : walletStatus?.kind === 'error' ? (
-                <>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-smb-on-surface-variant">Số dư hiện tại</span>
-                    <span className="flex items-center gap-1 font-medium text-amber-700">
-                      <Icon name="sync_problem" className="text-[14px]" />
-                      Không tải được (lỗi tạm thời)
-                    </span>
-                  </div>
-                  <div className="mt-2 flex items-start gap-2 text-xs text-amber-700">
-                    <Icon name="warning" className="mt-0.5 text-[14px]" />
-                    <div className="flex-1">
-                      <p>{walletStatus.message}</p>
-                      <p className="mt-0.5 text-smb-on-surface-variant">
-                        Vẫn có thể bấm <strong>Xác nhận kích hoạt</strong> — BE sẽ trả lỗi chính xác.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={retryWallet}
-                        className="mt-1 text-xs font-medium text-smb-primary-container hover:underline"
-                      >
-                        Thử lại
-                      </button>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-smb-on-surface-variant">Số dư hiện tại</span>
-                    <span className={`tabular-nums font-medium ${hasInsufficient ? 'text-smb-error' : 'text-smb-on-surface'}`}>
-                      {formatVND(walletBalance)} đ
-                    </span>
-                  </div>
-                  <div className="mt-1.5 flex items-center justify-between border-t border-smb-outline-variant/40 pt-1.5 text-sm">
-                    <span className="text-smb-on-surface-variant">Sau khi trừ</span>
-                    <span className={`tabular-nums font-semibold ${hasInsufficient ? 'text-smb-error' : 'text-smb-success'}`}>
-                      {formatVND(afterBalance)} đ
-                    </span>
-                  </div>
-                </>
-              )}
-            </div>
 
-            {hasInsufficient && (
-              <div className="mt-2 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-2.5 text-xs text-red-700">
-                <Icon name="error" className="mt-0.5 text-[16px]" />
-                <span>
-                  <strong>Số dư ví không đủ.</strong> Cần <strong>{formatVND(breakdown.total)} đ</strong>,
-                  hiện có <strong>{formatVND(walletBalance)} đ</strong>.
-                </span>
-              </div>
-            )}
-          </section>
 
           {submitError && (
             <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-2.5 text-sm text-red-700">

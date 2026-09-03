@@ -220,9 +220,9 @@ export function StepTargeting({
     () => packages.find((p) => p.packageId === state.basics.packageId),
     [packages, state.basics.packageId]
   )
-  const priceRoute = selectedPkg?.priceRoute ?? 0
-  const priceZone  = selectedPkg?.priceZone  ?? 0
-  const priceShelf = selectedPkg?.priceShelf ?? 0
+  const priceRoute = selectedPkg?.routeUnitPrice ?? selectedPkg?.priceRoute ?? selectedPkg?.routeFee ?? 0
+  const priceZone  = selectedPkg?.zoneUnitPrice  ?? selectedPkg?.priceZone  ?? selectedPkg?.zoneFee  ?? 0
+  const priceShelf = selectedPkg?.shelfUnitPrice ?? selectedPkg?.priceShelf ?? selectedPkg?.shelfFee ?? 0
 
   // Toggle handlers — Route/Zone/Shelf là 3 lựa chọn độc lập, không overlap.
   // Route toggle: select all routes or deselect all

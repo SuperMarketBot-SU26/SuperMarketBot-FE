@@ -120,14 +120,15 @@ export function PackageSelector({ value, onChange, loading }) {
                   </h4>
 
                   <div className="mt-2">
-                    <span className="text-xl font-bold text-smb-on-surface">
-                      {Number(pkg.pricePackage).toLocaleString('vi-VN')}
+                    <p className="text-[10px] text-smb-on-surface-variant uppercase">Ngân sách</p>
+                    <span className="text-lg font-bold text-smb-primary-container">
+                      {Number(pkg.budget).toLocaleString('vi-VN')}
                     </span>
-                    <span className="text-sm text-smb-on-surface-variant"> đ</span>
+                    <span className="text-xs text-smb-on-surface-variant"> đ</span>
                   </div>
 
-                  <div className="mt-1 text-xs text-smb-on-surface-variant">
-                    Ad Score: {pkg.adScore}
+                  <div className="mt-1 text-[11px] text-smb-on-surface-variant">
+                    Chạy đến khi hết ngân sách
                   </div>
 
                   {isSelected && (
@@ -146,20 +147,25 @@ export function PackageSelector({ value, onChange, loading }) {
           {selected && (
             <div className="mt-6 space-y-3">
               <div className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-low p-4">
-                <h4 className="text-sm font-semibold text-smb-on-surface">Tính năng gói {selected.packageName}</h4>
-                <ul className="mt-2 space-y-1">
-                  {pkgFeatures(selected).map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-xs text-smb-on-surface-variant">
-                      <Icon name="check" className="text-[14px] text-green-600" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
+                <h4 className="text-sm font-semibold text-smb-on-surface">Chi tiết chi phí gói: {selected.packageName}</h4>
+                <div className="mt-3 grid gap-4 sm:grid-cols-2 text-xs text-smb-on-surface-variant">
+                  <div className="space-y-1">
+                    <p className="font-semibold text-smb-on-surface">Đơn giá vị trí & tuyến đường (Unit Prices):</p>
+                    <p>• Đơn giá Zone: <strong className="text-smb-on-surface">{Number(selected.zoneUnitPrice ?? selected.zoneFee ?? 0).toLocaleString('vi-VN')} đ</strong></p>
+                    <p>• Đơn giá Kệ (Shelf): <strong className="text-smb-on-surface">{Number(selected.shelfUnitPrice ?? selected.shelfFee ?? 0).toLocaleString('vi-VN')} đ</strong></p>
+                    <p>• Đơn giá Tuyến (Route): <strong className="text-smb-on-surface">{Number(selected.routeUnitPrice ?? selected.routeFee ?? 0).toLocaleString('vi-VN')} đ</strong></p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-semibold text-smb-on-surface">Phí phát sinh (Usage Fee):</p>
+                    <p>• Phí Click: <strong className="text-amber-600">{Number(selected.clickFee).toLocaleString('vi-VN')} đ/click</strong></p>
+                    <p className="mt-2 text-[11px] italic">Phí click sẽ trừ trực tiếp từ ngân sách tối đa của gói.</p>
+                  </div>
+                </div>
               </div>
               <div className="flex items-start gap-2 rounded-lg border border-smb-outline-variant bg-smb-surface-container-low p-4">
                 <Icon name="info" className="mt-0.5 text-[16px] text-smb-primary-container" />
                 <span className="text-xs text-smb-on-surface-variant">
-                  Chi phí sẽ được tính theo số ngày sử dụng thực tế nếu chiến dịch kết thúc sớm hơn dự kiến.
+                  Phí cố định = (Số Zone × Đơn giá Zone) + (Số Kệ × Đơn giá Kệ) + (Số Tuyến × Đơn giá Tuyến). Tổng phí cố định phải ≤ Ngân sách gói ({Number(selected.budget).toLocaleString('vi-VN')} đ).
                 </span>
               </div>
             </div>

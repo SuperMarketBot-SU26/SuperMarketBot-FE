@@ -36,20 +36,14 @@ export const updateBrand = (brandId, payload) =>
 export const deleteBrand = (brandId) =>
   client.delete(`${ENDPOINT}/${brandId}`).then((res) => res.data)
 
-/**
- * Self-service topup — brand representatives add funds to their own wallet.
- * Request:  { amount: number }   (must be > 0)
- * Response: { brandId, previousBalance, amountAdded, newBalance }
- */
-export const topUpWallet = (brandId, payload) =>
-  client.post(`${ENDPOINT}/${brandId}/wallet/topup`, payload).then((res) => res.data)
-
-/**
- * Admin deposit — admin manually adds funds to a brand's wallet.
- * Use for promotional credit, settlement, manual top-up, etc.
- *
- * Request:  { amount: number, referenceNo?: string }
- * Response: { brandId, brandName, previousBalance, amountDeposited, newBalance }
- */
-export const adminDepositBrand = (brandId, payload) =>
-  client.post(`${ENDPOINT}/${brandId}/deposit`, payload).then((res) => res.data)
+export const importBrands = (file) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return client
+    .post(`${ENDPOINT}/import`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    .then((res) => res.data)
+}

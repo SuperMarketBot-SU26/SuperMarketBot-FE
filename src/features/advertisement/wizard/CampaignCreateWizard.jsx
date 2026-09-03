@@ -36,8 +36,7 @@ export function CampaignCreateWizard() {
   const [brandOptions, setBrandOptions] = useState([])
   const [packages, setPackages] = useState([])
   const [confirmReset, setConfirmReset] = useState(false)
-  // pendingFiles được thu thập từ StepProducts qua callback (state giữ ở parent).
-  const [pendingFiles, setPendingFiles] = useState([])
+
 
   // Load brands + packages cho Step 1/Step 3 review
   useEffect(() => {
@@ -114,8 +113,11 @@ export function CampaignCreateWizard() {
         packageId: Number(state.basics.packageId),
         brandId: Number(state.basics.brandId),
         campaignName: state.basics.campaignName.trim(),
-        startDate: new Date(state.basics.startDate).toISOString(),
-        endDate: new Date(state.basics.endDate).toISOString(),
+        description: state.basics.description?.trim() || '',
+        bannerUrl: state.basics.bannerUrl,
+        videoUrl: state.basics.videoUrl,
+        startDate: state.basics.startDate ? new Date(state.basics.startDate).toISOString() : null,
+        endDate: state.basics.endDate ? new Date(state.basics.endDate).toISOString() : null,
         routeIds: effectiveTargeting.routeIds,
         zoneIds: effectiveTargeting.zoneIds,
         shelfIds: effectiveTargeting.shelfIds,
@@ -123,36 +125,12 @@ export function CampaignCreateWizard() {
         deliveryMode: state.basics.deliveryMode ?? 'Zone',
       }
       const productIds = state.products.productIds
-      // BE đã có endpoint /with-products → KHÔNG fallback createCampaign
-      // (fallback cũ làm mất productIds khi BE cũ chưa có endpoint).
       const res = await createCampaignWithProducts({ ...basePayload, productIds })
       const newId = res?.adCampaignId ?? res?.id
       wizard.setCreatedId(newId)
 
       // Reset wizard TRƯỚC KHI navigate, để lần sau vào là form trắng
       wizard.reset()
-
-      // Upload pending resources sau khi tạo campaign thành công
-      if (pendingFiles.length > 0) {
-        toast.info(`Đang upload ${pendingFiles.length} resource...`)
-        for (const f of pendingFiles) {
-          try {
-            const resourceType = f.type === 'Video' ? 'video' : 'banner'
-            // Dùng tên file làm caption
-            const caption = f.name.replace(/\.[^.]+$/, '')
-            await uploadResource({
-              campaignId: newId,
-              resourceType,
-              file: f.file,
-              contentText: caption,
-            })
-          } catch (uploadErr) {
-            console.warn('Upload resource thất bại:', f.name, uploadErr)
-          }
-        }
-        toast.success(`Đã upload ${pendingFiles.length} resource!`)
-        setPendingFiles([])
-      }
 
       navigate(`/advertisement/detail/${newId}`)
     } catch (err) {
@@ -252,8 +230,6 @@ export function CampaignCreateWizard() {
             hasProducts={hasProducts}
             onBack={goBack}
             onNext={goNext}
-            pendingFiles={pendingFiles}
-            onUploadFiles={(files) => setPendingFiles(files)}
           />
         )}
         {state.step === 4 && (

@@ -19,6 +19,9 @@ const initialState = {
   step: 1,
   basics: {
     campaignName: '',
+    description: '',
+    bannerUrl: '',
+    videoUrl: '',
     brandId: null,
     packageId: null,
     startDate: '',
@@ -189,9 +192,7 @@ export function useCampaignWizard() {
       b.campaignName.trim().length > 0 &&
       b.brandId !== null &&
       b.packageId !== null &&
-      !!b.startDate &&
-      !!b.endDate &&
-      new Date(b.endDate) > new Date(b.startDate)
+      (!!b.bannerUrl || !!b.videoUrl)
     )
   }, [state.basics])
 
@@ -202,10 +203,8 @@ export function useCampaignWizard() {
     if (!b.campaignName.trim()) errs.campaignName = 'Vui lòng nhập tên chiến dịch.'
     if (!b.brandId) errs.brandId = 'Vui lòng chọn thương hiệu.'
     if (!b.packageId) errs.packageId = 'Vui lòng chọn gói quảng cáo.'
-    if (!b.startDate) errs.startDate = 'Vui lòng chọn ngày bắt đầu.'
-    if (!b.endDate) errs.endDate = 'Vui lòng chọn ngày kết thúc.'
-    if (b.startDate && b.endDate && new Date(b.endDate) <= new Date(b.startDate)) {
-      errs.endDate = 'Ngày kết thúc phải sau ngày bắt đầu.'
+    if (!b.bannerUrl && !b.videoUrl) {
+      errs.media = 'Vui lòng tải lên ít nhất Banner hoặc Video quảng cáo.'
     }
     return errs
   }, [state.basics])

@@ -212,7 +212,12 @@ export function CampaignList({ onCreateNew, search = '', status = 'all' }) {
       key: 'endDate',
       label: 'Ngày Kết Thúc',
       align: 'center',
-      render: (val) => val ? new Date(val).toLocaleDateString('vi-VN') : '—',
+      render: (val, row) => {
+        if (row.isCompleted || row.isExpired || row.status === 'Completed' || row.status === 'Canceled') {
+          return val ? new Date(val).toLocaleDateString('vi-VN') : '—'
+        }
+        return <span className="text-xs text-smb-on-surface-variant italic">Theo ngân sách</span>
+      },
     },
     {
       key: 'totalSpent',

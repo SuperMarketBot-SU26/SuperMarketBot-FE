@@ -116,14 +116,7 @@ export function BrandCreation() {
               </div>
             </div>
 
-            {/* Info Card */}
-            <div className="flex items-start gap-3 rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest p-4">
-              <span className="material-symbols-outlined mt-0.5 text-smb-primary-container">info</span>
-              <div className="text-sm text-smb-on-surface-variant">
-                <p className="font-medium text-smb-on-surface">Ví nhãn hàng được tạo tự động</p>
-                <p className="mt-0.5">Sau khi tạo, bạn có thể nạp tiền vào ví và bắt đầu tạo chiến dịch quảng cáo cho nhãn hàng này.</p>
-              </div>
-            </div>
+
 
             {/* Actions */}
             <div className="flex items-center justify-end gap-4 rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest p-4">
