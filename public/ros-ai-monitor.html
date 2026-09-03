@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SuperMarketBot - Shelf Patrol AI Monitor</title>
+    <title>SuperMarketBot - Hệ thống Giám sát AI Kệ hàng</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -92,34 +92,34 @@
 <body>
     <div class="sidebar">
         <div class="header">
-            <span style="font-size: 1.5rem;">🤖</span> Shelf Patrol AI
+            <span style="font-size: 1.5rem;">🤖</span> AI Giám sát Kệ hàng
         </div>
         
         <div class="card">
-            <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 12px; text-transform: uppercase; font-weight: 600;">Connection</div>
+            <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 12px; text-transform: uppercase; font-weight: 600;">Kết nối</div>
             <input type="text" id="ros-ws-url" value="ws://snake.local:9090" style="width:100%; padding: 10px; margin-bottom: 12px; border-radius: 6px; background: rgba(0,0,0,0.3); color: white; border: 1px solid rgba(255,255,255,0.1); box-sizing: border-box; outline: none; font-family: monospace;">
-            <button onclick="connectROS()" style="width: 100%; padding: 10px; background: #10b981; color: #0f172a; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.2s;">Connect to Robot</button>
+            <button onclick="connectROS()" style="width: 100%; padding: 10px; background: #10b981; color: #0f172a; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.2s;">Kết Nối Robot</button>
             <div class="data-row" style="margin-top: 16px;">
-                <span style="font-size: 0.85rem;">Status:</span>
-                <span id="ros-status" style="color: #ef4444; font-weight: bold; font-size: 0.85rem; padding: 4px 10px; background: rgba(239,68,68,0.1); border-radius: 12px; border: 1px solid rgba(239,68,68,0.3);">Disconnected</span>
+                <span style="font-size: 0.85rem;">Trạng thái:</span>
+                <span id="ros-status" style="color: #ef4444; font-weight: bold; font-size: 0.85rem; padding: 4px 10px; background: rgba(239,68,68,0.1); border-radius: 12px; border: 1px solid rgba(239,68,68,0.3);">Đã ngắt kết nối</span>
             </div>
         </div>
 
         <div class="card" style="border-color: #ec4899; background: rgba(236, 72, 153, 0.05);">
-            <div style="color: #ec4899; font-size: 0.85rem; margin-bottom: 16px; text-transform: uppercase; font-weight: 600;">Shelf Analysis</div>
+            <div style="color: #ec4899; font-size: 0.85rem; margin-bottom: 16px; text-transform: uppercase; font-weight: 600;">Phân tích Kệ hàng</div>
             
             <div class="data-row" style="margin-bottom: 12px;">
-                <span style="color: var(--text-muted);">Target Shelf:</span>
-                <span class="value" id="val-shelf" style="color: #f8fafc; font-size: 0.95rem; text-align: right; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Target Shelf Name">Waiting...</span>
+                <span style="color: var(--text-muted);">Kệ Mục tiêu:</span>
+                <span class="value" id="val-shelf" style="color: #f8fafc; font-size: 0.95rem; text-align: right; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Tên Kệ Mục tiêu">Đang chờ...</span>
             </div>
 
             <div class="data-row" style="margin-bottom: 16px;">
-                <span style="color: var(--text-muted);">Stock Status:</span>
-                <span class="badge" id="val-status">UNKNOWN</span>
+                <span style="color: var(--text-muted);">Stock Trạng thái:</span>
+                <span class="badge" id="val-status">KHÔNG RÕ</span>
             </div>
             
             <div class="data-row">
-                <span>Density (Fullness):</span>
+                <span>Mật độ (Độ đầy):</span>
                 <span class="value" id="val-density">0%</span>
             </div>
             
@@ -128,24 +128,24 @@
             </div>
 
             <div class="data-row">
-                <span>Total Products:</span>
+                <span>Tổng Sản phẩm:</span>
                 <span class="value" id="val-products" style="color: #10b981;">0</span>
             </div>
             <div class="data-row">
-                <span>Empty Slots:</span>
+                <span>Ô trống (Hết hàng):</span>
                 <span class="value" id="val-empty" style="color: #ef4444;">0</span>
             </div>
             
             <div class="data-row" style="margin-top: 16px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 16px;">
-                <span style="font-size: 0.8rem; color: var(--text-muted);">AI Inference Time:</span>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Thời gian Xử lý AI:</span>
                 <span class="value" id="val-inference" style="font-size: 0.8rem; color: #a855f7;">0 ms</span>
             </div>
         </div>
 
         <div class="card" style="flex: 1; display: flex; flex-direction: column;">
-            <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 12px; text-transform: uppercase; font-weight: 600;">Live Objects Detected</div>
+            <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 12px; text-transform: uppercase; font-weight: 600;">Đối tượng Đang nhận diện</div>
             <div id="objects-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem; padding-right: 4px;">
-                <div style="color: #64748b; text-align: center; margin-top: 40px; font-style: italic;">Waiting for AI payload...</div>
+                <div style="color: #64748b; text-align: center; margin-top: 40px; font-style: italic;">Đang chờ dữ liệu AI...</div>
             </div>
         </div>
     </div>
@@ -153,19 +153,19 @@
     <div class="main-content">
         <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 8px;">
             <div>
-                <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Live Camera Feed</h2>
-                <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 4px;">YOLO bounding boxes are drawn natively on the Raspberry Pi</div>
+                <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Camera Trực tiếp</h2>
+                <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 4px;">Khung nhận diện YOLO được vẽ trực tiếp trên Raspberry Pi</div>
             </div>
             <div style="display: flex; gap: 12px;">
-                <a href="/ros-test.html" style="text-decoration: none; padding: 10px 20px; background: rgba(255,255,255,0.1); color: white; border-radius: 6px; font-weight: 500; transition: background 0.2s;">⬅️ Back to Map</a>
-                <button onclick="toggleCamera()" id="btn-camera" style="padding: 10px 24px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s;">▶️ Start Camera</button>
+                <a href="/ros-test.html" style="text-decoration: none; padding: 10px 20px; background: rgba(255,255,255,0.1); color: white; border-radius: 6px; font-weight: 500; transition: background 0.2s;">⬅️ Quay lại Bản đồ</a>
+                <button onclick="toggleCamera()" id="btn-camera" style="padding: 10px 24px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s;">▶️ Bật Camera</button>
             </div>
         </div>
         
         <div class="camera-container">
             <div id="cam-placeholder" style="text-align: center; color: #64748b;">
                 <div style="font-size: 3rem; margin-bottom: 16px;">📷</div>
-                <div>Camera Disabled.<br>Click "Start Camera" to view live feed.</div>
+                <div>Camera đang tắt.<br>Bấm "Bật Camera" để xem luồng trực tiếp.</div>
             </div>
             <img id="camera-stream" src="" style="display: none;" />
         </div>
@@ -188,7 +188,7 @@
             statusEl.style.color = '#eab308';
             statusEl.style.background = 'rgba(234,179,8,0.1)';
             statusEl.style.borderColor = 'rgba(234,179,8,0.3)';
-            statusEl.innerText = 'Connecting...';
+            statusEl.innerText = 'Đang kết nối...';
 
             ros = new ROSLIB.Ros({ url: url });
 
@@ -196,7 +196,7 @@
                 statusEl.style.color = '#10b981';
                 statusEl.style.background = 'rgba(16,185,129,0.1)';
                 statusEl.style.borderColor = 'rgba(16,185,129,0.3)';
-                statusEl.innerText = 'Connected';
+                statusEl.innerText = 'Đã kết nối';
                 
                 // Subscribe to AI Analysis
                 analysisTopic = new ROSLIB.Topic({
@@ -212,7 +212,7 @@
                 statusEl.style.color = '#ef4444';
                 statusEl.style.background = 'rgba(239,68,68,0.1)';
                 statusEl.style.borderColor = 'rgba(239,68,68,0.3)';
-                statusEl.innerText = 'Error';
+                statusEl.innerText = 'Lỗi kết nối';
                 console.error(err);
             });
 
@@ -220,7 +220,7 @@
                 statusEl.style.color = '#ef4444';
                 statusEl.style.background = 'rgba(239,68,68,0.1)';
                 statusEl.style.borderColor = 'rgba(239,68,68,0.3)';
-                statusEl.innerText = 'Disconnected';
+                statusEl.innerText = 'Đã ngắt kết nối';
                 if (isCameraEnabled) toggleCamera();
             });
         }
@@ -251,7 +251,7 @@
                 });
 
                 btn.style.background = '#ef4444';
-                btn.innerHTML = '⏹️ Stop Camera';
+                btn.innerHTML = '⏹️ Tắt Camera';
                 img.style.display = 'block';
                 placeholder.style.display = 'none';
                 isCameraEnabled = true;
@@ -261,7 +261,7 @@
                     imageTopic = null;
                 }
                 btn.style.background = '#3b82f6';
-                btn.innerHTML = '▶️ Start Camera';
+                btn.innerHTML = '▶️ Bật Camera';
                 img.style.display = 'none';
                 placeholder.style.display = 'block';
                 isCameraEnabled = false;
@@ -279,7 +279,7 @@
                 document.getElementById('val-inference').innerText = `${data.inferenceTimeMs} ms`;
                 
                 const statusEl = document.getElementById('val-status');
-                statusEl.innerText = data.stockStatus;
+                statusEl.innerText = data.stockStatus; // Will override below
                 statusEl.className = 'badge';
                 
                 const bar = document.getElementById('density-bar');
@@ -288,15 +288,19 @@
                 if (data.stockStatus === 'Well Stocked') {
                     statusEl.classList.add('well-stocked');
                     bar.style.background = '#10b981';
+                    statusEl.innerText = 'Đầy Đủ';
                 } else if (data.stockStatus === 'Normal') {
                     statusEl.classList.add('normal');
                     bar.style.background = '#38bdf8';
+                    statusEl.innerText = 'Bình Thường';
                 } else if (data.stockStatus === 'Low Stock') {
                     statusEl.classList.add('low-stock');
                     bar.style.background = '#f59e0b';
+                    statusEl.innerText = 'Sắp Hết';
                 } else {
                     statusEl.classList.add('out-of-stock');
                     bar.style.background = '#ef4444';
+                    statusEl.innerText = 'Hết Hàng';
                 }
 
                 // Render objects list
@@ -314,7 +318,7 @@
                         
                         let name = obj.label;
                         if (obj.isEmptySlot) {
-                            name = '⚠️ Empty Slot';
+                            name = '⚠️ Chỗ Trống';
                         }
                         
                         row.innerHTML = `
@@ -324,7 +328,7 @@
                         listEl.appendChild(row);
                     });
                 } else {
-                    listEl.innerHTML = '<div style="color: #64748b; text-align: center; margin-top: 40px; font-style: italic;">No objects detected</div>';
+                    listEl.innerHTML = '<div style="color: #64748b; text-align: center; margin-top: 40px; font-style: italic;">Không nhận diện được đối tượng nào</div>';
                 }
 
             } catch (e) {
