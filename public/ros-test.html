@@ -333,6 +333,24 @@
             background: #dc2626;
         }
 
+        .settings-btn {
+            background: #334155;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: none;
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            font-size: 1.0rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        .settings-btn:hover {
+            background: #475569;
+        }
+
         .log-content {
             flex: 1;
             overflow-y: auto;
@@ -459,9 +477,8 @@
                 <button id="btn-agent-save" onclick="saveRobotMap()" style="flex: 1; background: #10b981; padding: 6px;" title="Save current SLAM map to active_map">💾 Lưu Bản Đồ</button>
             </div>
 
-            <div class="input-group" style="display: flex; gap: 4px; align-items: center;">
-                <button id="btn-ros-connect" onclick="connectROS()" style="background: #10b981; flex: 1;">Kết Nối WebSocket</button>
-                <button onclick="openGlobalSettings()" style="background: #334155; padding: 6px; width: 36px; display: flex; justify-content: center; border-radius: 4px;" title="Cài đặt hệ thống">⚙</button>
+            <div class="input-group">
+                <button id="btn-ros-connect" onclick="connectROS()" style="background: #10b981; width: 100%;">Kết Nối WebSocket</button>
             </div>
             <div class="data-row" style="margin-top: 8px;">
                 <span>Trạng thái OS:</span><span class="value" id="val-agent-status"
@@ -574,6 +591,9 @@
                 </div>
                 <div class="shutdown-btn" onclick="shutdownPi()" title="Tắt Nguồn Robot (Shutdown)">
                     ⏻ Tắt Nguồn
+                </div>
+                <div class="settings-btn" onclick="openGlobalSettings()" title="Cài Đặt Hệ Thống">
+                    ⚙
                 </div>
             </div>
             <div class="log-header" onclick="toggleLogPanel()">
