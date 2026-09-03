@@ -7,434 +7,302 @@
     <title>SuperMarketBot - Map Mockup</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
+
         :root {
-            --bg-dark: #0f172a;
-            --panel-bg: rgba(30, 41, 59, 0.7);
-            --accent: #3b82f6;
-            --accent-hover: #2563eb;
-            --text-main: #f8fafc;
+            --bg-base: #020617;
+            --bg-surface: #0f172a;
+            --bg-elevated: #1e293b;
+            --bg-hover: #334155;
+            --border-subtle: #334155;
+            --border-strong: #475569;
+            
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
             --text-muted: #94a3b8;
-            --grid-color: rgba(255, 255, 255, 0.05);
+            
+            --accent-primary: #3b82f6;
+            --accent-primary-hover: #2563eb;
+            --accent-success: #10b981;
+            --accent-success-hover: #059669;
+            --accent-danger: #ef4444;
+            --accent-danger-hover: #dc2626;
+            --accent-warning: #f59e0b;
+            --accent-warning-hover: #d97706;
+            --accent-purple: #a855f7;
+            --accent-purple-hover: #9333ea;
         }
 
+        * { box-sizing: border-box; }
         body {
             margin: 0;
             padding: 0;
             font-family: 'Inter', sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-main);
+            background-color: var(--bg-base);
+            color: var(--text-primary);
             height: 100vh;
             display: flex;
             overflow: hidden;
-            /* Disable text selection while dragging */
             user-select: none;
+            font-size: 14px;
         }
 
-        /* Sidebar */
-        .sidebar,
-        .right-sidebar {
+        h1, h2, h3, h4 { margin: 0; }
+        .text-sm { font-size: 12px; }
+        .text-base { font-size: 14px; }
+        .text-lg { font-size: 16px; }
+        
+        .font-medium { font-weight: 500; }
+        .font-semibold { font-weight: 600; }
+        .font-mono { font-family: 'Consolas', 'Monaco', monospace; }
+
+        .text-muted { color: var(--text-muted); }
+        .text-secondary { color: var(--text-secondary); }
+        .text-primary { color: var(--accent-primary); }
+        .text-success { color: var(--accent-success); }
+        .text-danger { color: var(--accent-danger); }
+        .text-warning { color: var(--accent-warning); }
+        .text-purple { color: var(--accent-purple); }
+
+        .sidebar, .right-sidebar {
             width: 350px;
-            background: var(--panel-bg);
+            background: rgba(15, 23, 42, 0.85);
             backdrop-filter: blur(12px);
-            padding: 24px;
+            padding: 20px;
             display: flex;
             flex-direction: column;
-            gap: 24px;
+            gap: 20px;
             z-index: 10;
-            box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
             overflow-y: auto;
         }
-
-        .sidebar {
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .right-sidebar {
-            border-left: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: -4px 0 24px rgba(0, 0, 0, 0.2);
-        }
+        .sidebar { border-right: 1px solid var(--border-subtle); box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3); }
+        .right-sidebar { border-left: 1px solid var(--border-subtle); box-shadow: -4px 0 24px rgba(0, 0, 0, 0.3); }
 
         .header {
-            font-size: 1.25rem;
+            font-size: 20px;
             font-weight: 600;
-            color: #fff;
+            color: var(--text-primary);
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
-
-        .header-title {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
+        .header-title { display: flex; align-items: center; gap: 12px; }
         .header-icon {
-            width: 12px;
-            height: 12px;
-            background: #10b981;
+            width: 12px; height: 12px;
+            background: var(--accent-success);
             border-radius: 50%;
-            box-shadow: 0 0 12px #10b981;
+            box-shadow: 0 0 12px var(--accent-success);
             animation: pulse 2s infinite;
         }
 
         .global-status {
-            font-size: 0.75rem;
+            font-size: 12px;
             padding: 4px 10px;
             border-radius: 12px;
             background: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
+            color: var(--accent-danger);
             border: 1px solid rgba(239, 68, 68, 0.4);
             font-weight: 500;
             display: flex;
             align-items: center;
             gap: 6px;
         }
-
         .global-status.connected {
             background: rgba(16, 185, 129, 0.2);
-            color: #10b981;
+            color: var(--accent-success);
             border-color: rgba(16, 185, 129, 0.4);
         }
 
         .card {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
             padding: 16px;
-            transition: transform 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
-
         .card-title {
-            font-size: 0.85rem;
+            font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             color: var(--text-muted);
-            margin-bottom: 12px;
-            font-weight: 500;
+            font-weight: 600;
         }
-
+        
         .data-row {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 8px;
-            font-size: 0.95rem;
+            align-items: center;
+            font-size: 14px;
         }
-
-        .value {
-            font-family: monospace;
-            color: #38bdf8;
+        .data-value {
+            font-family: 'Consolas', 'Monaco', monospace;
             font-weight: 600;
+            color: var(--text-primary);
         }
 
         .input-group {
             display: flex;
             gap: 8px;
-            margin-top: 12px;
+            align-items: center;
         }
 
-        input[type="number"],
-        input[type="text"] {
+        input[type="text"], input[type="number"], select {
             width: 100%;
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-strong);
+            color: var(--text-primary);
             padding: 8px 12px;
             border-radius: 6px;
-            font-family: monospace;
+            font-family: inherit;
+            font-size: 14px;
             outline: none;
+            transition: border-color 0.2s;
         }
+        input[type="text"]:focus, input[type="number"]:focus, select:focus { border-color: var(--accent-primary); }
 
-        input[type="file"] {
-            font-family: 'Inter', sans-serif;
-            font-size: 0.85rem;
-            padding: 10px;
-        }
-
-        button {
-            background: var(--accent);
-            color: white;
-            border: none;
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
             padding: 8px 16px;
             border-radius: 6px;
             font-weight: 500;
+            font-size: 14px;
             cursor: pointer;
-            transition: background 0.2s;
+            border: none;
+            transition: all 0.2s;
+            color: white;
+            white-space: nowrap;
         }
+        .btn-flex { flex: 1; }
+        .btn-full { width: 100%; }
 
-        button:hover {
-            background: var(--accent-hover);
-        }
+        .btn-primary { background: var(--accent-primary); }
+        .btn-primary:hover { background: var(--accent-primary-hover); }
+        .btn-success { background: var(--accent-success); color: #020617; font-weight: 600;}
+        .btn-success:hover { background: var(--accent-success-hover); }
+        .btn-danger { background: var(--accent-danger); }
+        .btn-danger:hover { background: var(--accent-danger-hover); }
+        .btn-warning { background: var(--accent-warning); color: var(--bg-base); font-weight: 600; }
+        .btn-warning:hover { background: var(--accent-warning-hover); }
+        .btn-purple { background: var(--accent-purple); }
+        .btn-purple:hover { background: var(--accent-purple-hover); }
+        .btn-secondary { background: var(--bg-hover); color: var(--text-primary); border: 1px solid var(--border-strong); }
+        .btn-secondary:hover { background: var(--border-strong); }
+        .btn-icon { padding: 8px; width: 36px; }
 
-        /* Mode Switcher */
         .mode-switcher {
-            display: flex;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
             gap: 8px;
-            margin-bottom: 12px;
         }
-
         .mode-label {
-            flex: 1;
-            text-align: center;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
             padding: 8px;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 0.85rem;
+            font-size: 12px;
+            text-align: center;
             transition: all 0.2s;
+            color: var(--text-secondary);
         }
-
-        .mode-label input {
-            display: none;
-        }
-
+        .mode-label input { display: none; }
         .mode-label:has(input:checked) {
-            background: var(--accent);
-            border-color: var(--accent-hover);
-            font-weight: bold;
+            background: var(--bg-hover);
+            border-color: var(--accent-primary);
+            color: var(--text-primary);
+            font-weight: 600;
         }
+        .mode-label.mode-draw:has(input:checked) { border-color: var(--accent-danger); background: rgba(239,68,68,0.2); }
+        .mode-label.mode-initial:has(input:checked) { border-color: var(--accent-success); background: rgba(16,185,129,0.2); }
+        .mode-label.mode-goal:has(input:checked) { border-color: var(--accent-warning); background: rgba(245,158,11,0.2); }
 
-        /* Map Container */
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+        .checkbox-label input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent-primary); }
+
         .map-container {
             flex: 1;
             position: relative;
-            background: radial-gradient(circle at center, #1e293b 0%, var(--bg-dark) 100%);
+            background: radial-gradient(circle at center, var(--bg-surface) 0%, var(--bg-base) 100%);
             overflow: hidden;
             cursor: grab;
         }
-
-        .map-container.draw-mode {
-            cursor: crosshair;
-        }
-
-        .map-container:active:not(.draw-mode) {
-            cursor: grabbing;
-        }
+        .map-container.draw-mode { cursor: crosshair; }
+        .map-container:active:not(.draw-mode) { cursor: grabbing; }
 
         canvas {
             background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border-subtle);
             border-radius: 4px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
             transform-origin: top left;
             position: absolute;
-            top: 0;
-            left: 0;
+            top: 0; left: 0;
         }
 
         @keyframes pulse {
-            0% {
-                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
-            }
-
-            70% {
-                box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
-            }
-
-            100% {
-                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
-            }
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
 
         .toast {
-            position: fixed;
-            bottom: -100px;
-            left: calc(50% + 170px);
-            transform: translateX(-50%);
-            background: rgba(16, 185, 129, 0.9);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 30px;
-            font-weight: 500;
-            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
-            transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            z-index: 100;
-            pointer-events: none;
+            position: fixed; bottom: -100px; left: calc(50% + 170px); transform: translateX(-50%);
+            background: rgba(16, 185, 129, 0.9); color: white; padding: 12px 24px; border-radius: 30px;
+            font-weight: 500; box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+            transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 100; pointer-events: none;
         }
+        .toast.show { bottom: 30px; }
 
-        .toast.show {
-            bottom: 30px;
-        }
-
-        /* --- LOG PANEL CSS --- */
         .log-panel {
-            position: absolute;
-            bottom: -250px;
-            left: 0;
-            right: 0;
-            height: 250px;
-            background: rgba(15, 23, 42, 0.95);
-            backdrop-filter: blur(8px);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            border-left: 1px solid rgba(255, 255, 255, 0.1);
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px 8px 0 0;
-            transition: bottom 0.3s ease;
-            display: flex;
-            flex-direction: column;
-            z-index: 50;
+            position: absolute; bottom: -250px; left: 0; right: 0; height: 250px;
+            background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(8px);
+            border-top: 1px solid var(--border-subtle); border-left: 1px solid var(--border-subtle); border-right: 1px solid var(--border-subtle);
+            border-radius: 8px 8px 0 0; transition: bottom 0.3s ease; display: flex; flex-direction: column; z-index: 50;
         }
-
-        .log-panel.open {
-            bottom: 0;
-        }
-
+        .log-panel.open { bottom: 0; }
         .log-header {
-            padding: 8px 16px;
-            background: rgba(255, 255, 255, 0.05);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            border-radius: 8px 8px 0 0;
-            user-select: none;
+            padding: 8px 16px; background: rgba(255, 255, 255, 0.05); border-bottom: 1px solid var(--border-subtle);
+            display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-radius: 8px 8px 0 0; user-select: none;
         }
+        .panel-controls { position: absolute; top: -38px; right: 24px; display: flex; gap: 12px; }
+        .log-toggle-btn { background: rgba(15, 23, 42, 0.95); border: 1px solid var(--border-subtle); border-bottom: none; color: var(--text-muted); padding: 8px 20px; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+        .shutdown-btn { background: var(--accent-danger); border: 1px solid var(--border-subtle); border-bottom: none; color: #fff; padding: 8px 20px; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 6px; font-weight: bold; transition: background 0.2s; }
+        .shutdown-btn:hover { background: var(--accent-danger-hover); }
+        .settings-btn { background: var(--bg-hover); border: 1px solid var(--border-subtle); border-bottom: none; color: #fff; padding: 8px 16px; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+        .settings-btn:hover { background: var(--border-strong); }
+        
+        .log-content { flex: 1; overflow-y: auto; padding: 12px; font-family: 'Consolas', 'Monaco', monospace; font-size: 12px; color: var(--text-secondary); }
+        .log-line { margin-bottom: 4px; word-wrap: break-word; }
+        .log-debug { color: var(--text-muted); }
+        .log-info { color: var(--text-primary); }
+        .log-warn { color: var(--accent-warning); }
+        .log-error { color: var(--accent-danger); font-weight: bold; }
+        .log-fatal { color: #b91c1c; font-weight: bold; text-decoration: underline; }
 
-        .panel-controls {
-            position: absolute;
-            top: -38px;
-            right: 24px;
-            display: flex;
-            gap: 12px;
-        }
-
-        .log-toggle-btn {
-            background: rgba(15, 23, 42, 0.95);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-bottom: none;
-            color: #a1a1aa;
-            padding: 8px 20px;
-            border-radius: 8px 8px 0 0;
-            cursor: pointer;
-            font-size: 0.95rem;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .shutdown-btn {
-            background: #ef4444;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-bottom: none;
-            color: #fff;
-            padding: 8px 20px;
-            border-radius: 8px 8px 0 0;
-            cursor: pointer;
-            font-size: 0.95rem;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-weight: bold;
-            transition: background 0.2s;
-        }
-        .shutdown-btn:hover {
-            background: #dc2626;
-        }
-
-        .settings-btn {
-            background: #334155;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-bottom: none;
-            color: #fff;
-            padding: 8px 16px;
-            border-radius: 8px 8px 0 0;
-            cursor: pointer;
-            font-size: 1.0rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.2s;
-        }
-        .settings-btn:hover {
-            background: #475569;
-        }
-
-        .log-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 12px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 0.75rem;
-            color: #d1d5db;
-        }
-
-        .log-line {
-            margin-bottom: 4px;
-            word-wrap: break-word;
-        }
-
-        .log-debug {
-            color: #9ca3af;
-        }
-
-        .log-info {
-            color: #f8fafc;
-        }
-
-        .log-warn {
-            color: #fde047;
-        }
-
-        .log-error {
-            color: #ef4444;
-            font-weight: bold;
-        }
-
-        .log-fatal {
-            color: #b91c1c;
-            font-weight: bold;
-            text-decoration: underline;
-        }
-        /* ImGui Collapsible Style */
-        /* ImGui Collapsible Style */
-        .imgui-collapsible {
-            background: transparent;
-            margin-bottom: 2px;
-        }
+        .imgui-collapsible { background: transparent; margin-bottom: 2px; }
         .imgui-collapsible > .summary {
-            background: #2a3441;
-            padding: 6px 8px;
-            font-size: 0.85rem;
-            font-weight: 500;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            color: #cbd5e1;
-            user-select: none;
-            transition: background 0.2s;
-            border-radius: 2px;
+            background: var(--bg-hover); padding: 6px 8px; font-size: 14px; font-weight: 500; cursor: pointer;
+            display: flex; align-items: center; color: var(--text-secondary); user-select: none; transition: background 0.2s; border-radius: 4px;
         }
-        .imgui-collapsible > .summary:hover {
-            background: #374151;
-        }
+        .imgui-collapsible > .summary:hover { background: var(--border-strong); }
         .imgui-collapsible > .summary::before {
-            content: '▶';
-            font-size: 0.65rem;
-            margin-right: 8px;
-            color: #94a3b8;
-            display: inline-block;
-            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            content: '▶'; font-size: 10px; margin-right: 8px; color: var(--text-muted); display: inline-block; transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .imgui-collapsible.open > .summary::before {
-            transform: rotate(90deg);
-        }
-        .imgui-collapsible > .details-content {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            max-height: 0;
-            opacity: 0;
-            overflow: hidden;
-            padding: 0;
-            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, padding 0.4s ease;
-        }
-        .imgui-collapsible.open > .details-content {
-            max-height: 2500px;
-            opacity: 1;
-            padding: 12px 0 0 0;
-        }
+        .imgui-collapsible.open > .summary::before { transform: rotate(90deg); }
+        .imgui-collapsible > .details-content { display: flex; flex-direction: column; gap: 16px; max-height: 0; opacity: 0; overflow: hidden; padding: 0; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, padding 0.4s ease; }
+        .imgui-collapsible.open > .details-content { max-height: 2500px; opacity: 1; padding: 12px 0 0 0; }
+
     </style>
     <script src="/config.js"></script>
 </head>
@@ -457,14 +325,14 @@
             <div class="details-content">
         <div class="card">
             <div class="card-title">1. Connect to Robot (ROS 2)</div>
-            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">
+            <div class="text-sm text-muted" style="margin-bottom: 8px;">
                 Quản lý ROS 2 Process và kết nối WebSocket (Rosbridge).
             </div>
 
             <div class="data-row" style="margin-bottom: 12px;">
-                <span style="font-size: 0.85rem;">Chế độ Boot:</span>
+                <span style="font-size: 14px;">Chế độ Boot:</span>
                 <select id="boot-mode"
-                    style="width: 150px; padding: 4px; font-size: 0.8rem; background: #1f2937; color: #fff; border: 1px solid #374151; border-radius: 4px; outline: none; cursor: pointer;"
+                    
                     onchange="toggleMapUploadUI()">
                     <option value="slam">SLAM (Vẽ Bản Đồ)</option>
                     <option value="amcl">AMCL (Bản Đồ Tĩnh)</option>
@@ -472,82 +340,78 @@
             </div>
 
             <div class="input-group" style="margin-bottom: 8px; display: flex; gap: 4px;">
-                <button id="btn-agent-start" onclick="startRobotOS()" style="flex: 1; background: #3b82f6; padding: 6px;">🚀 Boot</button>
-                <button id="btn-agent-stop" onclick="stopRobotOS()" style="flex: 1; background: #64748b; padding: 6px;">🛑 Stop</button>
-                <button id="btn-agent-save" onclick="saveRobotMap()" style="flex: 1; background: #10b981; padding: 6px;" title="Save current SLAM map to active_map">💾 Lưu Bản Đồ</button>
+                <button id="btn-agent-start" onclick="startRobotOS()" class="btn btn-primary btn-flex">🚀 Boot</button>
+                <button id="btn-agent-stop" onclick="stopRobotOS()" class="btn btn-secondary btn-flex">🛑 Stop</button>
+                <button id="btn-agent-save" onclick="saveRobotMap()" class="btn btn-success btn-flex" title="Save current SLAM map to active_map">💾 Lưu Bản Đồ</button>
             </div>
 
             <div class="input-group">
-                <button id="btn-ros-connect" onclick="connectROS()" style="background: #10b981; width: 100%;">Kết Nối WebSocket</button>
+                <button id="btn-ros-connect" onclick="connectROS()" class="btn btn-success btn-full">Kết Nối WebSocket</button>
             </div>
             <div class="data-row" style="margin-top: 8px;">
                 <span>Trạng thái OS:</span><span class="value" id="val-agent-status"
-                    style="color: #64748b;">Checking...</span>
+                    class="value text-muted">Checking...</span>
             </div>
             <div class="data-row">
                 <span>Trạng thái WS:</span><span class="value" id="val-ros-status"
-                    style="color: #ef4444;">Đã Ngắt Kết Nối</span>
+                    class="value text-danger">Đã Ngắt Kết Nối</span>
             </div>
         </div>
 
-        <div class="card" style="border-color: #f59e0b;">
-            <div class="card-title" style="color: #f59e0b;">2. Tải Bản Đồ & Waypoint</div>
-            <div style="font-size: 0.8rem; color: #fff; margin-bottom: 4px;">
+        <div class="card" >
+            <div class="card-title" class="text-warning">2. Tải Bản Đồ & Waypoint</div>
+            <div class="text-sm" style="margin-bottom: 4px;">
                 Bản đồ được tự động tải từ Backend cho robot.
             </div>
 
             <div id="amcl-upload-section"
                 style="display: none; margin-top: 12px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 12px;">
-                <div style="font-size: 0.8rem; color: #f59e0b; margin-bottom: 8px;">Tải Bản Đồ Lên Robot (AMCL)</div>
+                <div style="font-size: 12px; color: #f59e0b; margin-bottom: 8px;">Tải Bản Đồ Lên Robot (AMCL)</div>
                 <input type="file" id="amclMapFiles" multiple accept=".pgm,.yaml"
-                    style="width: 100%; box-sizing: border-box; margin-bottom: 8px;" />
-                <button onclick="uploadMapToRobot()" style="width: 100%; background: #f59e0b; color: #0f172a;">Upload to
+                     />
+                <button onclick="uploadMapToRobot()" class="btn btn-warning btn-full">Upload to
                     Robot</button>
             </div>
 
             <div id="map-edit-section" style="margin-top: 12px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 12px;">
-                <button id="btn-edit-map" onclick="toggleMapEditMode()" style="width: 100%; background: #a855f7; color: #fff; margin-bottom: 8px;">✏️ Chỉnh Sửa Bản Đồ</button>
+                <button id="btn-edit-map" onclick="toggleMapEditMode()" class="btn btn-purple btn-full" style="margin-bottom: 8px;">✏️ Chỉnh Sửa Bản Đồ</button>
                 <div id="edit-tools" style="display: none; flex-direction: column; gap: 6px;">
                     <div style="display: flex; gap: 4px;">
-                        <button onclick="setBrush('draw')" id="btn-draw" style="flex: 1; background: #64748b; padding: 4px;">🖋️ Vẽ Cản</button>
-                        <button onclick="setBrush('erase')" id="btn-erase" style="flex: 1; background: #334155; padding: 4px;">🧽 Xoá (Trống)</button>
+                        <button onclick="setBrush('draw')" id="btn-draw" class="btn btn-secondary btn-flex">🖋️ Vẽ Cản</button>
+                        <button onclick="setBrush('erase')" id="btn-erase" class="btn btn-secondary btn-flex">🧽 Xoá (Trống)</button>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: #ccc;">
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #ccc;">
                         <span>Cỡ cọ:</span>
                         <input type="range" id="brush-size" min="1" max="20" value="5" style="flex: 1;" oninput="document.getElementById('brush-val').innerText = this.value + 'px'">
                         <span id="brush-val" style="min-width: 30px;">5px</span>
                     </div>
                     <div style="display: flex; gap: 4px; margin-top: 4px;">
-                        <button onclick="saveEditedMap()" style="flex: 1; background: #10b981; padding: 4px; font-weight: bold; color: #0f172a;">💾 Cập Nhật Robot</button>
-                        <button onclick="toggleMapEditMode()" style="flex: 1; background: #ef4444; padding: 4px; color: #fff;">❌ Huỷ</button>
+                        <button onclick="saveEditedMap()" class="btn btn-success btn-flex">💾 Cập Nhật Robot</button>
+                        <button onclick="toggleMapEditMode()" class="btn btn-danger btn-flex">❌ Huỷ</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="card" style="border-color: var(--accent);">
-            <div class="card-title" style="color: var(--accent);">3. Navigation Control</div>
+        <div class="card" >
+            <div class="card-title" class="text-primary">3. Navigation Control</div>
 
-            <!-- Chuyển đổi Mode công cụ -->
-            <div class="mode-switcher" style="flex-wrap: wrap;">
-                <label class="mode-label" style="flex-basis: 45%;">
+            <div class="mode-switcher">
+                <label class="mode-label">
                     <input type="radio" name="toolMode" value="pan" checked> 🖐️ Kéo Bản Đồ
                 </label>
-                <label class="mode-label"
-                    style="flex-basis: 45%; background-color: rgba(244, 63, 94, 0.2); border-color: rgba(244, 63, 94, 0.5);">
+                <label class="mode-label mode-draw">
                     <input type="radio" name="toolMode" value="draw"> 🎯 Tạo WP
                 </label>
-                <label class="mode-label"
-                    style="flex-basis: 45%; background-color: rgba(16, 185, 129, 0.2); border-color: rgba(16, 185, 129, 0.5);">
+                <label class="mode-label mode-initial">
                     <input type="radio" name="toolMode" value="initialpose"> 📍 Vị Trí Ban Đầu
                 </label>
-                <label class="mode-label"
-                    style="flex-basis: 45%; background-color: rgba(245, 158, 11, 0.2); border-color: rgba(245, 158, 11, 0.5);">
+                <label class="mode-label mode-goal">
                     <input type="radio" name="toolMode" value="navgoal"> 🚀 Mục Tiêu Di Chuyển
                 </label>
             </div>
 
-            <div style="font-size: 0.85rem; color: #fff; margin-bottom: 12px; line-height: 1.4;">
+            <div style="font-size: 14px; color: #fff; margin-bottom: 12px; line-height: 1.4;">
                 <span id="instruction-pan">
                     🖱️ <b>Kéo thả chuột (Drag):</b> Di chuyển bản đồ<br>
                     🔍 <b>Lăn chuột (Scroll):</b> Phóng to / Thu nhỏ<br>
@@ -564,9 +428,9 @@
                     🚀 <b>Giữ chuột trái & Kéo:</b> Ra lệnh cho Robot tự động chạy tới điểm này (Gửi /goal_pose).
                 </span>
             </div>
-            <div class="data-row"><span>👉 Tọa độ X:</span><span class="value" style="color: #f43f5e;"
+            <div class="data-row"><span>👉 Tọa độ X:</span><span class="value" class="value text-danger"
                     id="val-wx">-</span></div>
-            <div class="data-row"><span>👉 Tọa độ Y:</span><span class="value" style="color: #f43f5e;"
+            <div class="data-row"><span>👉 Tọa độ Y:</span><span class="value" class="value text-danger"
                     id="val-wy">-</span></div>
         </div>
 
@@ -597,9 +461,9 @@
                 </div>
             </div>
             <div class="log-header" onclick="toggleLogPanel()">
-                <div style="font-weight: 600; font-size: 0.85rem;">/rosout (ROS 2 System Logs)</div>
+                <div style="font-weight: 600; font-size: 14px;">/rosout (ROS 2 System Logs)</div>
                 <button onclick="clearLogs(); event.stopPropagation();"
-                    style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 2px 8px; font-size: 0.75rem; color: #fff; cursor: pointer;">Clear</button>
+                    style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 2px 8px; font-size: 12px; color: #fff; cursor: pointer;">Clear</button>
             </div>
             <div class="log-content" id="logContent">
                 <div class="log-line log-info">[System] Đang chờ kết nối ROS 2...</div>
@@ -619,14 +483,14 @@
 
         <div class="card">
             <div class="card-title">4. THÔNG TIN ROBOT (ROS 2)</div>
-            <div style="font-size: 0.8rem; color: #a1a1aa; margin-bottom: 8px;">
+            <div style="font-size: 12px; color: #a1a1aa; margin-bottom: 8px;">
                 Tự động cập nhật vị trí xe theo thời gian thực (1-2 Hz).
             </div>
 
             <div class="data-row">
-                <span style="font-size: 0.85rem;">Topic Vị trí:</span>
+                <span style="font-size: 14px;">Topic Vị trí:</span>
                 <select id="ros-pose-topic"
-                    style="width: 130px; padding: 4px; font-size: 0.8rem; background: #1f2937; color: #fff; border: 1px solid #374151; border-radius: 4px; outline: none; cursor: pointer;">
+                    >
                     <option value="/odom_relay">/odom_relay (Bánh xe)</option>
                     <option value="/pose">/pose (SLAM)</option>
                     <option value="/amcl_pose">/amcl_pose (Nav2)</option>
@@ -636,39 +500,39 @@
             </div>
 
             <div class="data-row" style="margin-top: 10px;">
-                <span>Vị trí X:</span><span class="value" id="live-rx" style="color: #38bdf8;">0.000</span>
+                <span>Vị trí X:</span><span class="value" id="live-rx" class="value text-primary">0.000</span>
             </div>
             <div class="data-row">
-                <span>Vị trí Y:</span><span class="value" id="live-ry" style="color: #38bdf8;">0.000</span>
+                <span>Vị trí Y:</span><span class="value" id="live-ry" class="value text-primary">0.000</span>
             </div>
             <div class="data-row" style="margin-top: 5px; border-top: 1px dashed #334155; padding-top: 5px;">
-                <span>Tần số:</span><span class="value" id="live-hz" style="color: #10b981; font-weight: 600;">0 Hz</span>
+                <span>Tần số:</span><span class="value" id="live-hz" class="value text-success">0 Hz</span>
             </div>
 
             <div class="data-row"
                 style="margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px;">
-                <label style="font-size: 0.85rem; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <label style="font-size: 14px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
                     <input type="checkbox" id="toggle-live-map" onchange="toggleLiveMap()"> Hiện Bản Đồ Trực Tiếp (/map)
                 </label>
             </div>
             <div class="data-row" style="margin-top: 5px;">
-                <label style="font-size: 0.85rem; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <label style="font-size: 14px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
                     <input type="checkbox" id="toggle-live-scan" onchange="toggleLiveScan()"> Hiện Quét Trực Tiếp (/scan)
                 </label>
             </div>
         </div>
 
-        <div class="card" style="border-color: #ec4899; margin-top: 24px;">
-            <div class="card-title" style="color: #ec4899;">5. CAMERA STREAM</div>
-            <div style="font-size: 0.8rem; color: #a1a1aa; margin-bottom: 8px;">
+        <div class="card" style="margin-top: 24px;">
+            <div class="card-title" class="text-purple">5. CAMERA STREAM</div>
+            <div style="font-size: 12px; color: #a1a1aa; margin-bottom: 8px;">
                 Livestream từ Pi 5 Camera.
             </div>
             <div style="width: 100%; aspect-ratio: 16/9; background: #0f172a; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
                 <img id="camera-stream-img" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;" />
-                <span id="camera-placeholder" style="color: #64748b; font-size: 0.85rem;">Bật công tắc để xem</span>
+                <span id="camera-placeholder" style="color: #64748b; font-size: 14px;">Bật công tắc để xem</span>
             </div>
             <div class="data-row" style="margin-top: 10px;">
-                <label style="font-size: 0.85rem; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <label style="font-size: 14px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
                     <input type="checkbox" id="toggle-camera" onchange="toggleCameraStream()"> Bật Camera (/camera/image_raw/compressed)
                 </label>
             </div>
@@ -693,19 +557,19 @@
 
         <div style="margin-bottom: 16px;">
             <label
-                style="display: block; color: #cbd5e1; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">Name
+                style="display: block; color: #cbd5e1; font-size: 14px; margin-bottom: 6px; font-weight: 500;">Name
                 (Hiển thị trên bản đồ):</label>
             <input type="text" id="wp-edit-name"
-                style="width: 100%; background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; outline: none; transition: border-color 0.2s;"
+                
                 onfocus="this.style.borderColor='#38bdf8'" onblur="this.style.borderColor='#475569'">
         </div>
 
         <div style="margin-bottom: 16px;">
             <label
-                style="display: block; color: #cbd5e1; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">Role
+                style="display: block; color: #cbd5e1; font-size: 14px; margin-bottom: 6px; font-weight: 500;">Role
                 (Nhiệm vụ):</label>
             <select id="wp-edit-role"
-                style="width: 100%; background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; outline: none; cursor: pointer;">
+                >
                 <option value="ad">📺 ad (Quảng cáo)</option>
                 <option value="pickup">📦 pickup (Lấy hàng)</option>
                 <option value="dropoff">🚚 dropoff (Giao hàng)</option>
@@ -715,10 +579,10 @@
 
         <div style="margin-bottom: 16px;">
             <label
-                style="display: block; color: #cbd5e1; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">Type
+                style="display: block; color: #cbd5e1; font-size: 14px; margin-bottom: 6px; font-weight: 500;">Type
                 (Phân loại Node):</label>
             <select id="wp-edit-type"
-                style="width: 100%; background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; outline: none; cursor: pointer;">
+                >
                 <option value="Waypoint">📍 Waypoint (Điểm dừng)</option>
                 <option value="Charger">⚡ Charger (Sạc)</option>
                 <option value="Intersection">🛣️ Intersection (Ngã tư)</option>
@@ -729,26 +593,26 @@
         <div style="display: flex; gap: 12px; margin-bottom: 16px;">
             <div style="flex: 1;">
                 <label
-                    style="display: block; color: #cbd5e1; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">Tọa
+                    style="display: block; color: #cbd5e1; font-size: 14px; margin-bottom: 6px; font-weight: 500;">Tọa
                     độ X:</label>
                 <input type="number" id="wp-edit-x" step="0.01"
-                    style="width: 100%; background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; outline: none;">
+                    >
             </div>
             <div style="flex: 1;">
                 <label
-                    style="display: block; color: #cbd5e1; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">Tọa
+                    style="display: block; color: #cbd5e1; font-size: 14px; margin-bottom: 6px; font-weight: 500;">Tọa
                     độ Y:</label>
                 <input type="number" id="wp-edit-y" step="0.01"
-                    style="width: 100%; background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; outline: none;">
+                    >
             </div>
         </div>
 
         <div style="margin-bottom: 16px;">
             <label
-                style="display: block; color: #cbd5e1; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">Dwell
+                style="display: block; color: #cbd5e1; font-size: 14px; margin-bottom: 6px; font-weight: 500;">Dwell
                 Time (Thời gian chờ - Giây):</label>
             <input type="number" id="wp-edit-dwell"
-                style="width: 100%; background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; outline: none; transition: border-color 0.2s;"
+                
                 min="0" onfocus="this.style.borderColor='#38bdf8'" onblur="this.style.borderColor='#475569'">
         </div>
 
@@ -760,11 +624,9 @@
         </div>
 
         <div style="display: flex; justify-content: flex-end; gap: 12px;">
-            <button class="btn"
-                style="background: transparent; border: 1px solid #475569; color: #cbd5e1; padding: 8px 20px; font-weight: 500; font-size: 0.95rem;"
+            <button class="btn btn-secondary"
                 onclick="closeWpModal()">Hủy</button>
-            <button class="btn"
-                style="background: #38bdf8; color: #0f172a; padding: 8px 24px; font-weight: 600; font-size: 0.95rem; border: none; box-shadow: 0 4px 6px -1px rgba(56, 189, 248, 0.3);"
+            <button class="btn btn-primary"
                 onclick="saveWpModal()">Lưu Thay Đổi</button>
         </div>
     </div>
@@ -1890,8 +1752,8 @@
 
         function setBrush(mode) {
             mapBrushMode = mode;
-            document.getElementById('btn-draw').style.background = mode === 'draw' ? '#475569' : '#64748b';
-            document.getElementById('btn-erase').style.background = mode === 'erase' ? '#475569' : '#334155';
+            document.getElementById('btn-draw').className = mode === 'draw' ? 'btn btn-primary btn-flex' : 'btn btn-secondary btn-flex';
+            document.getElementById('btn-erase').className = mode === 'erase' ? 'btn btn-primary btn-flex' : 'btn btn-secondary btn-flex';
         }
 
         function drawOnMap(e) {
