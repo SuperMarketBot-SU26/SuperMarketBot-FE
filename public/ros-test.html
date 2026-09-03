@@ -459,9 +459,9 @@
                 <button id="btn-agent-save" onclick="saveRobotMap()" style="flex: 1; background: #10b981; padding: 6px;" title="Save current SLAM map to active_map">💾 Lưu Bản Đồ</button>
             </div>
 
-            <div class="input-group">
-                <input type="text" id="ros-ws-url" value="ws://snake.local:9090" placeholder="ws://snake.local:9090">
-                <button id="btn-ros-connect" onclick="connectROS()" style="background: #10b981;">Kết Nối</button>
+            <div class="input-group" style="display: flex; gap: 4px; align-items: center;">
+                <button id="btn-ros-connect" onclick="connectROS()" style="background: #10b981; flex: 1;">Kết Nối WebSocket</button>
+                <button onclick="openGlobalSettings()" style="background: #334155; padding: 6px; width: 36px; display: flex; justify-content: center; border-radius: 4px;" title="Cài đặt hệ thống">⚙</button>
             </div>
             <div class="data-row" style="margin-top: 8px;">
                 <span>Trạng thái OS:</span><span class="value" id="val-agent-status"
@@ -1036,7 +1036,7 @@
          * AGENT CONTROL LOGIC (Start/Stop ROS 2)
          * ========================================== */
         function getAgentApiUrl() {
-            const wsUrl = document.getElementById('ros-ws-url').value;
+            const wsUrl = localStorage.getItem('globalSetting_rosWsUrl') || "ws://snake.local:9090";
             try {
                 const url = new URL(wsUrl.replace('ws://', 'http://'));
                 return `http://${url.hostname}:5000/api/robot`;
@@ -1231,7 +1231,7 @@
         let goalPoseTopic = null;
 
         function connectROS() {
-            const wsUrl = document.getElementById('ros-ws-url').value;
+            const wsUrl = localStorage.getItem('globalSetting_rosWsUrl') || "ws://snake.local:9090";
             const statusEl = document.getElementById('val-ros-status');
             const btn = document.getElementById('btn-ros-connect');
             const globalStatus = document.getElementById('global-ros-status');
@@ -1978,6 +1978,55 @@
             } catch (err) {
                 alert('Lỗi mạng: ' + err.message);
             }
+        }
+    </script>
+    <!-- GLOBAL SETTINGS MODAL -->
+    <div id="global-settings-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 9999; justify-content: center; align-items: center;">
+        <div style="background: #1e293b; width: 400px; max-width: 90%; border-radius: 8px; border: 1px solid #475569; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column;">
+            <div style="padding: 16px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; color: #f8fafc; font-size: 16px;">⚙ Cài Đặt Hệ Thống</h3>
+                <button onclick="closeGlobalSettings()" style="background: none; border: none; color: #94a3b8; font-size: 20px; cursor: pointer;">&times;</button>
+            </div>
+            <div style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+                <div>
+                    <label style="font-size: 12px; color: #cbd5e1; display: block; margin-bottom: 6px;">ROS 2 WebSocket URL:</label>
+                    <input type="text" id="ros-ws-url" value="ws://snake.local:9090" placeholder="ws://snake.local:9090" style="width: 100%; padding: 8px; font-size: 13px; background: #0f172a; color: white; border: 1px solid #475569; border-radius: 4px;" onchange="saveGlobalSettings()">
+                    <div style="font-size: 11px; color: #64748b; margin-top: 4px;">* URL kết nối WebSocket tới rosbridge_server (Mặc định port 9090).</div>
+                </div>
+                
+                <div>
+                    <label style="font-size: 12px; color: #cbd5e1; display: block; margin-bottom: 6px;">Agent API Server (Port 5000):</label>
+                    <div style="font-size: 12px; color: #38bdf8; padding: 8px; background: #0f172a; border-radius: 4px; border: 1px dashed #334155;">
+                        <i>(Tự động nội suy từ WS URL ở trên)</i>
+                    </div>
+                </div>
+            </div>
+            <div style="padding: 16px; border-top: 1px solid #334155; display: flex; justify-content: flex-end;">
+                <button onclick="closeGlobalSettings()" style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500;">Đóng & Lưu</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Restore Global Settings on load
+        window.addEventListener('load', () => {
+            const savedUrl = localStorage.getItem('globalSetting_rosWsUrl');
+            if (savedUrl) {
+                document.getElementById('ros-ws-url').value = savedUrl;
+            }
+        });
+
+        function openGlobalSettings() {
+            document.getElementById('global-settings-modal').style.display = 'flex';
+        }
+
+        function closeGlobalSettings() {
+            document.getElementById('global-settings-modal').style.display = 'none';
+        }
+        
+        function saveGlobalSettings() {
+            const url = document.getElementById('ros-ws-url').value;
+            localStorage.setItem('globalSetting_rosWsUrl', url);
         }
     </script>
 </body>
