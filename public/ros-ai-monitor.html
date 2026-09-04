@@ -362,9 +362,8 @@
                         header.style.display = 'flex';
                         header.style.justifyContent = 'space-between';
                         header.style.padding = '10px 12px';
-                        header.style.cursor = count > 1 ? 'pointer' : 'default';
                         
-                        let titleHtml = `<span style="${group.is_empty ? 'color: #ef4444; font-weight: 500;' : 'color: #f8fafc;'}">${name} ${count > 1 ? `<span style="color: var(--text-muted); font-size: 0.75rem;">(x${count}) ▼</span>` : ''}</span>`;
+                        let titleHtml = `<span style="${group.is_empty ? 'color: #ef4444; font-weight: 500;' : 'color: #f8fafc;'}">${name} ${count > 1 ? `<span style="color: var(--text-muted); font-size: 0.75rem;">(x${count})</span>` : ''}</span>`;
                         
                         header.innerHTML = `
                             ${titleHtml}
@@ -375,7 +374,7 @@
 
                         if (count > 1) {
                             const details = document.createElement('div');
-                            details.style.display = 'none';
+                            details.style.display = 'flex'; // Changed from 'none' so it always shows
                             details.style.flexDirection = 'column';
                             details.style.borderTop = '1px solid rgba(255,255,255,0.05)';
                             details.style.background = 'rgba(0,0,0,0.2)';
@@ -394,14 +393,6 @@
                             });
                             
                             groupRow.appendChild(details);
-                            
-                            header.onclick = () => {
-                                if (details.style.display === 'none') {
-                                    details.style.display = 'flex';
-                                } else {
-                                    details.style.display = 'none';
-                                }
-                            };
                         }
 
                         listEl.appendChild(groupRow);
