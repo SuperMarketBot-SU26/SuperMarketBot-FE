@@ -28,7 +28,7 @@ export function SlotManager({ shelfId, shelfName }) {
   const [products, setProducts] = useState([])
   const [productTypes, setProductTypes] = useState([])
   const [typeFilter, setTypeFilter] = useState('')
-  const [assignForm, setAssignForm] = useState({ productId: '', quantity: 1 })
+  const [assignForm, setAssignForm] = useState({ productId: '' })
   const [assigning, setAssigning] = useState(false)
 
   const fetchSlots = useCallback(async () => {
@@ -127,11 +127,10 @@ export function SlotManager({ shelfId, shelfName }) {
       await assignProductToSlot(assigningSlot.slotId, {
         slotId: assigningSlot.slotId,
         productId: Number(assignForm.productId),
-        quantity: Number(assignForm.quantity) || 1,
       })
       toast.success('Đã gán sản phẩm vào slot.')
       setAssigningSlot(null)
-      setAssignForm({ productId: '', quantity: 1 })
+      setAssignForm({ productId: '' })
       await fetchSlots()
     } catch (err) {
       setError(err?.response?.data?.message ?? 'Không thể gán sản phẩm.')
@@ -224,7 +223,6 @@ export function SlotManager({ shelfId, shelfName }) {
                         {slot.products.map((p) => (
                           <div key={p.productId} className="flex items-center gap-2 text-xs text-smb-on-surface-variant bg-smb-surface-container-lowest px-2 py-1 rounded border border-smb-outline-variant/50 w-fit group">
                             <span className="font-medium text-smb-primary line-clamp-1 max-w-[150px]">{p.productName}</span>
-                            <span className="text-[10px] bg-smb-surface-container px-1 rounded">x{p.quantity}</span>
                             <button
                               type="button"
                               onClick={() => handleUnassign(slot.slotId, p.productId)}
@@ -331,15 +329,6 @@ export function SlotManager({ shelfId, shelfName }) {
                   <option key={p.productId} value={p.productId}>{p.productName}</option>
                 ))}
               </select>
-              <input
-                type="number"
-                min="1"
-                required
-                placeholder="Số lượng"
-                value={assignForm.quantity}
-                onChange={(e) => setAssignForm((p) => ({ ...p, quantity: e.target.value }))}
-                className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-low px-3 py-2 text-sm outline-none focus:border-smb-primary"
-              />
               <div className="mt-4 flex justify-end gap-2">
                 <button
                   type="button"
