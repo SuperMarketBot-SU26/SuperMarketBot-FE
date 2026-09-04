@@ -47,3 +47,30 @@ export const importBrands = (file) => {
     })
     .then((res) => res.data)
 }
+
+export const downloadBrandImportTemplate = () =>
+  client
+    .get(`${ENDPOINT}/import-template`, { responseType: 'blob' })
+    .then((res) => {
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', 'brands_import_template.xlsx')
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+    })
+
+export const exportBrands = () =>
+  client
+    .get(`${ENDPOINT}/export`, { responseType: 'blob' })
+    .then((res) => {
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', 'brands_export.xlsx')
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+    })
+

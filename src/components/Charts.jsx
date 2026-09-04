@@ -159,29 +159,45 @@ export function VerticalBarChart({
           </filter>
         </defs>
 
-        {/* Y-axis labels */}
-        {[0, 0.25, 0.5, 0.75, 1].map((pct) => {
-          const y = (1 - pct) * (svgH - PAD_BOTTOM - 8) + 4
-          const v = maxV * pct
-          return (
-            <text key={pct} x="2" y={y + 4}
-              fontSize="9" fill="currentColor" className="text-smb-on-surface-variant"
-              style={{ fontFamily: 'inherit' }}>
-              {formatK(v)}
-            </text>
-          )
-        })}
-
-        {/* Horizontal grid lines */}
-        {[0, 0.25, 0.5, 0.75, 1].map((pct) => {
-          const y = (1 - pct) * (svgH - PAD_BOTTOM - 8) + 4
-          return (
-            <line key={pct} x1={PAD_LEFT} y1={y} x2={svgW - PAD_RIGHT}
-              y2={y} stroke="currentColor" strokeOpacity="0.07" strokeWidth="1"
-              className="text-smb-outline-variant"
-            />
-          )
-        })}
+        {/* Y-axis labels & horizontal grid lines */}
+        {(() => {
+          let tickPcts = [0, 0.25, 0.5, 0.75, 1]
+          if (maxV <= 4) {
+            const intMax = Math.max(Math.ceil(maxV), 1)
+            tickPcts = []
+            for (let i = 0; i <= intMax; i++) {
+              tickPcts.push(i / intMax)
+            }
+          }
+          return tickPcts.map((pct) => {
+            const y = (1 - pct) * (svgH - PAD_BOTTOM - 8) + 4
+            const v = maxV * pct
+            return (
+              <React.Fragment key={pct}>
+                <line
+                  x1={PAD_LEFT}
+                  y1={y}
+                  x2={svgW - PAD_RIGHT}
+                  y2={y}
+                  stroke="currentColor"
+                  strokeOpacity="0.08"
+                  strokeWidth="1"
+                  className="text-smb-outline-variant"
+                />
+                <text
+                  x="2"
+                  y={y + 4}
+                  fontSize="9"
+                  fill="currentColor"
+                  className="text-smb-on-surface-variant font-medium"
+                  style={{ fontFamily: 'inherit' }}
+                >
+                  {maxV <= 4 ? Math.round(v) : formatK(v)}
+                </text>
+              </React.Fragment>
+            )
+          })
+        })()}
 
         {/* Bars */}
         {data.map((d, i) => {
@@ -325,12 +341,15 @@ export function DonutChart({
           </defs>
 
           {segments.map((seg, i) => {
+            const isFullCircle = segments.length === 1 || seg.angle >= 359.5
             const isLarge = seg.angle > 180
             const mid = (seg.startA + seg.endA) / 2
             const centX = cx + (r - thickness / 2) * Math.cos(toRad(mid))
             const centY = cy + (r - thickness / 2) * Math.sin(toRad(mid))
             const isH = hovered === i
-            const arc = describeArc(seg.startA, seg.endA - 0.3, isLarge)
+            const arc = isFullCircle
+              ? `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx} ${cy + r} A ${r} ${r} 0 1 1 ${cx} ${cy - r} M ${cx} ${cy - innerR} A ${innerR} ${innerR} 0 1 0 ${cx} ${cy + innerR} A ${innerR} ${innerR} 0 1 0 ${cx} ${cy - innerR} Z`
+              : describeArc(seg.startA, seg.endA - 0.3, isLarge)
             return (
               <g key={i}
                 onMouseEnter={() => setHovered(i)}
@@ -338,6 +357,7 @@ export function DonutChart({
                 style={{ cursor: 'pointer' }}
               >
                 <path d={arc} fill={`url(#dg-${i})`}
+                  fillRule={isFullCircle ? 'evenodd' : undefined}
                   filter="url(#donut-shadow)"
                   style={{
                     transform: animate ? `translate(${(centX - cx) * (isH ? 0.06 : 0)}px, ${(centY - cy) * (isH ? 0.06 : 0)}px) scale(${isH ? 1.04 : 1})` : 'scale(0.7)',
