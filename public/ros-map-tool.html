@@ -317,7 +317,7 @@
                 SMB Fleet
             </div>
             <div class="global-status" id="global-ros-status">
-                <span style="font-size: 10px;">🔴</span> OFFLINE
+                <span style="font-size: 10px;">🔴</span> NGOẠI TUYẾN
             </div>
         </div>
 
@@ -325,23 +325,20 @@
             <div class="summary" onclick="this.parentElement.classList.toggle('open')">ROS2</div>
             <div class="details-content">
         <div class="card">
-            <div class="card-title">1. Connect to Robot (ROS 2)</div>
+            <div class="card-title">1. KẾT NỐI ROBOT (ROS 2)</div>
             <div class="text-sm text-muted" style="margin-bottom: 8px;">
                 Quản lý ROS 2 Process và kết nối WebSocket (Rosbridge).
             </div>
 
-            <div class="data-row" style="margin-bottom: 12px; gap: 12px;">
-                <span style="font-size: 14px; white-space: nowrap;">Chế độ Boot:</span>
-                <select id="boot-mode" onchange="toggleMapUploadUI()" style="width: auto; flex: 1;">
-                    <option value="slam">SLAM (Vẽ Bản Đồ)</option>
-                    <option value="amcl">AMCL (Bản Đồ Tĩnh)</option>
-                </select>
-            </div>
-
-            <div class="input-group" style="margin-bottom: 8px; display: flex; gap: 4px;">
-                <button id="btn-agent-start" onclick="startRobotOS()" class="btn btn-primary btn-flex">🚀 Boot</button>
-                <button id="btn-agent-stop" onclick="stopRobotOS()" class="btn btn-secondary btn-flex">🛑 Stop</button>
-                <button id="btn-agent-save" onclick="saveRobotMap()" class="btn btn-success btn-flex" title="Save current SLAM map to active_map">💾 Lưu Bản Đồ</button>
+            <div style="display: flex; gap: 8px; flex-direction: column; margin-bottom: 12px;">
+                <div class="input-group" style="display: flex; gap: 4px;">
+                    <button id="btn-agent-start-slam" onclick="startRobotOS('slam')" class="btn btn-primary btn-flex" style="background-color: #3b82f6;">🚀 Quét Map SLAM</button>
+                    <button id="btn-agent-start-amcl" onclick="startRobotOS('amcl')" class="btn btn-primary btn-flex" style="background-color: #10b981;">🚀 Điều Hướng AMCL</button>
+                </div>
+                <div class="input-group" style="display: flex; gap: 4px;">
+                    <button id="btn-agent-stop" onclick="stopRobotOS()" class="btn btn-secondary btn-flex">🛑 Dừng ROS 2</button>
+                    <button id="btn-agent-save" onclick="saveRobotMap()" class="btn btn-success btn-flex" title="Lưu bản đồ SLAM hiện tại">💾 Lưu Bản Đồ</button>
+                </div>
             </div>
 
             <div class="input-group">
@@ -400,7 +397,7 @@
         </div>
 
         <div class="card" >
-            <div class="card-title" class="text-primary">3. Navigation Control</div>
+            <div class="card-title" class="text-primary">3. ĐIỀU KHIỂN ĐIỀU HƯỚNG</div>
 
             <div class="mode-switcher">
                 <label class="mode-label">
@@ -421,11 +418,11 @@
                 <span id="instruction-pan">
                     🖱️ <b>Kéo thả chuột (Drag):</b> Di chuyển bản đồ<br>
                     🔍 <b>Lăn chuột (Scroll):</b> Phóng to / Thu nhỏ<br>
-                    ❌ <b>Click chuột phải (Right Click):</b> Xóa Waypoint
+                    ❌ <b>Click chuột phải:</b> Xóa Waypoint
                 </span>
                 <span id="instruction-draw" style="display:none; color: #fecdd3;">
-                    🎯 <b>Giữ chuột trái & Kéo (Click & Drag):</b> Đặt Waypoint lưu vào bộ nhớ để xuất file YAML.<br>
-                    ❌ <b>Click chuột phải (Right Click):</b> Xóa Waypoint
+                    🎯 <b>Giữ chuột trái & Kéo:</b> Đặt Waypoint lưu vào bộ nhớ để xuất file YAML.<br>
+                    ❌ <b>Click chuột phải:</b> Xóa Waypoint
                 </span>
                 <span id="instruction-initialpose" style="display:none; color: #d1fae5;">
                     📍 <b>Giữ chuột trái & Kéo:</b> Cập nhật vị trí bắt đầu (Vị Trí Ban Đầu) cho AMCL trên ROS 2.
@@ -466,7 +463,7 @@
         <div class="log-panel" id="logPanel">
             <div class="panel-controls">
                 <div class="log-toggle-btn" onclick="toggleLogPanel()" id="logToggleBtn">
-                    Terminal Logs 🔼
+                    Nhật Ký (Logs) 🔼
                 </div>
                 <div class="shutdown-btn" onclick="shutdownPi()" title="Tắt Nguồn Robot (Shutdown)">
                     ⏻ Tắt Nguồn
@@ -485,7 +482,7 @@
 
     <div class="right-sidebar">
         <div class="card">
-            <div class="card-title">Map Parameters</div>
+            <div class="card-title">THÔNG SỐ BẢN ĐỒ</div>
             <div class="data-row"><span>Độ phân giải</span><span class="value" id="val-res">0.05</span></div>
             <div class="data-row"><span>Gốc X</span><span class="value" id="val-ox">-10.00</span></div>
             <div class="data-row"><span>Gốc Y</span><span class="value" id="val-oy">-10.00</span></div>
@@ -524,18 +521,18 @@
             <div class="data-row"
                 style="margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px;">
                 <label style="font-size: 14px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" id="toggle-live-map" onchange="toggleLiveMap()"> Hiện Bản Đồ Trực Tiếp (/map)
+                    <input type="checkbox" id="toggle-live-map" autocomplete="off" onchange="toggleLiveMap()"> Hiện Bản Đồ Trực Tiếp (/map)
                 </label>
             </div>
             <div class="data-row" style="margin-top: 5px;">
                 <label style="font-size: 14px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" id="toggle-live-scan" onchange="toggleLiveScan()"> Hiện Quét Trực Tiếp (/scan)
+                    <input type="checkbox" id="toggle-live-scan" autocomplete="off" onchange="toggleLiveScan()"> Hiện Quét Trực Tiếp (/scan)
                 </label>
             </div>
         </div>
 
         <div class="card" style="margin-top: 24px;">
-            <div class="card-title" class="text-purple">5. CAMERA STREAM</div>
+            <div class="card-title" class="text-purple">5. LUỒNG CAMERA</div>
             <div style="font-size: 12px; color: #a1a1aa; margin-bottom: 8px;">
                 Livestream từ Pi 5 Camera.
             </div>
@@ -545,7 +542,7 @@
             </div>
             <div class="data-row" style="margin-top: 10px;">
                 <label style="font-size: 14px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" id="toggle-camera" onchange="toggleCameraStream()"> Bật Camera (/camera/image_raw/compressed)
+                    <input type="checkbox" id="toggle-camera" autocomplete="off" onchange="toggleCameraStream()"> Bật Camera (/camera/image_raw/compressed)
                 </label>
             </div>
             <div style="margin-top: 12px; border-top: 1px dashed var(--border-strong); padding-top: 12px;">
@@ -737,12 +734,12 @@
             const btn = document.getElementById('logToggleBtn');
             panel.classList.toggle('open');
             if (panel.classList.contains('open')) {
-                btn.innerText = 'Terminal Logs 🔽';
+                btn.innerText = 'Nhật Ký (Logs) 🔽';
                 // scroll to bottom
                 const content = document.getElementById('logContent');
                 content.scrollTop = content.scrollHeight;
             } else {
-                btn.innerText = 'Terminal Logs 🔼';
+                btn.innerText = 'Nhật Ký (Logs) 🔼';
             }
         }
 
@@ -764,8 +761,14 @@
             else if (msg.level >= 50) { levelClass = 'log-fatal'; levelStr = 'FATAL'; }
 
             const time = new Date().toLocaleTimeString();
+            const logText = `[${time}] [${levelStr}] [${msg.name}]: ${msg.msg}`;
             line.classList.add(levelClass);
-            line.innerText = `[${time}] [${levelStr}] [${msg.name}]: ${msg.msg}`;
+            line.innerText = logText;
+            
+            // In ra cả F12 Console để dễ debug
+            if (msg.level >= 40) console.error(logText);
+            else if (msg.level === 30) console.warn(logText);
+            else console.log(logText);
 
             content.appendChild(line);
 
@@ -1005,13 +1008,16 @@
 
         async function checkAgentStatus() {
             try {
-                const res = await fetch(`${getAgentApiUrl()}/status`);
+                const res = await fetch(`${getAgentApiUrl()}/status`, { cache: 'no-store' });
                 const data = await res.json();
+                console.log("Agent Status Response:", data);
+                
                 const statusEl = document.getElementById('val-agent-status');
                 if (!statusEl) return;
 
                 if (data.status === 'running') {
-                    statusEl.innerText = 'Đang chạy';
+                    const modeText = data.mode && data.mode !== 'unknown' ? ` [${data.mode.toUpperCase()}]` : '';
+                    statusEl.innerText = `Đang chạy${modeText}`;
                     statusEl.style.color = '#10b981';
                 } else if (data.status === 'starting') {
                     statusEl.innerText = 'Starting...';
@@ -1032,12 +1038,109 @@
         setInterval(checkAgentStatus, 3000);
         checkAgentStatus();
 
-        async function startRobotOS() {
+        async function startRobotOS(mode) {
+            window.currentBootMode = mode; // Lưu lại để dùng cho hàm save
+            sessionStorage.setItem('currentBootMode', mode);
             const statusEl = document.getElementById('val-agent-status');
-            const mode = document.getElementById('boot-mode').value;
             statusEl.innerText = 'Booting...';
             statusEl.style.color = '#f59e0b';
             try {
+                if (mode === 'amcl') {
+                    if (!window.activeMapImageUrl || !window.activeMapData) {
+                        alert("Không tìm thấy dữ liệu Active Map từ Backend. Chờ tải Map xong rồi thử lại.");
+                        statusEl.innerText = 'Sync Failed';
+                        statusEl.style.color = '#ef4444';
+                        return;
+                    }
+                    
+                    const toast = document.getElementById('toast');
+                    toast.innerText = '⏳ Đang đồng bộ Map từ Server xuống Robot...';
+                    toast.style.background = '#3b82f6';
+                    toast.classList.add('show');
+                    
+                    // 1. Reconstruct YAML string
+                    const yamlStr = `image: active_map.pgm
+resolution: ${window.activeMapData.resolution || 0.05}
+origin: [${window.activeMapData.originX || 0.0}, ${window.activeMapData.originY || 0.0}, ${window.activeMapData.originYaw || 0.0}]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.196
+`;
+                    const yamlB64 = btoa(unescape(encodeURIComponent(yamlStr)));
+                    
+                    // 2. Convert Image to PGM using Canvas
+                    const pgmB64 = await new Promise((resolve, reject) => {
+                        const img = new Image();
+                        img.crossOrigin = "Anonymous"; // Fix CORS for Cloudinary
+                        img.onload = () => {
+                            try {
+                                const canvas = document.createElement('canvas');
+                                canvas.width = img.width;
+                                canvas.height = img.height;
+                                const ctx = canvas.getContext('2d');
+                                ctx.drawImage(img, 0, 0);
+                                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                                
+                                // P5 PGM Header
+                                const header = `P5\n${canvas.width} ${canvas.height}\n255\n`;
+                                const headerBytes = new TextEncoder().encode(header);
+                                const pixelBytes = new Uint8Array(canvas.width * canvas.height);
+                                
+                                for (let i = 0; i < pixelBytes.length; i++) {
+                                    const r = imgData.data[i*4];
+                                    const g = imgData.data[i*4+1];
+                                    const b = imgData.data[i*4+2];
+                                    // Grayscale
+                                    pixelBytes[i] = Math.round(0.299*r + 0.587*g + 0.114*b);
+                                }
+                                
+                                const pgmBuffer = new Uint8Array(headerBytes.length + pixelBytes.length);
+                                pgmBuffer.set(headerBytes, 0);
+                                pgmBuffer.set(pixelBytes, headerBytes.length);
+                                
+                                // Base64 encode
+                                let binaryString = '';
+                                const chunkSize = 8192;
+                                for (let i = 0; i < pgmBuffer.length; i += chunkSize) {
+                                    binaryString += String.fromCharCode.apply(null, pgmBuffer.subarray(i, i + chunkSize));
+                                }
+                                resolve(btoa(binaryString));
+                            } catch (e) {
+                                reject("Lỗi khi chuyển đổi ảnh Map (Tainted Canvas / CORS): " + e.message);
+                            }
+                        };
+                        img.onerror = () => reject("Failed to load map image for conversion");
+                        // Fallback to fetch via proxy if CORS fails
+                        fetch(window.activeMapImageUrl)
+                            .then(res => res.blob())
+                            .then(blob => {
+                                img.src = URL.createObjectURL(blob);
+                            })
+                            .catch(() => { img.src = window.activeMapImageUrl; });
+                    });
+                    
+                    // 3. Upload to Robot API
+                    const uploadRes = await fetch(`${getAgentApiUrl()}/upload_map`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ yaml_b64: yamlB64, pgm_b64: pgmB64 })
+                    });
+                    
+                    const uploadData = await uploadRes.json();
+                    if (uploadData.error) {
+                        toast.classList.remove('show');
+                        alert("Lỗi khi đồng bộ Map xuống Robot: " + uploadData.error);
+                        statusEl.innerText = 'Sync Failed';
+                        statusEl.style.color = '#ef4444';
+                        return;
+                    }
+                    
+                    toast.innerText = '✅ Đã đồng bộ Map! Đang khởi động ROS 2...';
+                    toast.style.background = '#10b981';
+                    setTimeout(() => toast.classList.remove('show'), 2000);
+                }
+
+                // Call existing start API
                 const res = await fetch(`${getAgentApiUrl()}/start`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1052,11 +1155,14 @@
                 }
                 setTimeout(checkAgentStatus, 2000);
             } catch (err) {
+                console.error("Boot error:", err);
                 alert("Failed to contact Agent Server");
             }
         }
 
         async function stopRobotOS() {
+            window.currentBootMode = null;
+            sessionStorage.removeItem('currentBootMode');
             const statusEl = document.getElementById('val-agent-status');
             statusEl.innerText = 'Stopping...';
             statusEl.style.color = '#f59e0b';
@@ -1088,45 +1194,81 @@
 
 
         async function saveRobotMap() {
-            const mode = document.getElementById('boot-mode').value;
+            const mode = window.currentBootMode || sessionStorage.getItem('currentBootMode');
             if (mode !== 'slam') {
-                alert("You can only save a map while running in SLAM (Vẽ Bản Đồ) mode!");
+                alert("Bạn chỉ có thể lưu bản đồ khi đang chạy chế độ Quét Map (SLAM)!");
                 return;
             }
             
-            if (!confirm("This will save the current SLAM map directly to the robot and overwrite the active map for AMCL. Are you sure?")) return;
+            if (!confirm("Hành động này sẽ lưu bản đồ đang quét lên Robot, sau đó TỰ ĐỘNG đồng bộ lên Hệ thống Backend (C#). Bạn có chắc chắn không?")) return;
             
             try {
+                const toast = document.getElementById('toast');
+                toast.innerText = '⏳ Đang lưu bản đồ xuống Robot...';
+                toast.style.background = '#f59e0b';
+                toast.classList.add('show');
+
                 const res = await fetch(`${getAgentApiUrl()}/save_map`, { method: 'POST' });
                 const data = await res.json();
                 if (data.error) {
-                    alert("Save failed: " + data.error);
-                } else {
-                    // Trigger downloads if backend returned the files
-                    if (data.yaml_b64 && data.pgm_b64) {
-                        const aYaml = document.createElement('a');
-                        aYaml.href = "data:text/yaml;base64," + data.yaml_b64;
-                        aYaml.download = "active_map.yaml";
-                        aYaml.click();
-                        
-                        const aPgm = document.createElement('a');
-                        aPgm.href = "data:image/x-portable-graymap;base64," + data.pgm_b64;
-                        aPgm.download = "active_map.pgm";
-                        aPgm.click();
+                    alert("Lỗi khi lưu trên Robot: " + data.error);
+                    toast.classList.remove('show');
+                    return;
+                }
+                
+                // Trigger downloads if backend returned the files
+                if (data.yaml_b64 && data.pgm_b64) {
+                    toast.innerText = '☁️ Đang đồng bộ bản đồ lên Server Backend...';
+                    
+                    const base64ToBlob = (b64, type) => {
+                        const bin = atob(b64);
+                        const arr = new Uint8Array(bin.length);
+                        for(let i=0; i<bin.length; i++) arr[i] = bin.charCodeAt(i);
+                        return new Blob([arr], { type: type });
+                    };
+
+                    const yamlBlob = base64ToBlob(data.yaml_b64, 'text/yaml');
+                    const pgmBlob = base64ToBlob(data.pgm_b64, 'image/x-portable-graymap');
+
+                    const formData = new FormData();
+                    formData.append('mapYaml', yamlBlob, 'active_map.yaml');
+                    formData.append('mapImage', pgmBlob, 'active_map.pgm');
+                    
+                    const baseUrl = window.SMB_ENV?.BE_URL !== undefined ? window.SMB_ENV.BE_URL : 'http://localhost:5000';
+                    const syncUrl = baseUrl + '/api/v1/maps/upload-slam-bundle?floorId=1&mapName=Auto-Synced%20Map';
+                    
+                    const syncRes = await fetch(syncUrl, {
+                        method: 'POST',
+                        headers: getFetchHeaders(), // Includes auth token
+                        body: formData
+                    });
+
+                    if (syncRes.ok) {
+                        toast.innerText = '✅ Đã đồng bộ lên Backend thành công!';
+                        toast.style.background = '#10b981';
+                        // Refresh the map on screen
+                        setTimeout(() => {
+                            toast.classList.remove('show');
+                            fetchActiveMapFromBE();
+                        }, 2000);
+                    } else {
+                        alert("Bản đồ đã lưu trên Robot nhưng LỖI khi đồng bộ lên Backend!");
+                        toast.classList.remove('show');
                     }
-                    alert("Thành công: " + data.message + "\n\nCác file cũng đã được tải xuống laptop của bạn.");
+                } else {
+                    toast.innerText = '✅ Lưu trên Robot thành công (không có file upload).';
+                    toast.style.background = '#10b981';
+                    setTimeout(() => toast.classList.remove('show'), 3000);
                 }
             } catch (err) {
-                alert("Không thể kết nối với Agent Server để lưu bản đồ");
+                console.error("Save Map Error:", err);
+                alert("Không thể kết nối với Hệ thống để lưu bản đồ");
+                document.getElementById('toast').classList.remove('show');
             }
         }
 
         function toggleMapUploadUI() {
-            const mode = document.getElementById('boot-mode').value;
-            const uploadSection = document.getElementById('amcl-upload-section');
-            if (uploadSection) {
-                uploadSection.style.display = mode === 'amcl' ? 'block' : 'none';
-            }
+            // Deprecated - removed dropdown
         }
 
         async function uploadMapToRobot() {
@@ -1229,7 +1371,25 @@
                     messageType: 'geometry_msgs/PoseStamped'
                 });
 
+                window.supervisorCmdClient = new ROSLIB.Service({
+                    ros: ros,
+                    name: '/supervisor/cmd',
+                    serviceType: 'smb_msgs/srv/SupervisorCmd'
+                });
+
                 subscribeToRobotPose();
+
+                const rosoutSubscriber = new ROSLIB.Topic({
+                    ros: ros,
+                    name: '/rosout',
+                    messageType: 'rcl_interfaces/msg/Log'
+                });
+                rosoutSubscriber.subscribe(function (message) {
+                    // Ignore noisy transform and lifecycle debug logs if level < INFO (20)
+                    if (message.level >= 20) {
+                        appendLog(message);
+                    }
+                });
 
                 alert('✅ Kết nối ROS 2 thành công! Bạn có thể dùng chế độ Vị Trí Ban Đầu hoặc Mục Tiêu Di Chuyển.');
             });
@@ -1248,10 +1408,19 @@
                 btn.innerText = 'Connect';
                 btn.style.background = '#10b981';
                 globalStatus.classList.remove('connected');
-                globalStatus.innerHTML = '<span style="font-size: 10px;">🔴</span> OFFLINE';
+                globalStatus.innerHTML = '<span style="font-size: 10px;">🔴</span> NGOẠI TUYẾN';
                 ros = null;
                 initialPoseTopic = null;
                 goalPoseTopic = null;
+                window.supervisorCmdClient = null;
+
+                // Reset các nút toggle khi mất kết nối
+                const liveMapCb = document.getElementById('toggle-live-map');
+                if (liveMapCb && liveMapCb.checked) { liveMapCb.checked = false; toggleLiveMap(); }
+                const liveScanCb = document.getElementById('toggle-live-scan');
+                if (liveScanCb && liveScanCb.checked) { liveScanCb.checked = false; toggleLiveScan(); }
+                const cameraCb = document.getElementById('toggle-camera');
+                if (cameraCb && cameraCb.checked) { cameraCb.checked = false; toggleCameraStream(); }
             });
         }
 
@@ -1330,6 +1499,15 @@
                         }
                     } else if (currentMode === 'navgoal') {
                         if (sendRosPose(goalPoseTopic, draftWaypoint.x, draftWaypoint.y, draftWaypoint.heading)) {
+                            // Gọi service /supervisor/cmd để chuyển sang chế độ nav
+                            if (window.supervisorCmdClient) {
+                                const request = new ROSLIB.ServiceRequest({ command: 'nav', current_state: '' });
+                                window.supervisorCmdClient.callService(request, (result) => {
+                                    appendLog({ level: 20, name: 'WebUI', msg: 'Chuyển Supervisor sang chế độ NAV: ' + result.message });
+                                }, (err) => {
+                                    appendLog({ level: 40, name: 'WebUI', msg: 'Lỗi khi gọi supervisor/cmd: ' + err });
+                                });
+                            }
                             toast.innerText = '🚀 Đã gửi Mục Tiêu Di Chuyển! Robot đang di chuyển...';
                             toast.style.background = 'rgba(245, 158, 11, 0.9)'; // Màu cam
                             toast.classList.add('show');
@@ -1515,7 +1693,7 @@
             ctxUI.beginPath(); ctxUI.arc(originScreen.x, originScreen.y, 5, 0, Math.PI * 2);
             ctxUI.fillStyle = '#10b981'; ctxUI.fill();
             ctxUI.font = 'bold 12px sans-serif';
-            ctxUI.fillText('ROS Origin (0,0)', originScreen.x + 8, originScreen.y - 8);
+            ctxUI.fillText('Gốc ROS (0,0)', originScreen.x + 8, originScreen.y - 8);
 
             // Vẽ Waypoints đã lưu
             waypoints.forEach((wp, index) => {
@@ -1648,9 +1826,10 @@
                 return;
             }
             if (isChecked) {
+                const mapTopicName = window.currentBootMode === 'amcl' ? '/map_volatile' : '/map';
                 mapSubscriber = new ROSLIB.Topic({
                     ros: ros,
-                    name: '/map',
+                    name: mapTopicName,
                     messageType: 'nav_msgs/OccupancyGrid',
                     compression: 'png',
                     throttle_rate: 2000
@@ -1976,6 +2155,8 @@
                 const data = await response.json();
                 console.log("Map Data from BE:", data);
 
+                window.activeMapData = data; // Save for AMCL sync
+
                 window.currentMapId = data.mapId;
                 window.currentMapName = data.mapName || "Supermarket Map";
                 window.currentMapWidth = data.widthMeters || 0;
@@ -2012,6 +2193,7 @@
                     if (imgUrl.startsWith('/')) {
                         imgUrl = baseUrl + imgUrl;
                     }
+                    window.activeMapImageUrl = imgUrl; // Save for AMCL sync
 
                     const img = new Image();
                     img.onload = () => {
@@ -2120,7 +2302,7 @@
         }, { capture: true });
 
         async function saveEditedMap() {
-            if (!confirm('Bạn có chắc muốn lưu bản đồ đã chỉnh sửa lên Robot? (Sẽ tải lại Navigation)')) return;
+            if (!confirm('Bạn có chắc muốn lưu bản đồ đã chỉnh sửa? (Sẽ tải lên Backend và đồng bộ xuống Robot)')) return;
             
             // 1. Convert Canvas to PGM Binary
             const imageData = ctxMap.getImageData(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
@@ -2145,43 +2327,75 @@
             const pgmBuffer = new Uint8Array(headerBytes.length + pixelBytes.length);
             pgmBuffer.set(headerBytes, 0);
             pgmBuffer.set(pixelBytes, headerBytes.length);
+            const pgmBlob = new Blob([pgmBuffer], { type: 'image/x-portable-graymap' });
             
-            // Convert to Base64
+            // Convert to Base64 for Robot
             let binaryString = "";
             for (let i = 0; i < pgmBuffer.byteLength; i++) {
                 binaryString += String.fromCharCode(pgmBuffer[i]);
             }
             const base64Pgm = window.btoa(binaryString);
             
-            // DEBUGGING: trigger download of PGM locally
-            try {
-                const blob = new Blob([pgmBuffer], { type: "application/octet-stream" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = 'debug_edited_map.pgm'; a.click();
-            } catch(e) { console.warn("Could not download debug PGM", e); }
+            // 2. Generate YAML
+            const res = window.activeMapData?.resolution || 0.05;
+            const ox = window.activeMapData?.originX || 0.0;
+            const oy = window.activeMapData?.originY || 0.0;
+            const oyaw = window.activeMapData?.originYaw || 0.0;
+            const yamlStr = `image: active_map.pgm\nresolution: ${res}\norigin: [${ox}, ${oy}, ${oyaw}]\nnegate: 0\noccupied_thresh: 0.65\nfree_thresh: 0.196\n`;
+            const yamlBlob = new Blob([yamlStr], { type: 'text/yaml' });
+            const yamlB64 = btoa(unescape(encodeURIComponent(yamlStr)));
+
+            const btn = document.querySelector('#edit-tools button[onclick="saveEditedMap()"]');
+            const origText = btn ? btn.innerText : '';
+            if (btn) btn.innerText = 'Đang lưu lên BE...';
             
             try {
-                const btn = document.querySelector('#edit-tools button[onclick="saveEditedMap()"]');
-                const orig = btn.innerText;
-                btn.innerText = 'Đang lưu...';
+                // 3. Push to Backend
+                const formData = new FormData();
+                formData.append('mapYaml', yamlBlob, 'edited_map.yaml');
+                formData.append('mapImage', pgmBlob, 'edited_map.pgm');
                 
-                const response = await fetch('http://' + window.location.hostname + ':5000/api/robot/update_pgm', {
+                const baseUrl = window.SMB_ENV?.BE_URL !== undefined ? window.SMB_ENV.BE_URL : 'http://localhost:5000';
+                const token = localStorage.getItem('accessToken');
+                const headers = { 'ngrok-skip-browser-warning': 'true' };
+                if (token) headers['Authorization'] = 'Bearer ' + token;
+                
+                const floorId = window.currentFloorId || 1;
+                const syncRes = await fetch(`${baseUrl}/api/v1/maps/upload-slam-bundle?floorId=${floorId}&mapName=Edited%20Map`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: formData
+                });
+
+                if (!syncRes.ok) {
+                    const errText = await syncRes.text();
+                    console.error("Lỗi lưu BE:", errText);
+                    alert("Lỗi khi đồng bộ ảnh lên Backend: " + syncRes.status);
+                    if (btn) btn.innerText = origText;
+                    return;
+                }
+
+                // 4. Force Robot to Pull
+                if (btn) btn.innerText = 'Đang đẩy xuống Robot...';
+                
+                const uploadRes = await fetch(`${getAgentApiUrl()}/upload_map`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pgm_base64: base64Pgm })
+                    body: JSON.stringify({ yaml_b64: yamlB64, pgm_b64: base64Pgm })
                 });
-                
-                const result = await response.json();
-                if (response.ok) {
-                    alert('Lưu thành công! ' + result.message);
-                    toggleMapEditMode();
+                const uploadData = await uploadRes.json();
+                if (uploadData.error) {
+                    alert("Đã lưu trên BE nhưng lỗi khi đồng bộ Map xuống Robot: " + uploadData.error);
                 } else {
-                    alert('Lỗi: ' + result.error);
+                    alert('✅ Lưu và Đồng bộ hoàn tất!');
                 }
-                if (btn) btn.innerText = orig;
+                
+                toggleMapEditMode();
             } catch (err) {
-                alert('Lỗi mạng: ' + err.message);
+                console.error(err);
+                alert('Lỗi: ' + err.message);
+            } finally {
+                if (btn) btn.innerText = origText;
             }
         }
     </script>
