@@ -1008,7 +1008,7 @@
 
         async function checkAgentStatus() {
             try {
-                const res = await fetch(`${getAgentApiUrl()}/status?t=${Date.now()}`, { cache: 'no-store' });
+                const res = await fetch(`${getAgentApiUrl()}/status`, { cache: 'no-store' });
                 const data = await res.json();
                 console.log("Agent Status Response:", data);
                 
