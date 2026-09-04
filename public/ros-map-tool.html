@@ -1826,9 +1826,10 @@ free_thresh: 0.196
                 return;
             }
             if (isChecked) {
+                const mapTopicName = window.currentBootMode === 'amcl' ? '/map_volatile' : '/map';
                 mapSubscriber = new ROSLIB.Topic({
                     ros: ros,
-                    name: '/map',
+                    name: mapTopicName,
                     messageType: 'nav_msgs/OccupancyGrid',
                     compression: 'png',
                     throttle_rate: 2000
