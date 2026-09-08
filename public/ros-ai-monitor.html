@@ -44,6 +44,7 @@
             gap: 20px;
             position: relative;
             background: radial-gradient(circle at center, #1e293b 0%, var(--bg-dark) 100%);
+            overflow-y: auto;
         }
         
         .header {
@@ -51,7 +52,7 @@
         }
         .card {
             background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.06);
             border-radius: 12px;
             padding: 16px;
         }
@@ -60,10 +61,71 @@
         }
         .value { color: #38bdf8; font-weight: 600; font-family: monospace; font-size: 1.1rem; }
         
+        /* Buttons */
+        .btn-primary {
+            padding: 10px 20px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-primary:hover { background: #2563eb; transform: translateY(-1px); }
+        .btn-secondary {
+            padding: 9px 16px;
+            background: rgba(255, 255, 255, 0.08);
+            color: #f8fafc;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+        .btn-secondary.active {
+            background: rgba(56, 189, 248, 0.2);
+            border-color: #38bdf8;
+            color: #38bdf8;
+        }
+        .btn-link {
+            text-decoration: none;
+            padding: 9px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #cbd5e1;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .btn-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #f8fafc;
+        }
+
         /* Camera */
         .camera-container {
             flex: 1;
-            background: rgba(0, 0, 0, 0.5);
+            min-height: 420px;
+            max-height: 560px;
+            background: #020617;
             border-radius: 12px;
             border: 1px solid rgba(255,255,255,0.1);
             overflow: hidden;
@@ -85,9 +147,380 @@
         .badge.normal { background: rgba(56,189,248,0.2); color: #38bdf8; border: 1px solid rgba(56,189,248,0.4); }
         .badge.low-stock { background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid rgba(245,158,11,0.4); }
         .badge.out-of-stock { background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.4); }
+
+        /* Stream Mode Badge */
+        .stream-badge {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #38bdf8;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            padding: 5px 12px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 5;
+            text-transform: uppercase;
+        }
+        .stream-badge.hud {
+            color: #ec4899;
+            border-color: rgba(236, 72, 153, 0.4);
+        }
+        .stream-badge .badge-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 8px #10b981;
+        }
+        .stream-badge.hud .badge-dot {
+            background: #ec4899;
+            box-shadow: 0 0 8px #ec4899;
+        }
+
+        /* Viewfinder & Framing Overlay */
+        .viewfinder {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 4;
+        }
+        .grid-line {
+            position: absolute;
+            background: rgba(56, 189, 248, 0.15);
+        }
+        .grid-v1 { left: 33.333%; top: 0; bottom: 0; width: 1px; border-left: 1px dashed rgba(56, 189, 248, 0.3); }
+        .grid-v2 { left: 66.666%; top: 0; bottom: 0; width: 1px; border-left: 1px dashed rgba(56, 189, 248, 0.3); }
+        .grid-h1 { top: 33.333%; left: 0; right: 0; height: 1px; border-top: 1px dashed rgba(56, 189, 248, 0.3); }
+        .grid-h2 { top: 66.666%; left: 0; right: 0; height: 1px; border-top: 1px dashed rgba(56, 189, 248, 0.3); }
+
+        .reticle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 44px;
+            height: 44px;
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            border-radius: 50%;
+        }
+        .reticle::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 6px;
+            height: 6px;
+            background: #38bdf8;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #38bdf8;
+        }
+        .target-box {
+            position: absolute;
+            top: 22%;
+            left: 18%;
+            width: 64%;
+            height: 56%;
+            border: 1px dashed rgba(16, 185, 129, 0.35);
+            border-radius: 12px;
+            box-shadow: inset 0 0 24px rgba(16, 185, 129, 0.05);
+        }
+        .target-box-corner {
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            border-color: #10b981;
+            border-style: solid;
+        }
+        .target-box-corner.tl { top: -2px; left: -2px; border-width: 3px 0 0 3px; border-top-left-radius: 8px; }
+        .target-box-corner.tr { top: -2px; right: -2px; border-width: 3px 3px 0 0; border-top-right-radius: 8px; }
+        .target-box-corner.bl { bottom: -2px; left: -2px; border-width: 0 0 3px 3px; border-bottom-left-radius: 8px; }
+        .target-box-corner.br { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; border-bottom-right-radius: 8px; }
+        .target-box-label {
+            position: absolute;
+            top: 8px;
+            left: 12px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #10b981;
+            background: rgba(15, 23, 42, 0.85);
+            padding: 3px 8px;
+            border-radius: 4px;
+            letter-spacing: 0.05em;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        /* Scan Progress Overlay */
+        .scan-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            text-align: center;
+            padding: 24px;
+        }
+        .scan-spinner {
+            width: 54px;
+            height: 54px;
+            border: 4px solid rgba(56, 189, 248, 0.2);
+            border-top: 4px solid #38bdf8;
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+            margin-bottom: 18px;
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .scan-overlay-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #f8fafc;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+        }
+        .scan-overlay-desc {
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            margin-bottom: 18px;
+            max-width: 440px;
+        }
+        .scan-progress-bar-wrap {
+            width: 320px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+        .scan-progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #38bdf8, #10b981);
+            box-shadow: 0 0 12px #38bdf8;
+            transition: width 0.1s linear;
+        }
+
+        /* Shelf Scan Console */
+        .scan-console {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        .console-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding-bottom: 12px;
+        }
+        .console-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .console-body {
+            display: flex;
+            gap: 18px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        .field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .field-label {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+        .select-input {
+            width: 100%;
+            padding: 11px 14px;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            color: #f8fafc;
+            font-size: 0.92rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .select-input:focus {
+            border-color: #38bdf8;
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+        }
+        .duration-buttons {
+            display: flex;
+            background: rgba(15, 23, 42, 0.85);
+            padding: 4px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            gap: 4px;
+        }
+        .btn-duration {
+            flex: 1;
+            padding: 8px 12px;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            color: var(--text-muted);
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .btn-duration:hover {
+            color: #f8fafc;
+        }
+        .btn-duration.active {
+            background: #3b82f6;
+            color: white;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+        }
+        .btn-scan-action {
+            width: 100%;
+            padding: 12px 22px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.92rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+            box-shadow: 0 4px 18px rgba(16, 185, 129, 0.35);
+        }
+        .btn-scan-action:hover:not(:disabled) {
+            background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(16, 185, 129, 0.5);
+        }
+        .btn-scan-action:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        .btn-scan-action:disabled {
+            background: #334155;
+            color: #64748b;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+        .status-pill {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .status-pill.idle {
+            background: rgba(16, 185, 129, 0.12);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .status-pill.scanning {
+            background: rgba(245, 158, 11, 0.15);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            animation: pulse 1.5s infinite;
+        }
+        .status-pill.success {
+            background: rgba(56, 189, 248, 0.15);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.4);
+        }
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            box-shadow: 0 0 8px currentColor;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .report-banner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 0.9rem;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Toast notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
+            pointer-events: none;
+        }
+        .toast-item {
+            pointer-events: auto;
+            background: rgba(15, 23, 42, 0.92);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(56, 189, 248, 0.2);
+            border-radius: 10px;
+            padding: 14px 20px;
+            color: #f8fafc;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            max-width: 440px;
+            animation: toastSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        @keyframes toastSlideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/eventemitter2@6.4.9/lib/eventemitter2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
 </head>
 <body>
     <div class="sidebar">
@@ -99,9 +532,13 @@
             <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 12px; text-transform: uppercase; font-weight: 600;">Kết nối</div>
             <input type="text" id="ros-ws-url" value="ws://snake.local:9090" style="width:100%; padding: 10px; margin-bottom: 12px; border-radius: 6px; background: rgba(0,0,0,0.3); color: white; border: 1px solid rgba(255,255,255,0.1); box-sizing: border-box; outline: none; font-family: monospace;">
             <button onclick="connectROS()" style="width: 100%; padding: 10px; background: #10b981; color: #0f172a; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.2s;">Kết Nối Robot</button>
-            <div class="data-row" style="margin-top: 16px;">
-                <span style="font-size: 0.85rem;">Trạng thái:</span>
-                <span id="ros-status" style="color: #ef4444; font-weight: bold; font-size: 0.85rem; padding: 4px 10px; background: rgba(239,68,68,0.1); border-radius: 12px; border: 1px solid rgba(239,68,68,0.3);">Đã ngắt kết nối</span>
+            <div class="data-row" style="margin-top: 14px;">
+                <span style="font-size: 0.85rem;">ROS 2 Bridge:</span>
+                <span id="ros-status" style="color: #ef4444; font-weight: bold; font-size: 0.85rem; padding: 3px 10px; background: rgba(239,68,68,0.1); border-radius: 12px; border: 1px solid rgba(239,68,68,0.3);">Đã ngắt kết nối</span>
+            </div>
+            <div class="data-row" style="margin-top: 8px;">
+                <span style="font-size: 0.85rem;">Backend MQTT:</span>
+                <span id="mqtt-status" style="color: #eab308; font-weight: bold; font-size: 0.82rem; padding: 3px 8px; background: rgba(234,179,8,0.1); border-radius: 12px; border: 1px solid rgba(234,179,8,0.3);">Đang kết nối...</span>
             </div>
         </div>
 
@@ -153,38 +590,269 @@
     </div>
 
     <div class="main-content">
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 8px; flex-wrap: wrap; gap: 12px;">
             <div>
-                <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Camera Trực tiếp</h2>
-                <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 4px;">Khung nhận diện YOLO được vẽ trực tiếp trên Raspberry Pi</div>
+                <h2 style="margin: 0; font-size: 1.45rem; font-weight: 600; display: flex; align-items: center; gap: 10px;">
+                    <span>📹</span> Giám Sát Camera & Quét Kệ Hàng
+                </h2>
+                <div style="color: var(--text-muted); font-size: 0.88rem; margin-top: 4px;">
+                    Căn chỉnh góc chụp và kích hoạt quét lia kệ để cập nhật tồn kho về Backend
+                </div>
             </div>
-            <div style="display: flex; gap: 12px;">
-                <a href="/ros-test.html" style="text-decoration: none; padding: 10px 20px; background: rgba(255,255,255,0.1); color: white; border-radius: 6px; font-weight: 500; transition: background 0.2s;">⬅️ Quay lại Bản đồ</a>
-                <button onclick="toggleCamera()" id="btn-camera" style="padding: 10px 24px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s;">▶️ Bật Camera</button>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <button id="btn-toggle-grid" onclick="toggleFramingGrid()" class="btn-secondary active" title="Bật/Tắt Lưới Căn Góc">
+                    📐 Lưới Căn Góc
+                </button>
+                <button id="btn-stream-mode" onclick="toggleStreamMode()" class="btn-secondary" title="Chuyển đổi giữa luồng trực tiếp và ảnh Best Frame có vẽ nhãn HUD">
+                    🖼️ Xem Ảnh HUD
+                </button>
+                <button onclick="toggleCamera()" id="btn-camera" class="btn-primary">▶️ Bật Camera</button>
+                <a href="/ros-test.html" class="btn-link">⬅️ Quay lại Bản đồ</a>
             </div>
         </div>
         
         <div class="camera-container">
             <div id="cam-placeholder" style="text-align: center; color: #64748b;">
                 <div style="font-size: 3rem; margin-bottom: 16px;">📷</div>
-                <div>Camera đang tắt.<br>Bấm "Bật Camera" để xem luồng trực tiếp.</div>
+                <div style="font-size: 1.05rem; font-weight: 500; color: #94a3b8; margin-bottom: 6px;">Camera đang tắt</div>
+                <div style="font-size: 0.85rem; color: #64748b;">Bấm "Bật Camera" để xem luồng trực tiếp và căn chỉnh góc chụp.</div>
             </div>
             <img id="camera-stream" src="" style="display: none;" />
+
+            <!-- Stream Mode Badge -->
+            <div id="stream-mode-badge" class="stream-badge" style="display: none;">
+                <span class="badge-dot"></span>
+                <span id="stream-badge-text">LIVE CAMERA</span>
+            </div>
+
+            <!-- Viewfinder / Framing Overlay -->
+            <div id="viewfinder-overlay" class="viewfinder" style="display: none;">
+                <div class="grid-line grid-v1"></div>
+                <div class="grid-line grid-v2"></div>
+                <div class="grid-line grid-h1"></div>
+                <div class="grid-line grid-h2"></div>
+                <div class="reticle"></div>
+                <div class="target-box">
+                    <div class="target-box-corner tl"></div>
+                    <div class="target-box-corner tr"></div>
+                    <div class="target-box-corner bl"></div>
+                    <div class="target-box-corner br"></div>
+                    <span class="target-box-label">🎯 VÙNG CĂN CHỈNH KỆ & ARUCO TAG</span>
+                </div>
+            </div>
+
+            <!-- Scan progress overlay during sweep -->
+            <div id="scan-progress-overlay" class="scan-overlay" style="display: none;">
+                <div class="scan-spinner"></div>
+                <div class="scan-overlay-title" id="scan-overlay-title">ĐANG THU THẬP & LIA QUÉT KỆ...</div>
+                <div class="scan-overlay-desc">Robot đang thu nhận buffer 2.0s và chấm điểm độ nét để trích xuất Best Frame</div>
+                <div class="scan-progress-bar-wrap">
+                    <div id="scan-progress-bar" class="scan-progress-bar-fill"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Console Bấm Nút Quét Kệ & Gửi BE -->
+        <div class="card scan-console">
+            <div class="console-header">
+                <div class="console-title">
+                    <span style="font-size: 1.4rem;">⚡</span>
+                    <div>
+                        <div style="font-weight: 600; font-size: 1rem; color: #f8fafc;">Bảng Điều Khiển Quét Kệ & Đẩy Dữ Liệu Backend</div>
+                        <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 2px;">
+                            Sau khi robot canh đúng góc chụp, chọn kệ và nhấn nút để thực hiện sweep 2.0s và gửi báo cáo về Backend & Staff App
+                        </div>
+                    </div>
+                </div>
+                <div id="scan-status-badge" class="status-pill idle">
+                    <span class="pulse-dot"></span> <span id="scan-status-text">Sẵn sàng canh góc</span>
+                </div>
+            </div>
+
+            <div class="console-body">
+                <!-- Robot Selector -->
+                <div class="field-group" style="flex: 1.1; min-width: 170px;">
+                    <label for="robot-select" class="field-label">ROBOT MỤC TIÊU:</label>
+                    <select id="robot-select" class="select-input" onchange="onRobotSelectChange(this.value)">
+                        <option value="RB0001" selected>RB0001 (SmartMarketBot 01)</option>
+                    </select>
+                </div>
+
+                <!-- Shelf Selector -->
+                <div class="field-group" style="flex: 1.5; min-width: 240px;">
+                    <label for="shelf-select" class="field-label">KỆ MỤC TIÊU (ARUCO TAG):</label>
+                    <select id="shelf-select" class="select-input" onchange="onShelfSelectChange(this.value)">
+                        <option value="1">Kệ 1 - Đồ Ăn Vặt (ArUco Tag #1)</option>
+                        <option value="2">Kệ 2 - Nước Giải Khát & Đồ Uống (ArUco Tag #2)</option>
+                        <option value="3">Kệ 3 - Thực Phẩm Tươi Sống (ArUco Tag #3)</option>
+                        <option value="4" selected>Kệ 4 - Mì Ăn Liền & Đóng Gói (ArUco Tag #4)</option>
+                        <option value="5">Kệ 5 - Đồ Gia Dụng & Tiện Ích (ArUco Tag #5)</option>
+                        <option value="6">Kệ 6 - Gia Vị & Trà (ArUco Tag #6)</option>
+                    </select>
+                </div>
+
+                <!-- Sweep Duration Selector -->
+                <div class="field-group" style="flex: 1; min-width: 200px;">
+                    <label class="field-label">THỜI GIAN LIA (BUFFER):</label>
+                    <div class="duration-buttons">
+                        <button type="button" class="btn-duration" data-dur="1.5" onclick="setDuration(1.5)">1.5s</button>
+                        <button type="button" class="btn-duration active" data-dur="2.0" onclick="setDuration(2.0)">2.0s (Chuẩn)</button>
+                        <button type="button" class="btn-duration" data-dur="3.0" onclick="setDuration(3.0)">3.0s</button>
+                    </div>
+                </div>
+
+                <!-- Action Button -->
+                <div style="flex: 1.3; min-width: 220px; display: flex; align-items: flex-end;">
+                    <button id="btn-trigger-scan" onclick="triggerManualShelfScan()" class="btn-scan-action">
+                        <span class="scan-icon" style="font-size: 1.1rem;">⚡</span>
+                        <span id="btn-scan-text">KÍCH HOẠT QUÉT & BÁO CÁO BE</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Feedback Banner / Last Report Info -->
+            <div id="last-report-banner" class="report-banner" style="display: none;">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <span style="font-size: 1.25rem;">✅</span>
+                    <div>
+                        <strong id="report-shelf-name" style="color: #38bdf8;">Kệ 4</strong>: Quét lia hoàn tất!
+                        <span style="color: var(--text-muted); font-size: 0.85rem; margin-left: 8px;">
+                            Mật độ: <strong id="report-density" style="color: #10b981;">0%</strong> | 
+                            Trạng thái: <strong id="report-status" style="color: #10b981;">Bình Thường</strong> | 
+                            <span style="color: #a855f7; font-weight: 500;">Đã gửi qua MQTT `/shelf_report`</span>
+                        </span>
+                    </div>
+                </div>
+                <button onclick="dismissReportBanner()" style="background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1.2rem; line-height: 1; padding: 4px;" title="Đóng">×</button>
+            </div>
         </div>
     </div>
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container" class="toast-container"></div>
 
     <script>
         let ros = null;
         let imageTopic = null;
         let analysisTopic = null;
+        let sweepTriggerTopic = null;
+        let hudImageTopic = null;
+        let densityReportTopic = null;
+
         let isCameraEnabled = false;
+        let isFramingGridActive = true;
+        let currentStreamMode = 'live'; // 'live' or 'hud'
+        let currentSweepDuration = 2.0;
+        let isSweeping = false;
+        let sweepProgressInterval = null;
+
+        let lastLiveFrameData = null;
+        let lastHudFrameData = null;
+        let latestAnalysisData = null;
+
+        // Paho MQTT Client for Direct Realtime Sync with Backend
+        let mqttClient = null;
+        let isMqttConnected = false;
+
+        function connectMQTT() {
+            const statusEl = document.getElementById('mqtt-status');
+            if (!statusEl) return;
+            statusEl.style.color = '#eab308';
+            statusEl.style.background = 'rgba(234,179,8,0.1)';
+            statusEl.style.borderColor = 'rgba(234,179,8,0.3)';
+            statusEl.innerText = 'Đang kết nối...';
+
+            try {
+                const clientId = 'web_admin_' + Math.random().toString(16).substring(2, 8);
+                // HiveMQ Cloud WebSocket on port 8884 with SSL
+                mqttClient = new Paho.MQTT.Client('60922debd474446a84747b871c4a8182.s1.eu.hivemq.cloud', 8884, '/mqtt', clientId);
+
+                mqttClient.onConnectionLost = (responseObject) => {
+                    console.warn("MQTT Connection lost:", responseObject.errorMessage);
+                    isMqttConnected = false;
+                    statusEl.style.color = '#ef4444';
+                    statusEl.style.background = 'rgba(239,68,68,0.1)';
+                    statusEl.style.borderColor = 'rgba(239,68,68,0.3)';
+                    statusEl.innerText = 'Mất kết nối MQTT';
+                    setTimeout(connectMQTT, 4000);
+                };
+
+                mqttClient.connect({
+                    useSSL: true,
+                    userName: 'Smartmarketbot',
+                    password: 'Passsep490',
+                    timeout: 10,
+                    onSuccess: () => {
+                        console.log("MQTT Client connected successfully to HiveMQ Cloud!");
+                        isMqttConnected = true;
+                        statusEl.style.color = '#10b981';
+                        statusEl.style.background = 'rgba(16,185,129,0.1)';
+                        statusEl.style.borderColor = 'rgba(16,185,129,0.3)';
+                        statusEl.innerText = 'Đã kết nối (HiveMQ)';
+                    },
+                    onFailure: (err) => {
+                        console.warn("MQTT Connection failed:", err);
+                        isMqttConnected = false;
+                        statusEl.style.color = '#ef4444';
+                        statusEl.style.background = 'rgba(239,68,68,0.1)';
+                        statusEl.style.borderColor = 'rgba(239,68,68,0.3)';
+                        statusEl.innerText = 'Lỗi kết nối MQTT';
+                        setTimeout(connectMQTT, 6000);
+                    }
+                });
+            } catch (e) {
+                console.error("Failed to initialize MQTT:", e);
+                statusEl.innerText = 'Lỗi MQTT Client';
+            }
+        }
+
+        let currentRobotCode = 'RB0001';
+
+        function onRobotSelectChange(val) {
+            currentRobotCode = val;
+            console.log("Active robot changed to:", currentRobotCode);
+        }
+
+        async function loadRobotsList() {
+            try {
+                const resp = await fetch('/api/robots', {
+                    headers: { 'ngrok-skip-browser-warning': 'true' }
+                });
+                if (resp.ok) {
+                    const robots = await resp.json();
+                    if (Array.isArray(robots) && robots.length > 0) {
+                        const selectEl = document.getElementById('robot-select');
+                        if (selectEl) {
+                            selectEl.innerHTML = '';
+                            robots.forEach((r, idx) => {
+                                const opt = document.createElement('option');
+                                opt.value = r.robotCode;
+                                opt.innerText = `${r.robotCode} (${r.robotName || 'Robot #' + r.robotId})`;
+                                if (idx === 0) opt.selected = true;
+                                selectEl.appendChild(opt);
+                            });
+                            currentRobotCode = robots[0].robotCode;
+                            console.log("Loaded robots from BE:", robots.map(r => r.robotCode));
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn("Could not fetch robots list from BE:", e);
+            }
+        }
+
+        // Tự động kết nối MQTT và nạp danh sách robot khi load trang
+        window.addEventListener('DOMContentLoaded', () => {
+            connectMQTT();
+            loadRobotsList();
+        });
 
         function connectROS() {
             const url = document.getElementById('ros-ws-url').value;
             const statusEl = document.getElementById('ros-status');
             
             if (ros) {
-                ros.close();
+                try { ros.close(); } catch (e) {}
             }
 
             statusEl.style.color = '#eab308';
@@ -200,14 +868,46 @@
                 statusEl.style.borderColor = 'rgba(16,185,129,0.3)';
                 statusEl.innerText = 'Đã kết nối';
                 
-                // Subscribe to AI Analysis
+                // 1. Subscribe to AI Analysis
                 analysisTopic = new ROSLIB.Topic({
                     ros: ros,
                     name: '/shelf/analysis',
                     messageType: 'std_msgs/msg/String'
                 });
-                
                 analysisTopic.subscribe(handleAnalysisPayload);
+
+                // 2. Publisher for Manual Shelf Sweep Trigger
+                sweepTriggerTopic = new ROSLIB.Topic({
+                    ros: ros,
+                    name: '/shelf/sweep/trigger',
+                    messageType: 'std_msgs/msg/String'
+                });
+
+                // 3. Subscribe to HUD Annotated Image
+                hudImageTopic = new ROSLIB.Topic({
+                    ros: ros,
+                    name: '/shelf/annotated_image/compressed',
+                    messageType: 'sensor_msgs/msg/CompressedImage'
+                });
+                hudImageTopic.subscribe((msg) => {
+                    lastHudFrameData = msg.data;
+                    if (currentStreamMode === 'hud' && isCameraEnabled) {
+                        const img = document.getElementById('camera-stream');
+                        img.src = "data:image/jpeg;base64," + msg.data;
+                    }
+                });
+
+                // 4. Publisher and Subscriber for Density Report
+                densityReportTopic = new ROSLIB.Topic({
+                    ros: ros,
+                    name: '/shelf/density_report',
+                    messageType: 'std_msgs/msg/String'
+                });
+                densityReportTopic.subscribe(handleDensityReportPayload);
+
+                // Update Status Pill
+                updateScanStatus('idle', 'Sẵn sàng canh góc');
+                showToast('🟢 Đã kết nối thành công với ROS 2 Bridge!', 'success');
             });
 
             ros.on('error', (err) => {
@@ -215,7 +915,8 @@
                 statusEl.style.background = 'rgba(239,68,68,0.1)';
                 statusEl.style.borderColor = 'rgba(239,68,68,0.3)';
                 statusEl.innerText = 'Lỗi kết nối';
-                console.error(err);
+                console.error("ROS error:", err);
+                updateScanStatus('idle', 'Mất kết nối ROS');
             });
 
             ros.on('close', () => {
@@ -224,6 +925,7 @@
                 statusEl.style.borderColor = 'rgba(239,68,68,0.3)';
                 statusEl.innerText = 'Đã ngắt kết nối';
                 if (isCameraEnabled) toggleCamera();
+                updateScanStatus('idle', 'Chưa kết nối Robot');
             });
         }
 
@@ -231,10 +933,12 @@
             const btn = document.getElementById('btn-camera');
             const img = document.getElementById('camera-stream');
             const placeholder = document.getElementById('cam-placeholder');
+            const viewfinder = document.getElementById('viewfinder-overlay');
+            const streamBadge = document.getElementById('stream-mode-badge');
 
             if (!isCameraEnabled) {
                 if (!ros || !ros.isConnected) {
-                    alert('Vui lòng kết nối với ROS 2 trước!');
+                    showToast('⚠️ Vui lòng kết nối với Robot ROS 2 trước!', 'warn');
                     return;
                 }
                 
@@ -245,10 +949,11 @@
                 });
 
                 imageTopic.subscribe((msg) => {
-                    // rosbridge_server automatically converts byte arrays to base64 strings!
-                    // If you encounter raw byte arrays, we would need to convert them, but native_imx500_stream publishes as base64 string directly
-                    if (msg.format === 'jpeg' || msg.format === 'jpg') {
-                        img.src = "data:image/jpeg;base64," + msg.data;
+                    lastLiveFrameData = msg.data;
+                    if (currentStreamMode === 'live') {
+                        if (msg.format === 'jpeg' || msg.format === 'jpg') {
+                            img.src = "data:image/jpeg;base64," + msg.data;
+                        }
                     }
                 });
 
@@ -256,6 +961,15 @@
                 btn.innerHTML = '⏹️ Tắt Camera';
                 img.style.display = 'block';
                 placeholder.style.display = 'none';
+                streamBadge.style.display = 'flex';
+                updateStreamBadge();
+
+                if (isFramingGridActive && currentStreamMode === 'live') {
+                    viewfinder.style.display = 'block';
+                } else {
+                    viewfinder.style.display = 'none';
+                }
+
                 isCameraEnabled = true;
             } else {
                 if (imageTopic) {
@@ -266,22 +980,341 @@
                 btn.innerHTML = '▶️ Bật Camera';
                 img.style.display = 'none';
                 placeholder.style.display = 'block';
+                viewfinder.style.display = 'none';
+                streamBadge.style.display = 'none';
                 isCameraEnabled = false;
             }
+        }
+
+        function toggleFramingGrid() {
+            isFramingGridActive = !isFramingGridActive;
+            const btn = document.getElementById('btn-toggle-grid');
+            const viewfinder = document.getElementById('viewfinder-overlay');
+
+            if (isFramingGridActive) {
+                btn.classList.add('active');
+                if (isCameraEnabled && currentStreamMode === 'live') {
+                    viewfinder.style.display = 'block';
+                }
+            } else {
+                btn.classList.remove('active');
+                viewfinder.style.display = 'none';
+            }
+        }
+
+        function toggleStreamMode() {
+            const btn = document.getElementById('btn-stream-mode');
+            const img = document.getElementById('camera-stream');
+            const viewfinder = document.getElementById('viewfinder-overlay');
+
+            if (currentStreamMode === 'live') {
+                currentStreamMode = 'hud';
+                btn.classList.add('active');
+                btn.innerHTML = '📹 Xem Live Video';
+                viewfinder.style.display = 'none';
+
+                if (lastHudFrameData) {
+                    img.src = "data:image/jpeg;base64," + lastHudFrameData;
+                } else {
+                    showToast('ℹ️ Đang hiển thị chế độ HUD (chưa có ảnh Best Frame nào được lưu)', 'info');
+                }
+            } else {
+                currentStreamMode = 'live';
+                btn.classList.remove('active');
+                btn.innerHTML = '🖼️ Xem Ảnh HUD';
+
+                if (isFramingGridActive && isCameraEnabled) {
+                    viewfinder.style.display = 'block';
+                }
+                if (lastLiveFrameData) {
+                    img.src = "data:image/jpeg;base64," + lastLiveFrameData;
+                }
+            }
+            updateStreamBadge();
+        }
+
+        function updateStreamBadge() {
+            const badge = document.getElementById('stream-mode-badge');
+            const text = document.getElementById('stream-badge-text');
+            if (currentStreamMode === 'live') {
+                badge.className = 'stream-badge';
+                text.innerText = 'LIVE CAMERA';
+            } else {
+                badge.className = 'stream-badge hud';
+                text.innerText = 'AI ANNOTATED HUD';
+            }
+        }
+
+        function setDuration(dur) {
+            currentSweepDuration = dur;
+            document.querySelectorAll('.btn-duration').forEach(btn => {
+                if (parseFloat(btn.getAttribute('data-dur')) === dur) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        function onShelfSelectChange(val) {
+            const shelfNames = {
+                "1": "Kệ 1 - Đồ Ăn Vặt",
+                "2": "Kệ 2 - Nước Giải Khát",
+                "3": "Kệ 3 - Thực Phẩm Tươi Sống",
+                "4": "Kệ 4 - Mì Ăn Liền",
+                "5": "Kệ 5 - Đồ Gia Dụng",
+                "6": "Kệ 6 - Gia Vị"
+            };
+            console.log(`Đã chọn mục tiêu: ${shelfNames[val] || val}`);
+        }
+
+        function updateScanStatus(state, text) {
+            const pill = document.getElementById('scan-status-badge');
+            const statusText = document.getElementById('scan-status-text');
+            pill.className = 'status-pill ' + state;
+            statusText.innerText = text;
+        }
+
+        function triggerManualShelfScan() {
+            if (isSweeping) return;
+
+            const shelfSelect = document.getElementById('shelf-select');
+            const shelfId = parseInt(shelfSelect.value, 10);
+            const duration = currentSweepDuration;
+
+            // 1. Publish command to ROS 2 if connected
+            const triggerPayload = JSON.stringify({
+                shelfId: shelfId,
+                duration: duration
+            });
+
+            if (sweepTriggerTopic && ros && ros.isConnected) {
+                const msg = new ROSLIB.Message({ data: triggerPayload });
+                sweepTriggerTopic.publish(msg);
+                console.log("Published sweep trigger to ROS 2:", triggerPayload);
+            }
+
+            // 2. UI Sweep State
+            isSweeping = true;
+            const btn = document.getElementById('btn-trigger-scan');
+            const btnText = document.getElementById('btn-scan-text');
+            btn.disabled = true;
+            btnText.innerText = `ĐANG QUÉT LIA ${duration.toFixed(1)}s...`;
+
+            updateScanStatus('scanning', `Đang lia ngang Kệ #${shelfId}...`);
+
+            // 3. Progress bar animation
+            const overlay = document.getElementById('scan-progress-overlay');
+            const overlayTitle = document.getElementById('scan-overlay-title');
+            const progressBar = document.getElementById('scan-progress-bar');
+            
+            overlayTitle.innerText = `ĐANG QUÉT LIA KỆ #${shelfId} (${duration}s)...`;
+            progressBar.style.width = '0%';
+            overlay.style.display = 'flex';
+
+            const startTime = Date.now();
+            const totalMs = duration * 1000;
+
+            if (sweepProgressInterval) clearInterval(sweepProgressInterval);
+            sweepProgressInterval = setInterval(async () => {
+                const elapsed = Date.now() - startTime;
+                const pct = Math.min(100, (elapsed / totalMs) * 100);
+                progressBar.style.width = `${pct}%`;
+
+                if (elapsed >= totalMs) {
+                    clearInterval(sweepProgressInterval);
+                    sweepProgressInterval = null;
+                    overlay.style.display = 'none';
+                    btnText.innerText = 'ĐANG ĐẨY BÁO CÁO VỀ BE...';
+                    updateScanStatus('scanning', 'Đang gửi và đồng bộ DB...');
+
+                    await finalizeAndDispatchShelfReport(shelfId);
+                }
+            }, 50);
+
+            showToast(`🚀 Bắt đầu quét Kệ #${shelfId} (${duration}s)...`, 'info');
+        }
+
+        async function finalizeAndDispatchShelfReport(shelfId) {
+            // Lấy thông số mật độ: ưu tiên từ camera phân tích gần nhất, nếu không lấy từ giao diện
+            let densityPct = 50.0;
+            let stockStatus = "Normal";
+
+            if (latestAnalysisData && latestAnalysisData.densityPct !== undefined) {
+                densityPct = parseFloat(latestAnalysisData.densityPct);
+                stockStatus = latestAnalysisData.stockStatus || (densityPct < 40 ? "Out of Stock" : (densityPct < 70 ? "Low Stock" : "Normal"));
+            } else {
+                const uiDensity = document.getElementById('val-density').innerText;
+                const parsed = parseFloat(uiDensity);
+                if (!isNaN(parsed) && parsed > 0) densityPct = parsed;
+                const uiStatus = document.getElementById('val-status').innerText;
+                if (uiStatus && uiStatus !== 'KHÔNG RÕ') stockStatus = uiStatus;
+            }
+
+            const nowMs = Date.now();
+            const robotCode = currentRobotCode || document.getElementById('robot-select')?.value || "RB0001";
+            const reportPayload = {
+                shelfId: shelfId,
+                densityPct: roundNum(densityPct, 1),
+                stockStatus: stockStatus,
+                timestamp: nowMs,
+                robotCode: robotCode
+            };
+
+            const payloadStr = JSON.stringify(reportPayload);
+            console.log("Dispatching Shelf Report:", payloadStr);
+
+            // A. Gửi trực tiếp qua MQTT HiveMQ (chỉ gửi 1 tin nhắn duy nhất tới topic chuẩn của robot)
+            let mqttSent = false;
+            if (mqttClient && mqttClient.isConnected()) {
+                try {
+                    const msg = new Paho.MQTT.Message(payloadStr);
+                    msg.destinationName = `smartmarketbot/robot/${robotCode}/shelf_report`;
+                    msg.qos = 1;
+                    mqttClient.send(msg);
+                    mqttSent = true;
+                    console.log(`Published 1 shelf report to HiveMQ MQTT: smartmarketbot/robot/${robotCode}/shelf_report`);
+                } catch (e) {
+                    console.error("MQTT publish failed:", e);
+                }
+            } else {
+                console.warn("MQTT Client is not connected, trying to reconnect...");
+                connectMQTT();
+            }
+
+            // B. Chỉ gửi qua ROS 2 topic /shelf/density_report nếu MQTT chưa gửi trực tiếp (tránh lặp tin)
+            if (!mqttSent && densityReportTopic && ros && ros.isConnected) {
+                try {
+                    densityReportTopic.publish(new ROSLIB.Message({ data: payloadStr }));
+                    console.log("Fallback: Published to ROS /shelf/density_report");
+                } catch (e) {
+                    console.warn("Could not publish to /shelf/density_report:", e);
+                }
+            }
+
+            // C. Xác thực và truy vấn trực tiếp từ Backend API để lấy Scan ID thực tế
+            let verifiedScanId = null;
+            try {
+                // Chờ Backend xử lý 1.2 giây
+                await new Promise(r => setTimeout(r, 1200));
+
+                const resp = await fetch('/api/shelf-scans/shelves/density', {
+                    headers: { 'ngrok-skip-browser-warning': 'true' }
+                });
+                if (resp.ok) {
+                    const densities = await resp.json();
+                    const target = densities.find(d => d.shelfId === shelfId);
+                    if (target) {
+                        verifiedScanId = target.latestScanId;
+                        densityPct = target.densityPercentage;
+                        console.log(`Verified with BE: Kệ #${shelfId} latestScanId=${verifiedScanId}, density=${densityPct}%`);
+                    }
+                }
+            } catch (err) {
+                console.warn("Could not fetch verification from BE:", err);
+            }
+
+            // D. Cập nhật UI
+            resetScanButton();
+            const shelfNames = {
+                1: "Kệ 1 - Đồ Ăn Vặt",
+                2: "Kệ 2 - Nước Giải Khát",
+                3: "Kệ 3 - Thực Phẩm Tươi Sống",
+                4: "Kệ 4 - Mì Ăn Liền",
+                5: "Kệ 5 - Đồ Gia Dụng",
+                6: "Kệ 6 - Gia Vị"
+            };
+            const shelfTitle = shelfNames[shelfId] || `Kệ ${shelfId}`;
+
+            updateScanStatus('success', verifiedScanId ? `Đã lưu DB (Scan #${verifiedScanId})` : (mqttSent ? 'Đã bắn MQTT' : 'Đã gửi'));
+
+            const banner = document.getElementById('last-report-banner');
+            document.getElementById('report-shelf-name').innerText = shelfTitle;
+            document.getElementById('report-density').innerText = `${densityPct}%`;
+            const repStatus = document.getElementById('report-status');
+            repStatus.innerText = stockStatus;
+            repStatus.style.color = (stockStatus === 'Well Stocked' || stockStatus === 'Normal' || stockStatus === 'Đầy Đủ' || stockStatus === 'Bình Thường') ? '#10b981' : '#ef4444';
+            banner.style.display = 'flex';
+
+            if (verifiedScanId) {
+                showToast(`🎉 Thành công! ${shelfTitle}: Đã lưu vào Database BE (Scan ID: #${verifiedScanId}, Mật độ: ${densityPct}%)!`, 'success');
+            } else if (mqttSent) {
+                showToast(`✅ Đã gửi báo cáo ${shelfTitle} qua MQTT đến Backend!`, 'success');
+            } else {
+                showToast(`⚠️ Đã gửi qua ROS 2 (Chưa kết nối MQTT trực tiếp)`, 'warn');
+            }
+
+            setTimeout(() => {
+                updateScanStatus('idle', 'Sẵn sàng canh góc');
+            }, 6000);
+        }
+
+        function roundNum(num, dec = 1) {
+            return Math.round(num * Math.pow(10, dec)) / Math.pow(10, dec);
+        }
+
+        function resetScanButton() {
+            isSweeping = false;
+            const btn = document.getElementById('btn-trigger-scan');
+            const btnText = document.getElementById('btn-scan-text');
+            btn.disabled = false;
+            btnText.innerText = 'KÍCH HOẠT QUÉT & BÁO CÁO BE';
+            const overlay = document.getElementById('scan-progress-overlay');
+            overlay.style.display = 'none';
+        }
+
+        function handleDensityReportPayload(msg) {
+            try {
+                const rep = JSON.parse(msg.data);
+                console.log("[ECHO] /shelf/density_report:", rep);
+            } catch (e) {}
+        }
+
+        function dismissReportBanner() {
+            document.getElementById('last-report-banner').style.display = 'none';
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast-item';
+            
+            let icon = 'ℹ️';
+            if (type === 'success') icon = '✅';
+            if (type === 'warn') icon = '⚠️';
+            if (type === 'error') icon = '❌';
+
+            toast.innerHTML = `
+                <span style="font-size: 1.2rem;">${icon}</span>
+                <span style="flex: 1; line-height: 1.4;">${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.transition = 'opacity 0.3s, transform 0.3s';
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (toast.parentNode) toast.parentNode.removeChild(toast);
+                }, 300);
+            }, 4000);
         }
 
         function handleAnalysisPayload(msg) {
             try {
                 const data = JSON.parse(msg.data);
+                latestAnalysisData = data;
                 
-                document.getElementById('val-shelf').innerText = data.shelfCategory || `Shelf ${data.shelfId}`;
+                const shelfTitle = data.shelfCategory || `Shelf ${data.shelfId}`;
+                document.getElementById('val-shelf').innerText = shelfTitle;
                 document.getElementById('val-density').innerText = `${data.densityPct}%`;
                 document.getElementById('val-products').innerText = data.totalObjects;
                 document.getElementById('val-empty').innerText = data.totalEmptySlots;
                 document.getElementById('val-inference').innerText = `${data.inferenceTimeMs} ms`;
                 
                 const statusEl = document.getElementById('val-status');
-                statusEl.innerText = data.stockStatus; // Will override below
+                statusEl.innerText = data.stockStatus;
                 statusEl.className = 'badge';
                 
                 const bar = document.getElementById('density-bar');
@@ -303,6 +1336,12 @@
                     statusEl.classList.add('out-of-stock');
                     bar.style.background = '#ef4444';
                     statusEl.innerText = 'Hết Hàng';
+                }
+
+                // Tự động đồng bộ dropdown kệ nếu nhận diện được tag ID (khi không đang sweep)
+                if (!isSweeping && data.shelfId && data.shelfId >= 1 && data.shelfId <= 6) {
+                    const shelfSelect = document.getElementById('shelf-select');
+                    shelfSelect.value = String(data.shelfId);
                 }
 
                 // --- TIER INFO ---
@@ -374,7 +1413,7 @@
 
                         if (count > 1) {
                             const details = document.createElement('div');
-                            details.style.display = 'flex'; // Changed from 'none' so it always shows
+                            details.style.display = 'flex';
                             details.style.flexDirection = 'column';
                             details.style.borderTop = '1px solid rgba(255,255,255,0.05)';
                             details.style.background = 'rgba(0,0,0,0.2)';
