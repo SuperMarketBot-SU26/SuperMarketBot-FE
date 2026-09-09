@@ -1724,8 +1724,8 @@ free_thresh: 0.196
                 for (let i = 0; i < ranges.length; i++) {
                     const r = ranges[i];
                     if (r < latestScan.range_min || r > latestScan.range_max) continue;
-                    // LiDAR is mounted at -90 degrees in URDF (-1.5708 rad)
-                    const LIDAR_YAW_OFFSET = -1.5708;
+                    // LiDAR is mounted with +90 degrees yaw in URDF (1.5708 rad) after reversing robot heading
+                    const LIDAR_YAW_OFFSET = 1.5708;
                     const angle = robotHeading + LIDAR_YAW_OFFSET + angle_min + i * angle_inc;
                     const lx = robotMapX + r * Math.cos(angle);
                     const ly = robotMapY + r * Math.sin(angle);
