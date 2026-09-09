@@ -409,11 +409,15 @@
             <div style="font-size: 14px; color: #fff; margin-bottom: 12px; line-height: 1.4;">
                 <span id="instruction-pan">
                     🖱️ <b>Kéo thả chuột (Drag):</b> Di chuyển bản đồ<br>
+                    📍 <b>Kéo thả Waypoint:</b> Nhấn giữ vào Waypoint để dời vị trí<br>
+                    ⚙️ <b>Click vào Waypoint:</b> Mở bảng cấu hình<br>
                     🔍 <b>Lăn chuột (Scroll):</b> Phóng to / Thu nhỏ<br>
                     ❌ <b>Click chuột phải:</b> Xóa Waypoint
                 </span>
                 <span id="instruction-draw" style="display:none; color: #fecdd3;">
-                    🎯 <b>Giữ chuột trái & Kéo:</b> Đặt Waypoint lưu vào bộ nhớ để xuất file YAML.<br>
+                    🎯 <b>Giữ chuột trái & Kéo (vùng trống):</b> Đặt Waypoint mới.<br>
+                    📍 <b>Kéo thả Waypoint cũ:</b> Di chuyển vị trí Waypoint<br>
+                    ⚙️ <b>Click vào Waypoint:</b> Mở bảng cấu hình<br>
                     ❌ <b>Click chuột phải:</b> Xóa Waypoint
                 </span>
                 <span id="instruction-initialpose" style="display:none; color: #d1fae5;">
@@ -833,6 +837,10 @@
         let isDragging = false;
         let startClientX, startClientY;
         let startTranslateX, startTranslateY;
+        let draggingWpIndex = -1;
+        let isWpMoved = false;
+        let wpDragStartClientX = 0;
+        let wpDragStartClientY = 0;
 
         container.addEventListener('mousedown', (e) => {
             if (e.button === 0) { // Chuột trái
@@ -863,8 +871,12 @@
                 }
 
                 if (clickedWpIndex !== -1) {
-                    openWpModal(clickedWpIndex);
-                    return; // Dừng lại, không kéo thả map hay tạo WP mới
+                    draggingWpIndex = clickedWpIndex;
+                    isWpMoved = false;
+                    wpDragStartClientX = e.clientX;
+                    wpDragStartClientY = e.clientY;
+                    container.style.cursor = 'grabbing';
+                    return; // Chờ xem là click hay kéo chuột (drag)
                 }
 
                 if (currentMode === 'pan') {
@@ -898,6 +910,48 @@
         });
 
         window.addEventListener('mousemove', (e) => {
+            if (draggingWpIndex !== -1) {
+                const dist = Math.hypot(e.clientX - wpDragStartClientX, e.clientY - wpDragStartClientY);
+                if (dist > 4) {
+                    isWpMoved = true;
+                    container.style.cursor = 'grabbing';
+                    const containerRect = container.getBoundingClientRect();
+                    const mouseX = e.clientX - containerRect.left;
+                    const mouseY = e.clientY - containerRect.top;
+
+                    const pixelX = (mouseX - translateX) / scale;
+                    const pixelY = (mouseY - translateY) / scale;
+                    const mapCoords = pixelToMap(pixelX, pixelY);
+
+                    waypoints[draggingWpIndex].x = parseFloat(mapCoords.x.toFixed(4));
+                    waypoints[draggingWpIndex].y = parseFloat(mapCoords.y.toFixed(4));
+
+                    document.getElementById('val-wx').innerText = mapCoords.x.toFixed(4);
+                    document.getElementById('val-wy').innerText = mapCoords.y.toFixed(4);
+
+                    renderUI();
+                }
+                return;
+            }
+
+            // Hover indicator cho Waypoint (nếu ở Edit mode)
+            if (window.isEditMode && currentMode === 'pan' && !isDragging) {
+                const containerRect = container.getBoundingClientRect();
+                const mouseX = e.clientX - containerRect.left;
+                const mouseY = e.clientY - containerRect.top;
+                let hoverWp = false;
+                for (let i = waypoints.length - 1; i >= 0; i--) {
+                    const wp = waypoints[i];
+                    const px = mapToPixel(wp.x, wp.y);
+                    const screenPx = pixelToScreen(px.x, px.y);
+                    if (Math.hypot(mouseX - screenPx.x, mouseY - screenPx.y) <= 15) {
+                        hoverWp = true;
+                        break;
+                    }
+                }
+                container.style.cursor = hoverWp ? 'grab' : '';
+            }
+
             if (currentMode === 'pan' && isDragging) {
                 const dx = e.clientX - startClientX;
                 const dy = e.clientY - startClientY;
@@ -1337,6 +1391,39 @@ free_thresh: 0.196
         // --- Xử lý sự kiện thả chuột ---
         window.addEventListener('mouseup', (e) => {
             if (e.button === 0) {
+                if (draggingWpIndex !== -1) {
+                    const wpIdx = draggingWpIndex;
+                    const wasMoved = isWpMoved;
+                    draggingWpIndex = -1;
+                    isWpMoved = false;
+                    container.style.cursor = '';
+
+                    if (wasMoved) {
+                        const wp = waypoints[wpIdx];
+                        const toast = document.getElementById('toast');
+                        toast.innerText = `📍 Đã dời "${wp.name || 'Waypoint ' + (wpIdx + 1)}" đến (${wp.x.toFixed(2)}, ${wp.y.toFixed(2)})! Bấm "Lưu Waypoint Lên Server" để đồng bộ.`;
+                        toast.style.background = '#0ea5e9';
+                        toast.classList.add('show');
+                        setTimeout(() => toast.classList.remove('show'), 3500);
+
+                        const syncBtn = document.querySelector('button[onclick="syncWaypointsToBE()"]');
+                        if (syncBtn) {
+                            syncBtn.style.boxShadow = '0 0 16px rgba(14, 165, 233, 0.9)';
+                            syncBtn.style.transform = 'scale(1.02)';
+                            syncBtn.style.transition = 'all 0.3s ease';
+                            setTimeout(() => {
+                                syncBtn.style.boxShadow = '';
+                                syncBtn.style.transform = '';
+                            }, 2500);
+                        }
+                        renderUI();
+                    } else {
+                        // Click nhấp chuột thông thường -> Mở modal cấu hình Waypoint
+                        openWpModal(wpIdx);
+                    }
+                    return;
+                }
+
                 if (currentMode === 'pan') {
                     isDragging = false;
                 } else if (draftWaypoint && (currentMode === 'draw' || currentMode === 'initialpose' || currentMode === 'navgoal')) {
@@ -1513,7 +1600,20 @@ free_thresh: 0.196
         /** ==========================================
          * HÀM VẼ WAYPOINT CHUNG (Dùng cho cả lúc Nháp & Hoàn thiện)
          * ========================================== */
-        function drawWaypoint(ctx, screenPx, heading, labelText, isDraft = false) {
+        function drawWaypoint(ctx, screenPx, heading, labelText, isDraft = false, isDragging = false, wpData = null) {
+            // Vòng hào quang khi đang kéo di chuyển
+            if (isDragging) {
+                ctx.beginPath();
+                ctx.arc(screenPx.x, screenPx.y, 18, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(14, 165, 233, 0.2)';
+                ctx.fill();
+                ctx.strokeStyle = '#0ea5e9';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
             // Vẽ tia chỉ hướng (Heading Line)
             if (heading !== undefined) {
                 const arrowLen = 30; // Mũi tên dài ra cho dễ nhìn
@@ -1523,7 +1623,7 @@ free_thresh: 0.196
                 ctx.beginPath();
                 ctx.moveTo(screenPx.x, screenPx.y);
                 ctx.lineTo(endX, endY);
-                ctx.strokeStyle = '#f59e0b'; // Màu cam
+                ctx.strokeStyle = isDragging ? '#0ea5e9' : '#f59e0b';
                 ctx.lineWidth = 3;
                 ctx.stroke();
 
@@ -1536,18 +1636,30 @@ free_thresh: 0.196
                 ctx.lineTo(endX - Math.cos(angle1) * arrowSize, endY + Math.sin(angle1) * arrowSize);
                 ctx.lineTo(endX - Math.cos(angle2) * arrowSize, endY + Math.sin(angle2) * arrowSize);
                 ctx.closePath();
-                ctx.fillStyle = '#f59e0b';
+                ctx.fillStyle = isDragging ? '#0ea5e9' : '#f59e0b';
                 ctx.fill();
             }
 
-            // Cục node màu đỏ (Nổi bật hơn nếu đang nháp)
-            ctx.beginPath(); ctx.arc(screenPx.x, screenPx.y, isDraft ? 9 : 7, 0, Math.PI * 2);
-            ctx.fillStyle = '#f43f5e'; ctx.fill();
-            ctx.strokeStyle = '#fff'; ctx.lineWidth = isDraft ? 3 : 2; ctx.stroke();
+            // Cục node màu đỏ (Nổi bật hơn nếu đang nháp hoặc chuyển sang cyan khi kéo)
+            ctx.beginPath();
+            ctx.arc(screenPx.x, screenPx.y, isDragging ? 10 : (isDraft ? 9 : 7), 0, Math.PI * 2);
+            ctx.fillStyle = isDragging ? '#0ea5e9' : '#f43f5e';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = (isDraft || isDragging) ? 3 : 2;
+            ctx.stroke();
 
             // Tên WP
-            ctx.fillStyle = '#fff'; ctx.font = 'bold 12px sans-serif';
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 12px sans-serif';
             ctx.fillText(labelText, screenPx.x - 14, screenPx.y - 15);
+
+            // Hiển thị tọa độ real-time bên dưới node khi đang kéo
+            if (isDragging && wpData) {
+                ctx.fillStyle = '#38bdf8';
+                ctx.font = 'bold 11px monospace';
+                ctx.fillText(`(${wpData.x.toFixed(2)}, ${wpData.y.toFixed(2)})`, screenPx.x - 22, screenPx.y + 24);
+            }
         }
 
         /** ==========================================
@@ -1568,7 +1680,8 @@ free_thresh: 0.196
             waypoints.forEach((wp, index) => {
                 const px = mapToPixel(wp.x, wp.y);
                 const screenPx = pixelToScreen(px.x, px.y);
-                drawWaypoint(ctxUI, screenPx, wp.heading, wp.name || `WP ${index + 1}`, false);
+                const isThisDragging = (draggingWpIndex === index && isWpMoved);
+                drawWaypoint(ctxUI, screenPx, wp.heading, wp.name || `WP ${index + 1}`, false, isThisDragging, wp);
             });
 
             // Vẽ Waypoint ĐANG KÉO NHÁP (Draft)
