@@ -37,6 +37,10 @@ export function ImportHistoryModal({ isOpen, onClose, type = 'PRODUCT' }) {
       ? 'Lịch Sử Import Sản Phẩm'
       : normType === 'BRAND'
       ? 'Lịch Sử Import Nhãn Hàng'
+      : normType === 'PRODUCT_TYPE'
+      ? 'Lịch Sử Import Loại Sản Phẩm'
+      : normType === 'HEALTH_TAG'
+      ? 'Lịch Sử Import Health Tag'
       : 'Lịch Sử Import Chiến Dịch Quảng Cáo'
 
   const fetchHistories = useCallback(async () => {

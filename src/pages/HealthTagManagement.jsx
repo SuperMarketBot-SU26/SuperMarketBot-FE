@@ -13,7 +13,11 @@ import {
   createAdminHealthTag,
   updateAdminHealthTag,
   deleteAdminHealthTag,
+  importHealthTags,
+  downloadHealthTagImportTemplate,
+  exportHealthTags,
 } from '../features/healthTag/api/adminHealthTagApi'
+import { ImportHistoryModal } from '../components/ImportHistoryModal'
 
 const TAG_TYPE_OPTIONS = [
   { value: 'Diet', label: 'Chế độ ăn' },
@@ -32,8 +36,18 @@ const TAG_TYPE_LABELS = {
   Ingredient: { label: 'Thành phần', icon: 'science', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' },
 }
 
+const normalizeTagType = (type = '') => {
+  if (!type) return 'Diet'
+  const s = String(type).trim().toLowerCase()
+  if (s === 'diet') return 'Diet'
+  if (s === 'allergen' || s === 'allergy') return 'Allergen'
+  if (s === 'ingredient' || s === 'lifestyle' || s === 'nutrition') return 'Ingredient'
+  return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase()
+}
+
 function TagTypeBadge({ tagType }) {
-  const cfg = TAG_TYPE_LABELS[tagType] || { label: tagType, icon: 'label', cls: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-500/10 dark:text-slate-400' }
+  const norm = normalizeTagType(tagType)
+  const cfg = TAG_TYPE_LABELS[norm] || { label: tagType, icon: 'label', cls: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-500/10 dark:text-slate-400' }
   return (
     <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${cfg.cls}`}>
       <span className="material-symbols-outlined text-[12px]">{cfg.icon}</span>
@@ -78,6 +92,12 @@ export function HealthTagManagement() {
   const [deletingTag, setDeletingTag] = useState(null)
   const [deleting, setDeleting] = useState(false)
 
+  // Import / Export states
+  const fileInputRef = React.useRef(null)
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState(null)
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
+
   const fetchTags = useCallback(async () => {
     setLoading(true)
     setFetchError(null)
@@ -97,15 +117,15 @@ export function HealthTagManagement() {
 
   const filtered = tags.filter((t) => {
     const matchSearch = !search || t.tagName.toLowerCase().includes(search.toLowerCase())
-    const matchType = !typeFilter || t.tagType === typeFilter
+    const matchType = !typeFilter || normalizeTagType(t.tagType) === typeFilter
     return matchSearch && matchType
   })
 
   const counts = {
     all: tags.length,
-    diet: tags.filter((t) => t.tagType === 'Diet').length,
-    allergen: tags.filter((t) => t.tagType === 'Allergen').length,
-    ingredient: tags.filter((t) => t.tagType === 'Ingredient').length,
+    diet: tags.filter((t) => normalizeTagType(t.tagType) === 'Diet').length,
+    allergen: tags.filter((t) => normalizeTagType(t.tagType) === 'Allergen').length,
+    ingredient: tags.filter((t) => normalizeTagType(t.tagType) === 'Ingredient').length,
   }
 
   const openCreate = () => {
@@ -117,7 +137,7 @@ export function HealthTagManagement() {
 
   const openEdit = (tag) => {
     setEditingTag(tag)
-    setForm({ tagName: tag.tagName, tagType: tag.tagType })
+    setForm({ tagName: tag.tagName, tagType: normalizeTagType(tag.tagType) })
     setFormError(null)
     setModalOpen(true)
   }
@@ -186,6 +206,61 @@ export function HealthTagManagement() {
       setDeletingTag(null)
     } finally {
       setDeleting(false)
+    }
+  }
+
+  const handleImportClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+      fileInputRef.current.click()
+    }
+  }
+
+  const handleDownloadTemplate = async () => {
+    try {
+      await downloadHealthTagImportTemplate()
+      toast.success('Đã tải file mẫu import Health Tag.')
+    } catch {
+      toast.error('Không thể tải file mẫu.')
+    }
+  }
+
+  const handleExport = async () => {
+    try {
+      await exportHealthTags()
+      toast.success('Đã xuất danh sách Health Tag ra Excel.')
+    } catch {
+      toast.error('Không thể xuất file Excel.')
+    }
+  }
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const ext = file.name.split('.').pop().toLowerCase()
+    if (ext !== 'xlsx' && ext !== 'xls') {
+      toast.warning('Vui lòng chọn file định dạng Excel (.xlsx, .xls)')
+      return
+    }
+
+    setImporting(true)
+    try {
+      const res = await importHealthTags(file)
+      if (res.errorCount === 0 && res.duplicateCount === 0) {
+        toast.success(`Import thành công tất cả ${res.successCount} thẻ sức khỏe!`)
+      } else if (res.successCount > 0) {
+        toast.warning(`Đã import ${res.successCount} thẻ. Có ${res.errorCount} dòng gặp lỗi/trùng lặp.`)
+        setImportResult(res)
+      } else {
+        toast.error(`Không thể import: ${res.errorCount} dòng dữ liệu bị lỗi hoặc trùng lặp.`)
+        setImportResult(res)
+      }
+      fetchTags()
+    } catch (err) {
+      toast.error(err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Lỗi khi import file Excel.')
+    } finally {
+      setImporting(false)
     }
   }
 
@@ -275,7 +350,26 @@ export function HealthTagManagement() {
                 </select>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="outline" icon="download" size="sm" onClick={handleDownloadTemplate} title="Tải file mẫu Excel">
+                  File Mẫu
+                </Button>
+                <Button
+                  variant="outline"
+                  icon={importing ? 'progress_activity' : 'upload_file'}
+                  size="sm"
+                  onClick={handleImportClick}
+                  disabled={importing}
+                  className={importing ? 'animate-pulse' : ''}
+                >
+                  {importing ? 'Đang Import...' : 'Import Excel'}
+                </Button>
+                <Button variant="outline" icon="history" size="sm" onClick={() => setShowHistoryModal(true)} title="Xem lịch sử import">
+                  Lịch Sử Import
+                </Button>
+                <Button variant="outline" icon="file_download" size="sm" onClick={handleExport} title="Xuất toàn bộ Health Tag ra Excel">
+                  Xuất Excel
+                </Button>
                 <Button variant="outline" icon="refresh" size="sm" onClick={fetchTags} disabled={loading}>
                   Làm Mới
                 </Button>
@@ -424,6 +518,164 @@ export function HealthTagManagement() {
           </div>
         </div>
       )}
+
+      {/* Hidden File Input for Excel Import */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".xlsx,.xls"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
+      {/* ── Import Results Modal ── */}
+      {importResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 smb-fade-in">
+          <div className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-3xl bg-smb-surface-container-lowest shadow-2xl border border-smb-outline-variant/60 overflow-hidden smb-slide-up">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-smb-outline-variant/40 px-6 py-4 bg-smb-surface-container-low/50">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <span className="material-symbols-outlined text-2xl">receipt_long</span>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-smb-on-surface">Báo Cáo Chi Tiết Import Health Tag</h3>
+                  <p className="text-xs text-smb-on-surface-variant">
+                    Tổng cộng {importResult.totalRows} dòng dữ liệu trong file đã được phân tích
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setImportResult(null)}
+                className="flex size-8 items-center justify-center rounded-full text-smb-on-surface-variant hover:bg-smb-surface-container transition-colors"
+              >
+                <span className="material-symbols-outlined text-xl">close</span>
+              </button>
+            </div>
+
+            {/* Metrics cards */}
+            <div className="grid grid-cols-3 gap-3 p-6 bg-smb-surface-container-lowest border-b border-smb-outline-variant/30">
+              <div className="rounded-2xl border border-emerald-200/60 bg-emerald-50/60 p-3.5 dark:border-emerald-500/20 dark:bg-emerald-500/10">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Thành Công</span>
+                  <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400 text-lg">check_circle</span>
+                </div>
+                <div className="mt-1 text-2xl font-bold text-emerald-800 dark:text-emerald-300">
+                  {importResult.successCount}
+                </div>
+                <div className="text-[11px] text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">Thẻ đã lưu</div>
+              </div>
+
+              <div className="rounded-2xl border border-amber-200/60 bg-amber-50/60 p-3.5 dark:border-amber-500/20 dark:bg-amber-500/10">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-amber-700 dark:text-amber-400">Trùng Lặp</span>
+                  <span className="material-symbols-outlined text-amber-600 dark:text-amber-400 text-lg">content_copy</span>
+                </div>
+                <div className="mt-1 text-2xl font-bold text-amber-800 dark:text-amber-300">
+                  {importResult.duplicateCount}
+                </div>
+                <div className="text-[11px] text-amber-600/80 dark:text-amber-400/80 mt-0.5">Đã có trong hệ thống hoặc file</div>
+              </div>
+
+              <div className="rounded-2xl border border-rose-200/60 bg-rose-50/60 p-3.5 dark:border-rose-500/20 dark:bg-rose-500/10">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-rose-700 dark:text-rose-400">Lỗi Dữ Liệu</span>
+                  <span className="material-symbols-outlined text-rose-600 dark:text-rose-400 text-lg">error</span>
+                </div>
+                <div className="mt-1 text-2xl font-bold text-rose-800 dark:text-rose-300">
+                  {Math.max(0, importResult.errorCount - importResult.duplicateCount)}
+                </div>
+                <div className="text-[11px] text-rose-600/80 dark:text-rose-400/80 mt-0.5">Sai loại hoặc thiếu tên</div>
+              </div>
+            </div>
+
+            {/* Error Table */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {importResult.errors && importResult.errors.length > 0 ? (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-smb-on-surface-variant">
+                      Chi tiết {importResult.errors.length} dòng lỗi / cảnh báo
+                    </span>
+                    <span className="text-xs text-rose-600 dark:text-rose-400 font-medium">
+                      Các dòng lỗi đã được bỏ qua
+                    </span>
+                  </div>
+
+                  <div className="overflow-hidden rounded-2xl border border-smb-outline-variant/50">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-smb-surface-container-low text-smb-on-surface-variant uppercase text-[10px] tracking-wider">
+                        <tr>
+                          <th className="py-2.5 px-3 font-semibold text-center w-16">Dòng</th>
+                          <th className="py-2.5 px-3 font-semibold">Tên Tag</th>
+                          <th className="py-2.5 px-3 font-semibold">Phân Loại</th>
+                          <th className="py-2.5 px-3 font-semibold">Chi Tiết Lỗi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-smb-outline-variant/30">
+                        {importResult.errors.map((err, idx) => {
+                          const isDup = err.field === 'Duplicate'
+                          return (
+                            <tr key={idx} className="hover:bg-smb-surface-container-low/30 transition-colors">
+                              <td className="py-2.5 px-3 font-mono font-bold text-center">
+                                <span className="inline-flex items-center justify-center rounded-md bg-smb-surface-container px-2 py-0.5 text-xs text-smb-on-surface">
+                                  #{err.rowIndex}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 font-medium text-smb-on-surface max-w-[150px] truncate" title={err.tagName}>
+                                {err.tagName || '(Trống)'}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                  isDup
+                                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'
+                                    : 'bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300'
+                                }`}>
+                                  <span className="material-symbols-outlined text-[11px]">
+                                    {isDup ? 'content_copy' : 'warning'}
+                                  </span>
+                                  {isDup ? 'Trùng Lặp' : err.field || 'Lỗi'}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-smb-on-surface-variant">
+                                {err.errorMessage}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-8 text-center text-sm text-smb-on-surface-variant flex flex-col items-center gap-2">
+                  <span className="material-symbols-outlined text-4xl text-emerald-500">task_alt</span>
+                  <p>Tất cả các dòng dữ liệu đều được import thành công, không có lỗi phát sinh.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 border-t border-smb-outline-variant/40 px-6 py-3.5 bg-smb-surface-container-low/30">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setImportResult(null)}
+              >
+                Đóng Báo Cáo
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Import History Modal ── */}
+      <ImportHistoryModal
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        type="HEALTH_TAG"
+      />
     </div>
   )
 }

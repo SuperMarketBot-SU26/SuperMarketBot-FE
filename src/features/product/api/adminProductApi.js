@@ -184,3 +184,42 @@ export const updateAdminProductType = (productTypeId, payload) =>
 
 export const deleteAdminProductType = (productTypeId) =>
   client.delete(`${ADMIN_PRODUCT_TYPES_ENDPOINT}/${productTypeId}`).then((res) => res.data)
+
+export const importProductTypes = (file) => {
+  const form = new FormData()
+  form.append('file', file)
+  return client
+    .post(`${ADMIN_PRODUCT_TYPES_ENDPOINT}/import`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then((res) => res.data)
+}
+
+export const downloadProductTypeImportTemplate = () =>
+  client
+    .get(`${ADMIN_PRODUCT_TYPES_ENDPOINT}/import-template`, { responseType: 'blob' })
+    .then((res) => {
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', 'product_types_import_template.xlsx')
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    })
+
+export const exportProductTypes = () =>
+  client
+    .get(`${ADMIN_PRODUCT_TYPES_ENDPOINT}/export`, { responseType: 'blob' })
+    .then((res) => {
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', 'product_types_full_export.xlsx')
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    })
+

@@ -23,3 +23,42 @@ export const updateAdminHealthTag = (tagId, payload) =>
 
 export const deleteAdminHealthTag = (tagId) =>
   client.delete(`${ADMIN_HEALTH_TAGS_ENDPOINT}/${tagId}`).then((res) => res.data)
+
+export const importHealthTags = (file) => {
+  const form = new FormData()
+  form.append('file', file)
+  return client
+    .post(`${ADMIN_HEALTH_TAGS_ENDPOINT}/import`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then((res) => res.data)
+}
+
+export const downloadHealthTagImportTemplate = () =>
+  client
+    .get(`${ADMIN_HEALTH_TAGS_ENDPOINT}/import-template`, { responseType: 'blob' })
+    .then((res) => {
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', 'health_tags_import_template.xlsx')
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    })
+
+export const exportHealthTags = () =>
+  client
+    .get(`${ADMIN_HEALTH_TAGS_ENDPOINT}/export`, { responseType: 'blob' })
+    .then((res) => {
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', 'health_tags_full_export.xlsx')
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    })
+

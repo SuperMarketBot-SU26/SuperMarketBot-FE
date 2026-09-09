@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { StatCard } from '../../../components/StatCard'
+import { PackageDetailModal } from './PackageDetailModal'
 
 const PACKAGE_LABELS = {
   organic: 'Tự Nhiên',
@@ -10,6 +11,7 @@ const PACKAGE_LABELS = {
 }
 
 export function CampaignInfo({ data, sponsoredProducts = [] }) {
+  const [showPackageDetail, setShowPackageDetail] = useState(false)
   if (!data) return null
 
   const formatDate = (val) =>
@@ -80,9 +82,17 @@ export function CampaignInfo({ data, sponsoredProducts = [] }) {
           <div>
             <p className="text-xs font-medium uppercase tracking-wider text-smb-on-surface-variant">Gói Dịch Vụ</p>
             <p className="mt-1">
-              <span className="inline-block rounded-full bg-smb-primary-container/10 px-3 py-0.5 text-xs font-semibold text-smb-primary-container">
-                {PACKAGE_LABELS[data.packageName] || data.packageName || '—'} ({formatVND(packageBudget)})
-              </span>
+              <button
+                type="button"
+                onClick={() => setShowPackageDetail(true)}
+                title="Bấm để xem chi tiết gói quảng cáo"
+                className="group inline-flex items-center gap-1.5 rounded-full bg-smb-primary-container/10 hover:bg-smb-primary-container/20 px-3 py-0.5 text-xs font-semibold text-smb-primary-container transition-all cursor-pointer"
+              >
+                <span>{PACKAGE_LABELS[data.packageName] || data.packageName || '—'} ({formatVND(packageBudget)})</span>
+                <span className="material-symbols-outlined text-[14px] transition-transform group-hover:scale-125">
+                  info
+                </span>
+              </button>
             </p>
           </div>
 
@@ -208,6 +218,13 @@ export function CampaignInfo({ data, sponsoredProducts = [] }) {
           color="info"
         />
       </div>
+
+      {showPackageDetail && data.packageId && (
+        <PackageDetailModal
+          packageId={data.packageId}
+          onClose={() => setShowPackageDetail(false)}
+        />
+      )}
     </div>
   )
 }

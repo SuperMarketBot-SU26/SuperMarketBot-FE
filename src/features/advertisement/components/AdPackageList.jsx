@@ -5,6 +5,7 @@ import { TableActions } from '../../../components/TableActions'
 import { Button } from '../../../components/ui/Button'
 import { ConfirmModal } from '../../../components/ConfirmModal'
 import { FormModal, FormField } from '../../../components/FormModal'
+import { PackageDetailModal } from './PackageDetailModal'
 import { getPackages, createPackage, updatePackage, updatePackageStatus, deletePackage } from '../api/adPackageApi'
 import { getErrorMessage } from '../../../api/client'
 import { toast } from 'react-toastify'
@@ -39,6 +40,7 @@ export function AdPackageList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [modal, setModal] = useState(null) // { type: 'create'|'edit', data?: pkg }
+  const [viewingPackage, setViewingPackage] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [submitting, setSubmitting] = useState(false)
@@ -190,7 +192,17 @@ export function AdPackageList() {
       label: 'Tên Gói',
       render: (val, row) => (
         <div className="max-w-[200px]">
-          <p className="font-medium text-smb-on-surface truncate">{val}</p>
+          <button
+            type="button"
+            onClick={() => setViewingPackage(row)}
+            className="group flex items-center gap-1.5 text-left font-semibold text-smb-primary hover:text-smb-primary/80 hover:underline"
+            title="Bấm để xem chi tiết gói quảng cáo"
+          >
+            <span className="truncate">{val}</span>
+            <span className="material-symbols-outlined text-[15px] opacity-0 transition-opacity group-hover:opacity-100">
+              visibility
+            </span>
+          </button>
           {row.description && (
             <p className="mt-0.5 text-xs text-smb-on-surface-variant line-clamp-2" title={row.description}>
               {row.description}
@@ -272,6 +284,7 @@ export function AdPackageList() {
       render: (_, row) => (
         <TableActions
           actions={[
+            { label: 'Xem chi tiết', icon: 'visibility', onClick: () => setViewingPackage(row) },
             { label: 'Chỉnh sửa', icon: 'edit', onClick: () => openEdit(row) },
             {
               label: row.status === 'Active' ? 'Tắt kích hoạt' : 'Kích hoạt',
@@ -481,6 +494,17 @@ export function AdPackageList() {
             </FormField>
           </div>
         </FormModal>
+      )}
+
+      {viewingPackage && (
+        <PackageDetailModal
+          packageData={viewingPackage}
+          onClose={() => setViewingPackage(null)}
+          onEdit={(pkg) => {
+            setViewingPackage(null)
+            openEdit(pkg)
+          }}
+        />
       )}
 
       {deleteTarget && (
