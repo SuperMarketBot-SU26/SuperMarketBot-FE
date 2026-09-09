@@ -345,8 +345,14 @@ export default function ShelfManagement() {
           </div>
         </div>
 
+        {/* ─── Robot Layout System Notice ─────────────────────── */}
+        <div className="flex items-center gap-2 border-b border-smb-outline-variant/40 bg-smb-primary/5 px-6 py-2.5 text-xs text-smb-on-surface-variant">
+          <Icon name="verified" className="text-sm text-smb-primary" />
+          <span>Sơ đồ 3 Khu vực, 3 Dãy và 6 Kệ được cố định theo cấu hình định vị robot và tem ArUco (#1–#6). Cho phép chỉnh sửa thông tin hiển thị và gán sản phẩm vào ô chứa.</span>
+        </div>
+
         {/* ─── 3-Column Layout ────────────────────────────────── */}
-        <div className="flex gap-0 divide-x divide-smb-outline-variant/40" style={{ minHeight: 'calc(100vh - 180px)' }}>
+        <div className="flex gap-0 divide-x divide-smb-outline-variant/40" style={{ minHeight: 'calc(100vh - 210px)' }}>
 
           {/* ─── Column 1: Zones ──────────────────────────────── */}
           <div className="w-[280px] shrink-0 overflow-y-auto bg-smb-surface-container-lowest/50 p-4">
@@ -354,29 +360,10 @@ export default function ShelfManagement() {
               <h2 className="text-xs font-bold uppercase tracking-wider text-smb-on-surface-variant">
                 <Icon name="map" className="mr-1 align-middle text-sm" />Khu Vực
               </h2>
-              <button
-                type="button"
-                onClick={() => { setShowZoneForm(true); setEditingZone(null) }}
-                className="flex items-center gap-1 rounded-lg bg-smb-primary/10 px-2 py-1 text-[10px] font-semibold text-smb-primary transition-all hover:bg-smb-primary/20"
-              >
-                <Icon name="add" className="text-sm" /> Thêm
-              </button>
+              <span className="rounded bg-smb-surface-container px-2 py-0.5 text-[10px] font-medium text-smb-on-surface-variant">
+                3 Cố định
+              </span>
             </div>
-
-            {/* Zone Create Form */}
-            {showZoneForm && !editingZone && (
-              <div className="mb-3">
-                <InlineForm
-                  fields={[
-                    { key: 'zoneName', label: 'Tên khu vực', required: true, minLength: 2, placeholder: 'VD: Khu Đồ Khô' },
-                    { key: 'description', label: 'Mô tả', placeholder: 'Mô tả ngắn (tuỳ chọn)' },
-                  ]}
-                  onSubmit={handleCreateZone}
-                  onCancel={() => setShowZoneForm(false)}
-                  submitLabel="Tạo Zone"
-                />
-              </div>
-            )}
 
             {/* Zone List */}
             {loadingZones ? (
@@ -428,23 +415,16 @@ export default function ShelfManagement() {
                             <p className="mt-0.5 truncate text-[10px] text-smb-on-surface-variant/70">{zone.description}</p>
                           )}
                         </div>
-                        {/* Action buttons (visible on hover) */}
+                        {/* Edit action button only */}
                         <div className="ml-2 flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                           <span
                             role="button"
                             tabIndex={0}
                             onClick={(e) => { e.stopPropagation(); setEditingZone(zone); setShowZoneForm(false) }}
                             className="rounded p-1 text-smb-on-surface-variant hover:bg-smb-surface-container hover:text-smb-primary"
+                            title="Sửa tên / mô tả khu vực"
                           >
                             <Icon name="edit" className="text-[14px]" />
-                          </span>
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            onClick={(e) => { e.stopPropagation(); setDeleteTarget({ type: 'zone', id: zone.zoneId, name: zone.zoneName }) }}
-                            className="rounded p-1 text-smb-on-surface-variant hover:bg-smb-error-container hover:text-smb-on-error-container"
-                          >
-                            <Icon name="delete" className="text-[14px]" />
                           </span>
                         </div>
                       </button>
@@ -463,13 +443,9 @@ export default function ShelfManagement() {
                 {selectedZone ? selectedZone.zoneName : 'Dãy Kệ & Kệ Hàng'}
               </h2>
               {selectedZone && (
-                <button
-                  type="button"
-                  onClick={() => { setShowAisleForm(true); setEditingAisle(null) }}
-                  className="flex items-center gap-1 rounded-lg bg-smb-primary/10 px-2 py-1 text-[10px] font-semibold text-smb-primary transition-all hover:bg-smb-primary/20"
-                >
-                  <Icon name="add" className="text-sm" /> Thêm Dãy
-                </button>
+                <span className="rounded bg-smb-surface-container px-2 py-0.5 text-[10px] font-medium text-smb-on-surface-variant">
+                  Cố định
+                </span>
               )}
             </div>
 
@@ -480,21 +456,6 @@ export default function ShelfManagement() {
               </div>
             ) : (
               <>
-                {/* Aisle Create Form */}
-                {showAisleForm && !editingAisle && (
-                  <div className="mb-3">
-                    <InlineForm
-                      fields={[
-                        { key: 'aisleCode', label: 'Mã dãy kệ', required: true, placeholder: 'VD: A01' },
-                        { key: 'aisleName', label: 'Tên dãy kệ', placeholder: 'VD: Dãy Mì Gói' },
-                      ]}
-                      onSubmit={handleCreateAisle}
-                      onCancel={() => setShowAisleForm(false)}
-                      submitLabel="Tạo Dãy Kệ"
-                    />
-                  </div>
-                )}
-
                 {loadingAisles ? (
                   <div className="flex justify-center py-8">
                     <Icon name="progress_activity" className="animate-spin text-2xl text-smb-on-surface-variant" />
@@ -551,22 +512,16 @@ export default function ShelfManagement() {
                                     <span className="ml-1.5 text-[10px] text-smb-on-surface-variant">{aisle.aisleName}</span>
                                   )}
                                 </div>
+                                {/* Edit aisle button only */}
                                 <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                                   <span
                                     role="button"
                                     tabIndex={0}
                                     onClick={(e) => { e.stopPropagation(); setEditingAisle(aisle); setShowAisleForm(false) }}
                                     className="rounded p-0.5 hover:bg-smb-surface-container hover:text-smb-primary"
+                                    title="Sửa tên dãy"
                                   >
                                     <Icon name="edit" className="text-[13px]" />
-                                  </span>
-                                  <span
-                                    role="button"
-                                    tabIndex={0}
-                                    onClick={(e) => { e.stopPropagation(); setDeleteTarget({ type: 'aisle', id: aisle.aisleId, name: aisle.aisleCode }) }}
-                                    className="rounded p-0.5 hover:bg-smb-error-container hover:text-smb-on-error-container"
-                                  >
-                                    <Icon name="delete" className="text-[13px]" />
                                   </span>
                                 </div>
                               </button>
@@ -574,30 +529,9 @@ export default function ShelfManagement() {
                               {/* Shelves inside Aisle */}
                               {isExpanded && isSelected && (
                                 <div className="border-t border-smb-outline-variant/30 px-3 pb-3 pt-2">
-                                  {/* Shelf Create Form */}
-                                  {showShelfForm && !editingShelf && (
-                                    <div className="mb-2">
-                                      <InlineForm
-                                        fields={[
-                                          { key: 'shelfName', label: 'Tên kệ', required: true, placeholder: 'VD: Kệ 1' },
-                                          { key: 'slotCount', label: 'Số ô chứa', type: 'number', min: 1, placeholder: '4' },
-                                        ]}
-                                        onSubmit={handleCreateShelf}
-                                        onCancel={() => setShowShelfForm(false)}
-                                        submitLabel="Tạo Kệ"
-                                      />
-                                    </div>
-                                  )}
-
                                   <div className="mb-2 flex items-center justify-between">
                                     <span className="text-[10px] font-semibold uppercase tracking-wider text-smb-on-surface-variant/60">Kệ hàng</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => { setShowShelfForm(true); setEditingShelf(null) }}
-                                      className="flex items-center gap-0.5 text-[10px] font-semibold text-smb-primary hover:underline"
-                                    >
-                                      <Icon name="add" className="text-[12px]" /> Thêm Kệ
-                                    </button>
+                                    <span className="text-[10px] text-smb-on-surface-variant/50">Cố định ArUco</span>
                                   </div>
 
                                   {loadingShelves ? (
@@ -637,22 +571,16 @@ export default function ShelfManagement() {
                                                   {shelf.shelfName || 'Không tên'}
                                                 </span>
                                               </div>
+                                              {/* Edit shelf button only */}
                                               <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                                                 <span
                                                   role="button"
                                                   tabIndex={0}
                                                   onClick={(e) => { e.stopPropagation(); setEditingShelf(shelf); setShowShelfForm(false) }}
                                                   className="rounded p-0.5 hover:bg-smb-surface-container hover:text-smb-primary"
+                                                  title="Sửa tên kệ"
                                                 >
                                                   <Icon name="edit" className="text-[13px]" />
-                                                </span>
-                                                <span
-                                                  role="button"
-                                                  tabIndex={0}
-                                                  onClick={(e) => { e.stopPropagation(); setDeleteTarget({ type: 'shelf', id: shelf.shelfId, name: shelf.shelfName }) }}
-                                                  className="rounded p-0.5 hover:bg-smb-error-container hover:text-smb-on-error-container"
-                                                >
-                                                  <Icon name="delete" className="text-[13px]" />
                                                 </span>
                                               </div>
                                             </button>

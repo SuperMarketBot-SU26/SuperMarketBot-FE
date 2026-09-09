@@ -165,36 +165,37 @@ export function SlotManager({ shelfId, shelfName }) {
         </div>
       )}
 
-      <form
-        onSubmit={handleSubmit}
-        className="flex flex-wrap items-center gap-2"
-      >
-        <input
-          type="text"
-          placeholder="Mã (VD: S1)"
-          value={form.slotCode}
-          onChange={(e) => setForm((p) => ({ ...p, slotCode: e.target.value }))}
-          className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm outline-none focus:border-smb-primary w-48"
-        />
-        <div className="flex gap-1 w-full sm:w-auto mt-2 sm:mt-0">
-          <button
-            type="submit"
-            disabled={submitting}
-            className="flex-1 sm:flex-none rounded-lg bg-smb-primary px-4 py-2 text-xs font-medium text-smb-on-primary hover:bg-smb-primary/90 disabled:opacity-50"
-          >
-            {editing ? 'Lưu' : 'Thêm'}
-          </button>
-          {editing && (
+      {editing && (
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-wrap items-center gap-2 rounded-lg border border-smb-outline-variant/60 bg-smb-surface-container-low/50 p-3"
+        >
+          <span className="text-xs font-semibold text-smb-on-surface">Đổi mã ô:</span>
+          <input
+            type="text"
+            placeholder="Mã ô (VD: K1_T1_1)"
+            value={form.slotCode}
+            onChange={(e) => setForm((p) => ({ ...p, slotCode: e.target.value }))}
+            className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-1.5 text-xs outline-none focus:border-smb-primary w-48"
+          />
+          <div className="flex gap-1.5">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="rounded-lg bg-smb-primary px-3 py-1.5 text-xs font-semibold text-smb-on-primary hover:bg-smb-primary/90 disabled:opacity-50"
+            >
+              Lưu
+            </button>
             <button
               type="button"
               onClick={resetForm}
-              className="rounded-lg px-3 py-2 text-xs text-smb-on-surface-variant hover:bg-smb-surface-container"
+              className="rounded-lg px-3 py-1.5 text-xs text-smb-on-surface-variant hover:bg-smb-surface-container"
             >
               Huỷ
             </button>
-          )}
-        </div>
-      </form>
+          </div>
+        </form>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-6">
@@ -227,7 +228,7 @@ export function SlotManager({ shelfId, shelfName }) {
                               type="button"
                               onClick={() => handleUnassign(slot.slotId, p.productId)}
                               className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 text-smb-error hover:text-smb-on-error-container"
-                              title="Gỡ sản phẩm"
+                              title="Gỡ sản phẩm khỏi ô"
                             >
                               <Icon name="close" className="text-sm" />
                             </button>
@@ -247,7 +248,7 @@ export function SlotManager({ shelfId, shelfName }) {
                           setError(null)
                         }}
                         className="rounded p-1 text-smb-on-surface-variant hover:bg-smb-surface-container hover:text-smb-primary"
-                        title="Gán sản phẩm"
+                        title="Gán sản phẩm vào ô"
                       >
                         <Icon name="add_link" className="text-base" />
                       </button>
@@ -255,17 +256,9 @@ export function SlotManager({ shelfId, shelfName }) {
                         type="button"
                         onClick={() => handleEdit(slot)}
                         className="rounded p-1 text-smb-on-surface-variant hover:bg-smb-surface-container hover:text-smb-primary"
-                        title="Sửa"
+                        title="Đổi mã ô"
                       >
                         <Icon name="edit" className="text-base" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeletingId(slot.slotId)}
-                        className="rounded p-1 text-smb-on-surface-variant hover:bg-smb-error-container hover:text-smb-on-error-container"
-                        title="Xoá"
-                      >
-                        <Icon name="delete" className="text-base" />
                       </button>
                     </div>
                   </td>
@@ -274,16 +267,6 @@ export function SlotManager({ shelfId, shelfName }) {
             </tbody>
           </table>
         </div>
-      )}
-
-      {deletingId && (
-        <ConfirmModal
-          message="Xoá slot này? Sản phẩm đang được gán vào slot sẽ bị gỡ."
-          confirmText="Xoá"
-          confirmVariant="danger"
-          onConfirm={handleConfirmDelete}
-          onCancel={() => setDeletingId(null)}
-        />
       )}
 
       {/* Assign product modal */}

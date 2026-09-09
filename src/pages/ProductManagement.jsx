@@ -35,6 +35,7 @@ const STATUS_OPTIONS = [
 const EMPTY_FORM = {
   productTypeId: '',
   productName: '',
+  sku: '',
   unitPrice: '',
   promotionPrice: '',
   imageUrl: '',
@@ -238,7 +239,9 @@ export function ProductManagement() {
 
   const filtered = products.filter((p) => {
     const matchSearch =
-      !search || p.productName.toLowerCase().includes(search.toLowerCase())
+      !search ||
+      p.productName.toLowerCase().includes(search.toLowerCase()) ||
+      (p.sku && p.sku.toLowerCase().includes(search.toLowerCase()))
     const matchStatus =
       statusFilter === 'all' || p.status.toLowerCase() === statusFilter
     const matchType =
@@ -268,6 +271,7 @@ export function ProductManagement() {
     setForm({
       productTypeId: product.productTypeId ?? '',
       productName: product.productName ?? '',
+      sku: product.sku ?? '',
       unitPrice: product.unitPrice ?? '',
       promotionPrice: product.promotionPrice ?? '',
       imageUrl: product.imageUrl ?? '',
@@ -365,6 +369,7 @@ export function ProductManagement() {
     const payload = {
       productTypeId: typeId,
       productName: form.productName.trim(),
+      sku: form.sku?.trim() || null,
       unitPrice,
       promotionPrice: form.promotionPrice === '' ? null : Number(form.promotionPrice),
       imageUrl: form.imageUrl.trim() || null,
@@ -448,6 +453,17 @@ export function ProductManagement() {
       label: 'Tên Sản Phẩm',
       render: (val) => (
         <span className="font-semibold text-smb-on-surface">{val}</span>
+      ),
+    },
+    {
+      key: 'sku',
+      label: 'Mã SKU',
+      render: (val) => val ? (
+        <span className="inline-flex items-center px-2 py-0.5 rounded font-mono text-xs font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+          {val}
+        </span>
+      ) : (
+        <span className="text-xs text-smb-on-surface-variant/40 italic">—</span>
       ),
     },
     {
@@ -732,15 +748,29 @@ export function ProductManagement() {
             </div>
           )}
 
-          <FormField label="Tên Sản Phẩm" required>
-            <Input
-              placeholder="VD: Sữa tươi Vinamilk 1L"
-              value={form.productName}
-              onChange={(e) => handleChange('productName', e.target.value)}
-              maxLength={200}
-              required
-            />
-          </FormField>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-2">
+              <FormField label="Tên Sản Phẩm" required>
+                <Input
+                  placeholder="VD: Sữa tươi Vinamilk 1L"
+                  value={form.productName}
+                  onChange={(e) => handleChange('productName', e.target.value)}
+                  maxLength={200}
+                  required
+                />
+              </FormField>
+            </div>
+            <div>
+              <FormField label="Mã SKU (tùy chọn)">
+                <Input
+                  placeholder="VD: VNM-MILK-001"
+                  value={form.sku}
+                  onChange={(e) => handleChange('sku', e.target.value)}
+                  maxLength={50}
+                />
+              </FormField>
+            </div>
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Loại sản phẩm" required>

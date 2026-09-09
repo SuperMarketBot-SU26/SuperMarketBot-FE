@@ -35,6 +35,9 @@ export function ProductInfoCard({ product }) {
             label="Giá bán"
             value={`${formatVND(product?.unitPrice)} đ`}
           />
+          {product?.sku && (
+            <InfoRow label="Mã SKU" value={product.sku} />
+          )}
           <InfoRow
             label="Loại sản phẩm"
             value={product?.productTypeName || `ID: ${product?.productTypeId}`}
