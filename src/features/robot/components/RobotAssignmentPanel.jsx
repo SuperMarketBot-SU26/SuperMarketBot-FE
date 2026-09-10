@@ -204,13 +204,21 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
   const [selectedPatrolRoute, setSelectedPatrolRoute] = useState('')
   const [patrolMode, setPatrolMode] = useState('route') // 'route' | 'shelf'
   const [shelves, setShelves] = useState([])
-  const [selectedNodeIds, setSelectedNodeIds] = useState([])
+  const [selectedShelfIds, setSelectedShelfIds] = useState([])
+  const [patrolDwell, setPatrolDwell] = useState(3.0) // thời gian lia camera tại mỗi kệ (giây)
 
   useEffect(() => {
     getShelves().then(setShelves).catch(() => {})
   }, [])
 
   const validShelves = useMemo(() => shelves.filter(s => s.nodeId != null), [shelves])
+
+  const selectedNodeIds = useMemo(() => {
+    const ids = validShelves
+      .filter(s => selectedShelfIds.includes(s.shelfId))
+      .map(s => s.nodeId)
+    return [...new Set(ids)]
+  }, [validShelves, selectedShelfIds])
 
 
   // Dwell & Duration settings
@@ -648,7 +656,11 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
               <div className="mb-3 flex gap-2">
                 <button
                   disabled={dispatching || !activePatrolRoute}
-                  onClick={() => handleDispatch('patrol', { robotRouteId: Number(activePatrolRoute) })}
+                  onClick={() => handleDispatch('patrol', {
+                    robotRouteId: Number(activePatrolRoute),
+                    floorId: map?.floorId || 1,
+                    dwellTimeSeconds: Number(patrolDwell) || 3
+                  })}
                   className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-blue-700 hover:to-blue-600 active:scale-95 disabled:opacity-50 disabled:scale-100"
                 >
                   {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="search" className="text-[16px]" />}
@@ -658,32 +670,53 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
             </>
           ) : (
             <>
+              {/* Sweep / Dwell Duration Selector */}
+              <div className="mb-2.5 flex items-center justify-between rounded-xl bg-blue-500/10 px-3 py-2 border border-blue-500/20">
+                <span className="text-[11px] font-semibold text-blue-900 dark:text-blue-200">Thời gian lia camera tại kệ:</span>
+                <div className="flex items-center gap-1">
+                  {[2.0, 2.5, 3.0].map((dur) => (
+                    <button
+                      key={dur}
+                      type="button"
+                      onClick={() => setPatrolDwell(dur)}
+                      className={`rounded-md px-2.5 py-1 text-[10px] font-bold transition-all ${
+                        patrolDwell === dur
+                          ? 'bg-blue-600 text-white shadow-sm scale-105'
+                          : 'bg-white/70 text-blue-800 hover:bg-white dark:bg-blue-950 dark:text-blue-300'
+                      }`}
+                    >
+                      {dur.toFixed(1)}s
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="mb-1.5 flex items-center justify-between">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-blue-700/70">
-                  Danh sách kệ (Đã chọn: {selectedNodeIds.length}/{validShelves.length} kệ)
+                  Danh sách kệ (Đã chọn: {selectedShelfIds.length}/{validShelves.length} kệ · {selectedNodeIds.length} WP)
                 </label>
                 <button
                   type="button"
                   onClick={() => {
-                    if (selectedNodeIds.length === validShelves.length) {
-                      setSelectedNodeIds([])
+                    if (selectedShelfIds.length === validShelves.length) {
+                      setSelectedShelfIds([])
                     } else {
-                      setSelectedNodeIds(validShelves.map(s => s.nodeId))
+                      setSelectedShelfIds(validShelves.map(s => s.shelfId))
                     }
                   }}
                   className="text-[10px] font-bold text-blue-600 hover:text-blue-800 hover:underline"
                 >
-                  {selectedNodeIds.length === validShelves.length ? 'Bỏ chọn' : 'Chọn tất cả'}
+                  {selectedShelfIds.length === validShelves.length ? 'Bỏ chọn' : 'Chọn tất cả'}
                 </button>
               </div>
-              <div className="mb-3 max-h-[300px] overflow-y-auto rounded-xl border border-blue-500/20 bg-smb-surface-container-lowest p-1.5">
+              <div className="mb-3 max-h-[300px] overflow-y-auto rounded-xl border border-blue-500/20 bg-smb-surface-container-lowest p-1.5 space-y-1">
                 {validShelves.map((shelf) => {
-                  const isSelected = selectedNodeIds.includes(shelf.nodeId)
+                  const isSelected = selectedShelfIds.includes(shelf.shelfId)
                   return (
                     <label
                       key={shelf.shelfId}
                       className={`flex cursor-pointer items-center gap-2 rounded-lg p-2 transition-colors hover:bg-blue-50/50 ${
-                        isSelected ? 'bg-blue-50/50' : ''
+                        isSelected ? 'bg-blue-100/60 dark:bg-blue-900/40 border border-blue-400/40' : 'border border-transparent'
                       }`}
                     >
                       <input
@@ -692,20 +725,23 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
                         checked={isSelected}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedNodeIds(prev => [...prev, shelf.nodeId])
+                            setSelectedShelfIds(prev => [...prev, shelf.shelfId])
                           } else {
-                            setSelectedNodeIds(prev => prev.filter(id => id !== shelf.nodeId))
+                            setSelectedShelfIds(prev => prev.filter(id => id !== shelf.shelfId))
                           }
                         }}
                       />
                       <Icon name="shelves" className="text-[16px] text-blue-600/70" />
                       <div className="flex-1 text-xs">
-                        <span className="font-semibold text-smb-on-surface">{shelf.shelfName}</span>
-                        {shelf.aisleName && (
-                          <span className="ml-1 text-[10px] text-smb-on-surface-variant">
-                            ({shelf.aisleName})
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-smb-on-surface">{shelf.shelfName}</span>
+                          <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-bold text-blue-600">
+                            WP #{shelf.nodeId}
                           </span>
-                        )}
+                        </div>
+                        <div className="text-[10px] text-smb-on-surface-variant">
+                          Kệ #{shelf.shelfId}{shelf.aisleName ? ` · Dãy: ${shelf.aisleName}` : ''}
+                        </div>
                       </div>
                     </label>
                   )
@@ -718,12 +754,17 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
               </div>
               <div className="mb-3 flex gap-2">
                 <button
-                  disabled={dispatching || selectedNodeIds.length === 0}
-                  onClick={() => handleDispatch('patrol', { nodeIds: selectedNodeIds })}
+                  disabled={dispatching || selectedShelfIds.length === 0}
+                  onClick={() => handleDispatch('patrol', {
+                    nodeIds: selectedNodeIds,
+                    shelfIds: selectedShelfIds,
+                    floorId: map?.floorId || 1,
+                    dwellTimeSeconds: Number(patrolDwell) || 3
+                  })}
                   className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-blue-700 hover:to-blue-600 active:scale-95 disabled:opacity-50 disabled:scale-100"
                 >
                   {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : null}
-                  🚀 Tuần tra kệ đã chọn
+                  🚀 Tuần tra {selectedShelfIds.length} kệ đã chọn
                 </button>
               </div>
             </>

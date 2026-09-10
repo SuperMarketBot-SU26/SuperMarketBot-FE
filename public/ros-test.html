@@ -548,88 +548,63 @@
         style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 999; transition: all 0.3s ease;"
         onclick="closeWpModal()"></div>
     <div id="wp-modal"
-        style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1e293b; padding: 28px; border-radius: 12px; border: 1px solid #334155; z-index: 1000; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); min-width: 380px; font-family: 'Inter', sans-serif;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style="margin: 0; color: #38bdf8; font-size: 1.2rem; font-weight: 600;">⚙️ Config Waypoint</h3>
+        style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1e293b; padding: 24px; border-radius: 12px; border: 1px solid #334155; z-index: 1000; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); min-width: 360px; font-family: 'Inter', sans-serif;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="margin: 0; color: #38bdf8; font-size: 1.15rem; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                <span>📍</span> Cập Nhật Tọa Độ Node
+            </h3>
             <button onclick="closeWpModal()"
                 style="background: transparent; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer; padding: 0;">&times;</button>
         </div>
 
         <input type="hidden" id="wp-edit-index">
+        <!-- Hidden inputs for backward compatibility -->
+        <input type="hidden" id="wp-edit-name">
+        <select id="wp-edit-role" style="display: none;"></select>
+        <select id="wp-edit-type" style="display: none;"></select>
+        <input type="hidden" id="wp-edit-dwell">
+        <input type="checkbox" id="wp-edit-blocked" style="display: none;">
 
-        <div style="margin-bottom: 16px;">
-            <label
-                style="display: block; color: #cbd5e1; font-size: 14px; margin-bottom: 6px; font-weight: 500;">Name
-                (Hiển thị trên bản đồ):</label>
-            <input type="text" id="wp-edit-name"
-                
-                onfocus="this.style.borderColor='#38bdf8'" onblur="this.style.borderColor='#475569'">
+        <!-- Readonly Node Info Card -->
+        <div style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Thông tin Node</div>
+                <div id="wp-display-name" style="font-size: 14px; font-weight: 600; color: #f8fafc; margin-top: 2px;">Waypoint</div>
+            </div>
+            <div id="wp-display-badge" style="font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">
+                📍 Node
+            </div>
         </div>
 
-        <div style="margin-bottom: 16px;">
-            <label
-                style="display: block; color: #cbd5e1; font-size: 14px; margin-bottom: 6px; font-weight: 500;">Role
-                (Nhiệm vụ):</label>
-            <select id="wp-edit-role"
-                >
-                <option value="ad">📺 ad (Quảng cáo)</option>
-                <option value="pickup">📦 pickup (Lấy hàng)</option>
-                <option value="dropoff">🚚 dropoff (Giao hàng)</option>
-                <option value="nav">➡️ nav (Đi ngang qua)</option>
-            </select>
-        </div>
-
-        <div style="margin-bottom: 16px;">
-            <label
-                style="display: block; color: #cbd5e1; font-size: 14px; margin-bottom: 6px; font-weight: 500;">Type
-                (Phân loại Node):</label>
-            <select id="wp-edit-type"
-                >
-                <option value="Waypoint">📍 Waypoint (Điểm dừng)</option>
-                <option value="Charger">⚡ Charger (Sạc)</option>
-                <option value="Intersection">🛣️ Intersection (Ngã tư)</option>
-                <option value="Shelf">🛍️ Shelf (Quầy kệ)</option>
-            </select>
-        </div>
-
-        <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+        <!-- Editable X, Y Coordinates Only -->
+        <div style="display: flex; gap: 12px; margin-bottom: 12px;">
             <div style="flex: 1;">
-                <label
-                    style="display: block; color: #cbd5e1; font-size: 14px; margin-bottom: 6px; font-weight: 500;">Tọa
-                    độ X:</label>
+                <label style="display: block; color: #cbd5e1; font-size: 13px; margin-bottom: 6px; font-weight: 600;">
+                    Tọa độ X (m):
+                </label>
                 <input type="number" id="wp-edit-x" step="0.01"
-                    >
+                    style="width: 100%; background: #0f172a; border: 1.5px solid #38bdf8; border-radius: 8px; padding: 10px 12px; color: #fff; font-size: 15px; font-weight: 700; font-family: monospace; outline: none;"
+                    onfocus="this.style.borderColor='#60a5fa'; this.style.boxShadow='0 0 0 2px rgba(96,165,250,0.3)'"
+                    onblur="this.style.borderColor='#38bdf8'; this.style.boxShadow='none'">
             </div>
             <div style="flex: 1;">
-                <label
-                    style="display: block; color: #cbd5e1; font-size: 14px; margin-bottom: 6px; font-weight: 500;">Tọa
-                    độ Y:</label>
+                <label style="display: block; color: #cbd5e1; font-size: 13px; margin-bottom: 6px; font-weight: 600;">
+                    Tọa độ Y (m):
+                </label>
                 <input type="number" id="wp-edit-y" step="0.01"
-                    >
+                    style="width: 100%; background: #0f172a; border: 1.5px solid #38bdf8; border-radius: 8px; padding: 10px 12px; color: #fff; font-size: 15px; font-weight: 700; font-family: monospace; outline: none;"
+                    onfocus="this.style.borderColor='#60a5fa'; this.style.boxShadow='0 0 0 2px rgba(96,165,250,0.3)'"
+                    onblur="this.style.borderColor='#38bdf8'; this.style.boxShadow='none'">
             </div>
         </div>
 
-        <div style="margin-bottom: 16px;">
-            <label
-                style="display: block; color: #cbd5e1; font-size: 14px; margin-bottom: 6px; font-weight: 500;">Dwell
-                Time (Thời gian chờ - Giây):</label>
-            <input type="number" id="wp-edit-dwell"
-                
-                min="0" onfocus="this.style.borderColor='#38bdf8'" onblur="this.style.borderColor='#475569'">
+        <div style="font-size: 11px; color: #94a3b8; margin-bottom: 20px; line-height: 1.5; background: rgba(56, 189, 248, 0.05); padding: 8px 10px; border-radius: 6px; border-left: 3px solid #38bdf8;">
+            ℹ️ <i>Cập nhật vị trí X, Y của node trên bản đồ. Các thông tin khác (tên, vai trò, liên kết) được giữ nguyên.</i>
         </div>
 
-        <div style="margin-bottom: 24px; display: flex; align-items: center; gap: 8px;">
-            <input type="checkbox" id="wp-edit-blocked" style="width: 16px; height: 16px; cursor: pointer;">
-            <label for="wp-edit-blocked"
-                style="color: #ef4444; font-size: 0.9rem; font-weight: 500; cursor: pointer;">Bị chặn (Is
-                Blocked)</label>
-        </div>
-
-        <div style="display: flex; justify-content: flex-end; gap: 12px;">
-            <button class="btn btn-secondary"
-                onclick="closeWpModal()">Hủy</button>
-            <button class="btn btn-primary"
-                onclick="saveWpModal()">Lưu Thay Đổi</button>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button class="btn btn-secondary" onclick="closeWpModal()">Hủy</button>
+            <button class="btn btn-primary" onclick="saveWpModal()">Lưu Tọa Độ</button>
         </div>
     </div>
 
@@ -771,22 +746,37 @@
             };
         }
 
-        // --- JS Logic cho Waypoint Config Modal ---
+        // --- JS Logic cho Waypoint Config Modal (Chỉ cập nhật tọa độ X, Y) ---
         function openWpModal(index) {
             const wp = waypoints[index];
             if (!wp) return;
 
             document.getElementById('wp-edit-index').value = index;
-            document.getElementById('wp-edit-name').value = wp.name || `Waypoint ${index + 1}`;
-            document.getElementById('wp-edit-role').value = wp.role || 'ad';
-            document.getElementById('wp-edit-type').value = wp.nodeType || 'Waypoint';
             document.getElementById('wp-edit-x').value = wp.x;
             document.getElementById('wp-edit-y').value = wp.y;
-            document.getElementById('wp-edit-dwell').value = wp.dwellTimeSeconds !== undefined ? wp.dwellTimeSeconds : 30;
-            document.getElementById('wp-edit-blocked').checked = wp.isBlocked || false;
+
+            const displayNameElem = document.getElementById('wp-display-name');
+            if (displayNameElem) {
+                const idStr = (wp.id && typeof wp.id === 'number') ? ` (ID: ${wp.id})` : '';
+                displayNameElem.innerText = (wp.name || `Waypoint ${index + 1}`) + idStr;
+            }
+
+            const displayBadgeElem = document.getElementById('wp-display-badge');
+            if (displayBadgeElem) {
+                displayBadgeElem.innerText = `📍 ${wp.nodeType || 'Waypoint'} · ${wp.role || 'ad'}`;
+            }
 
             document.getElementById('wp-modal-overlay').style.display = 'block';
             document.getElementById('wp-modal').style.display = 'block';
+
+            // Tự động focus vào input X
+            setTimeout(() => {
+                const xInput = document.getElementById('wp-edit-x');
+                if (xInput) {
+                    xInput.focus();
+                    xInput.select();
+                }
+            }, 50);
         }
 
         function closeWpModal() {
@@ -797,22 +787,37 @@
         function saveWpModal() {
             const index = parseInt(document.getElementById('wp-edit-index').value);
             if (index >= 0 && index < waypoints.length) {
-                waypoints[index].name = document.getElementById('wp-edit-name').value;
-                waypoints[index].role = document.getElementById('wp-edit-role').value;
-                waypoints[index].nodeType = document.getElementById('wp-edit-type').value;
-                waypoints[index].x = parseFloat(document.getElementById('wp-edit-x').value) || waypoints[index].x;
-                waypoints[index].y = parseFloat(document.getElementById('wp-edit-y').value) || waypoints[index].y;
-                waypoints[index].dwellTimeSeconds = parseInt(document.getElementById('wp-edit-dwell').value) || 0;
-                waypoints[index].isBlocked = document.getElementById('wp-edit-blocked').checked;
+                const xVal = parseFloat(document.getElementById('wp-edit-x').value);
+                const yVal = parseFloat(document.getElementById('wp-edit-y').value);
+
+                if (isNaN(xVal) || isNaN(yVal)) {
+                    alert("⚠️ Tọa độ X và Y phải là số hợp lệ!");
+                    return;
+                }
+
+                // CHỈ CẬP NHẬT TỌA ĐỘ X, Y (giữ nguyên toàn bộ name, role, nodeType, dwell, isBlocked)
+                waypoints[index].x = parseFloat(xVal.toFixed(4));
+                waypoints[index].y = parseFloat(yVal.toFixed(4));
 
                 closeWpModal();
                 renderUI(); // Render lại tên và vị trí
 
                 const toast = document.getElementById('toast');
-                toast.innerText = '✅ Cập nhật Config thành công!';
-                toast.style.background = '#3b82f6';
+                toast.innerText = `✅ Đã cập nhật tọa độ (${waypoints[index].x.toFixed(2)}, ${waypoints[index].y.toFixed(2)})! Bấm "Lưu Waypoint Lên Server" để đồng bộ.`;
+                toast.style.background = '#0ea5e9';
                 toast.classList.add('show');
-                setTimeout(() => toast.classList.remove('show'), 2000);
+                setTimeout(() => toast.classList.remove('show'), 3500);
+
+                const syncBtn = document.querySelector('button[onclick="syncWaypointsToBE()"]');
+                if (syncBtn) {
+                    syncBtn.style.boxShadow = '0 0 16px rgba(14, 165, 233, 0.9)';
+                    syncBtn.style.transform = 'scale(1.02)';
+                    syncBtn.style.transition = 'all 0.3s ease';
+                    setTimeout(() => {
+                        syncBtn.style.boxShadow = '';
+                        syncBtn.style.transform = '';
+                    }, 2500);
+                }
             }
         }
 
