@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import * as signalR from '@microsoft/signalr'
-import { getRobots, getRobotPose } from '../api/navigationApi'
+import { getRobots, getRobotPose, getRobotMissionState } from '../api/navigationApi'
 import { ACTIVE_BACKEND_URL } from '../../../api/client'
 
 /**
@@ -25,22 +25,46 @@ export function useRobotFleet({ pollMs = 5000 } = {}) {
   const loadAll = useCallback(async () => {
     try {
       const list = await getRobots()
-      setRobots(Array.isArray(list) ? list : [])
+      const robotList = Array.isArray(list) ? list : []
 
-      // Fetch pose for each robot in parallel; gracefully skip failures.
-      const posePairs = await Promise.allSettled(
-        (list ?? []).map(async (r) => {
-          const pose = await getRobotPose(r.robotCode)
-          return [r.robotCode, pose]
+      // Fetch pose and active mission for each robot in parallel; gracefully skip failures.
+      const enrichedResults = await Promise.allSettled(
+        robotList.map(async (r) => {
+          const [pose, mission] = await Promise.all([
+            getRobotPose(r.robotCode).catch(() => null),
+            getRobotMissionState(r.robotCode).catch(() => null),
+          ])
+          return {
+            robotCode: r.robotCode,
+            pose,
+            activeFlowType: mission?.flowType ?? r.activeFlowType ?? null,
+            activeMissionStatus: mission?.status ?? r.activeMissionStatus ?? null,
+            activeMission: mission ?? null,
+          }
         })
       )
+
       const poseMap = {}
-      for (const result of posePairs) {
+      const missionMap = {}
+      for (const result of enrichedResults) {
         if (result.status === 'fulfilled') {
-          const [code, pose] = result.value
-          if (pose) poseMap[code] = pose
+          const { robotCode, pose, activeFlowType, activeMissionStatus, activeMission } = result.value
+          if (pose) poseMap[robotCode] = pose
+          missionMap[robotCode] = { activeFlowType, activeMissionStatus, activeMission }
         }
       }
+
+      setRobots(
+        robotList.map((r) => {
+          const extra = missionMap[r.robotCode] ?? {}
+          return {
+            ...r,
+            activeFlowType: extra.activeFlowType ?? r.activeFlowType ?? null,
+            activeMissionStatus: extra.activeMissionStatus ?? r.activeMissionStatus ?? null,
+            activeMission: extra.activeMission ?? null,
+          }
+        })
+      )
       setPoses(poseMap)
       setError(null)
     } catch (err) {
@@ -94,19 +118,35 @@ export function useRobotFleet({ pollMs = 5000 } = {}) {
       }))
 
       const rawBat = telemetry.batteryPercentage ?? telemetry.batteryPct ?? telemetry.battery ?? telemetry.Battery
-      if (rawBat !== undefined || telemetry.deviceBattery !== undefined || telemetry.espBattery !== undefined) {
+      const hasBatteryUpdate =
+        rawBat !== undefined ||
+        telemetry.deviceBattery !== undefined ||
+        telemetry.deviceBatteryPct !== undefined ||
+        telemetry.espBattery !== undefined ||
+        telemetry.espBatteryPct !== undefined ||
+        telemetry.deviceIsCharging !== undefined ||
+        telemetry.isCharging !== undefined
+
+      if (hasBatteryUpdate) {
         setRobots((prev) =>
           prev.map((r) => {
             const isMatch = r.robotCode === code ||
               (code === 'RB001' && r.robotCode === 'RB0001') ||
               (code === 'RB0001' && r.robotCode === 'RB001')
             if (!isMatch) return r
+            const isDevCharging =
+              telemetry.deviceIsCharging !== undefined
+                ? Boolean(telemetry.deviceIsCharging)
+                : telemetry.isCharging !== undefined
+                  ? Boolean(telemetry.isCharging)
+                  : r.deviceIsCharging
+
             return {
               ...r,
               batteryPct: rawBat !== undefined ? rawBat : r.batteryPct,
-              deviceBatteryPct: telemetry.deviceBattery !== undefined ? telemetry.deviceBattery : r.deviceBatteryPct,
-              deviceIsCharging: telemetry.deviceIsCharging !== undefined ? telemetry.deviceIsCharging : r.deviceIsCharging,
-              espBatteryPct: telemetry.espBattery !== undefined ? telemetry.espBattery : r.espBatteryPct,
+              deviceBatteryPct: telemetry.deviceBattery !== undefined ? telemetry.deviceBattery : (telemetry.deviceBatteryPct !== undefined ? telemetry.deviceBatteryPct : r.deviceBatteryPct),
+              deviceIsCharging: isDevCharging,
+              espBatteryPct: telemetry.espBattery !== undefined ? telemetry.espBattery : (telemetry.espBatteryPct !== undefined ? telemetry.espBatteryPct : r.espBatteryPct),
               espBatteryVolts: telemetry.espBatteryVolts !== undefined ? telemetry.espBatteryVolts : r.espBatteryVolts,
             }
           })
@@ -119,9 +159,22 @@ export function useRobotFleet({ pollMs = 5000 } = {}) {
       if (!statusUpdate?.robotCode) return
       const code = statusUpdate.robotCode
       const statusText = statusUpdate.status || statusUpdate.navigationStatus || statusUpdate.navStatus
-      if (statusText) {
+      const flowType = statusUpdate.flowType || statusUpdate.missionType
+      if (statusText || flowType) {
         setRobots((prev) =>
-          prev.map((r) => (r.robotCode === code ? { ...r, status: statusText } : r))
+          prev.map((r) => {
+            const isMatch =
+              r.robotCode === code ||
+              (code === 'RB001' && r.robotCode === 'RB0001') ||
+              (code === 'RB0001' && r.robotCode === 'RB001')
+            if (!isMatch) return r
+            return {
+              ...r,
+              status: statusText || r.status,
+              activeMissionStatus: statusText || r.activeMissionStatus,
+              activeFlowType: flowType !== undefined ? flowType : r.activeFlowType,
+            }
+          })
         )
       }
       setTick((t) => t + 1)

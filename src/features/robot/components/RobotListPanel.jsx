@@ -7,13 +7,14 @@ function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
 }
 
-function labelForStatus(s) {
+function labelForStatus(s, isCharging = false) {
+  if (isCharging || s === 'Offline_Charging' || s === 'Charging') return 'Đang sạc'
   switch (s) {
     case 'Moving': return 'Đang di chuyển'
     case 'Idle': return 'Đang rảnh'
     case 'Interacting': return 'Tương tác'
-    case 'Offline_Charging': return 'Đang sạc'
     case 'Power_Off': return 'Tắt nguồn'
+    case 'Online': return 'Online'
     default: return s
   }
 }
@@ -73,7 +74,7 @@ function RobotDetailModal({ robotCode, onClose }) {
 
   if (!robotCode) return null
 
-  const p = robot ? statusPalette(robot.status) : null
+  const p = statusPalette(robot?.deviceIsCharging ? 'Offline_Charging' : (robot?.status ?? 'Unknown'))
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 smb-fade-in">
@@ -98,11 +99,19 @@ function RobotDetailModal({ robotCode, onClose }) {
           ) : robot ? (
             <div className="space-y-3.5">
               <div className="flex items-center gap-3">
-                <div className={`flex size-12 shrink-0 items-center justify-center rounded-xl ${p.dot} text-white shadow-md`}>
+                <div className={`flex size-12 shrink-0 items-center justify-center rounded-xl ${robot.deviceIsCharging ? 'bg-amber-500' : p.dot} text-white shadow-md`}>
                   <Icon name="smart_toy" className="text-2xl" />
                 </div>
                 <div>
-                  <p className="font-bold text-smb-on-surface">{robot.robotName}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-bold text-smb-on-surface">{robot.robotName}</p>
+                    {robot.deviceIsCharging && (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.2 text-[9px] font-bold text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                        <Icon name="bolt" className="text-[10px] text-amber-500" />
+                        Đang sạc
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-smb-on-surface-variant/80">{robot.robotCode}</p>
                 </div>
               </div>
@@ -118,7 +127,30 @@ function RobotDetailModal({ robotCode, onClose }) {
               <div className="border-t border-smb-outline-variant/40" />
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
                 <dt className="text-smb-on-surface-variant">Trạng thái</dt>
-                <dd className={`font-semibold ${p.text}`}>{labelForStatus(robot.status)}</dd>
+                <dd className={`font-semibold ${robot.deviceIsCharging ? 'text-amber-600 dark:text-amber-400 flex items-center gap-1' : p.text}`}>
+                  {robot.deviceIsCharging ? (
+                    <>
+                      <Icon name="bolt" className="text-[13px] text-amber-500 animate-pulse" />
+                      Đang sạc (Điện thoại)
+                    </>
+                  ) : (
+                    labelForStatus(robot.status)
+                  )}
+                </dd>
+                <dt className="text-smb-on-surface-variant">Nhiệm vụ</dt>
+                <dd className="font-semibold text-xs">
+                  {robot.activeFlowType === 'ad' ? (
+                    <span className="text-emerald-600 dark:text-emerald-400">📢 Quảng cáo</span>
+                  ) : robot.activeFlowType === 'patrol' ? (
+                    <span className="text-blue-600 dark:text-blue-400">🔍 Tuần tra</span>
+                  ) : robot.activeFlowType === 'guide' ? (
+                    <span className="text-purple-600 dark:text-purple-400">🛒 Dẫn đường</span>
+                  ) : robot.activeFlowType === 'return' ? (
+                    <span className="text-orange-600 dark:text-orange-400">🏠 Quay về trạm</span>
+                  ) : (
+                    <span className="text-smb-on-surface-variant">Chờ lệnh</span>
+                  )}
+                </dd>
                 <dt className="text-smb-on-surface-variant">Chế độ</dt>
                 <dd className="font-semibold text-smb-on-surface">{robot.mode}</dd>
                 <dt className="text-smb-on-surface-variant">Vị trí (X, Y)</dt>
@@ -154,7 +186,20 @@ export function RobotListPanel({
 
   const summary = useMemo(() => {
     const acc = { Moving: 0, Idle: 0, Interacting: 0, Offline_Charging: 0, Power_Off: 0 }
-    robots.forEach((r) => { acc[r.status] = (acc[r.status] ?? 0) + 1 })
+    robots.forEach((r) => {
+      const isCharging = r.deviceIsCharging === true || r.status === 'Offline_Charging' || r.status === 'Charging'
+      if (isCharging) {
+        acc.Offline_Charging = (acc.Offline_Charging ?? 0) + 1
+      } else if (r.status === 'Moving' || r.mode === 'moving') {
+        acc.Moving = (acc.Moving ?? 0) + 1
+      } else if (r.status === 'Interacting' || r.mode === 'interacting') {
+        acc.Interacting = (acc.Interacting ?? 0) + 1
+      } else if (r.status === 'Power_Off' || r.status === 'Offline') {
+        acc.Power_Off = (acc.Power_Off ?? 0) + 1
+      } else {
+        acc.Idle = (acc.Idle ?? 0) + 1
+      }
+    })
     return acc
   }, [robots])
 
@@ -196,45 +241,93 @@ export function RobotListPanel({
         <ul className="flex-1 divide-y divide-smb-outline-variant/40 overflow-y-auto">
           {robots.map((r) => {
             const pose = poses[r.robotCode]
-            const p = statusPalette(r.status)
+            const isCharging = r.deviceIsCharging === true || r.status === 'Offline_Charging' || r.status === 'Charging'
+            const p = statusPalette(isCharging ? 'Offline_Charging' : r.status)
             const isSel = selectedRobotCode === r.robotCode
             const assignedRouteId = assignments[r.robotCode]
             const assignedRoute = assignedRouteId ? routeById.get(assignedRouteId) : null
-            const isMoving = r.status === 'Moving'
+            const isMoving = (r.status === 'Moving' || r.mode === 'moving') && !isCharging
+            const isAd = r.activeFlowType === 'ad'
+            const isPatrol = r.activeFlowType === 'patrol'
+            const isGuide = r.activeFlowType === 'guide'
+            const isReturn = r.activeFlowType === 'return'
 
             return (
               <li key={r.robotId}>
                 <button
                   type="button"
                   onClick={() => onSelect?.(r)}
-                  className={`flex w-full flex-col gap-2 p-3.5 text-left transition-all ${
+                  className={`flex w-full flex-col gap-2 p-3 text-left transition-all ${
                     isSel
                       ? 'bg-emerald-500/10 border-l-4 border-l-emerald-500 dark:bg-emerald-500/15'
                       : 'hover:bg-smb-surface-container-low/60'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="relative">
-                        <div className={`flex size-8 shrink-0 items-center justify-center rounded-xl ${p.dot} text-white shadow-xs`}>
-                          <Icon name="smart_toy" className="text-[18px]" />
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="relative shrink-0">
+                        <div className={`flex size-8 shrink-0 items-center justify-center rounded-xl ${
+                          isCharging ? 'bg-amber-500' : isAd ? 'bg-emerald-600' : isPatrol ? 'bg-blue-600' : isGuide ? 'bg-purple-600' : p.dot
+                        } text-white shadow-xs`}>
+                          <Icon
+                            name={isCharging ? 'bolt' : isAd ? 'campaign' : isPatrol ? 'search' : isGuide ? 'navigation' : 'smart_toy'}
+                            className="text-[18px]"
+                          />
                         </div>
-                        {isMoving && (
+                        {isCharging ? (
+                          <span className="absolute -bottom-0.5 -right-0.5 flex size-3 items-center justify-center rounded-full bg-amber-500 text-white ring-2 ring-white dark:ring-gray-900" title="Đang sạc pin">
+                            <Icon name="bolt" className="text-[9px]" />
+                          </span>
+                        ) : isMoving && (
                           <span className="absolute -bottom-0.5 -right-0.5 flex size-2.5">
                             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                             <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
                           </span>
                         )}
                       </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-xs font-bold text-smb-on-surface">{r.robotName}</p>
-                        <p className="text-[10px] text-smb-on-surface-variant/80">
-                          {r.robotCode} · <span className={`font-semibold ${p.text}`}>{labelForStatus(r.status)}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="truncate text-xs font-bold text-smb-on-surface">{r.robotName}</p>
+                          {isCharging && (
+                            <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.2 text-[9px] font-bold text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0">
+                              <Icon name="bolt" className="text-[10px] text-amber-500" />
+                              Sạc
+                            </span>
+                          )}
+                          {isAd && (
+                            <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/15 px-1.5 py-0.2 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shrink-0">
+                              <Icon name="campaign" className="text-[10px] text-emerald-500" />
+                              QC
+                            </span>
+                          )}
+                          {isPatrol && (
+                            <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-500/15 px-1.5 py-0.2 text-[9px] font-bold text-blue-600 dark:text-blue-400 border border-blue-500/30 shrink-0">
+                              <Icon name="search" className="text-[10px] text-blue-500" />
+                              Tuần tra
+                            </span>
+                          )}
+                          {isGuide && (
+                            <span className="inline-flex items-center gap-0.5 rounded-full bg-purple-500/15 px-1.5 py-0.2 text-[9px] font-bold text-purple-600 dark:text-purple-400 border border-purple-500/30 shrink-0">
+                              <Icon name="navigation" className="text-[10px] text-purple-500" />
+                              Dẫn đường
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-smb-on-surface-variant/80 flex items-center gap-1 mt-0.5">
+                          <span className="font-mono text-[10px] opacity-75">{r.robotCode} ·</span>
+                          {isCharging ? (
+                            <span className="font-semibold text-amber-600 dark:text-amber-400 inline-flex items-center gap-0.5">
+                              <Icon name="bolt" className="text-[11px] text-amber-500" />
+                              Đang sạc (Điện thoại)
+                            </span>
+                          ) : (
+                            <span className={`font-semibold ${p.text}`}>{labelForStatus(r.status)}</span>
+                          )}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <DualBatteryIndicator
                         batteryPct={r.batteryPct}
                         deviceBatteryPct={r.deviceBatteryPct}
@@ -254,15 +347,40 @@ export function RobotListPanel({
                     </div>
                   </div>
 
-                  {assignedRoute ? (
+                  {isCharging ? (
+                    <div className="flex items-center gap-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 text-[11px] text-amber-700 dark:text-amber-300 font-medium">
+                      <Icon name="bolt" className="text-[13px] text-amber-500 shrink-0" />
+                      <span className="truncate">Điện thoại đang cắm sạc ({r.deviceBatteryPct ?? r.batteryPct ?? 0}%)</span>
+                    </div>
+                  ) : isAd ? (
+                    <div className="flex items-center gap-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
+                      <Icon name="campaign" className="text-[13px] text-emerald-500 shrink-0" />
+                      <span className="truncate">Phát QC: {r.activeMission?.campaignName || 'Chiến dịch siêu thị'}</span>
+                    </div>
+                  ) : isPatrol ? (
+                    <div className="flex items-center gap-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 text-[11px] text-blue-700 dark:text-blue-300 font-medium">
+                      <Icon name="search" className="text-[13px] text-blue-500 shrink-0" />
+                      <span className="truncate">Đang tuần tra kệ hàng AI Vision</span>
+                    </div>
+                  ) : isGuide ? (
+                    <div className="flex items-center gap-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 text-[11px] text-purple-700 dark:text-purple-300 font-medium">
+                      <Icon name="navigation" className="text-[13px] text-purple-500 shrink-0" />
+                      <span className="truncate">Đang dẫn đường cho khách</span>
+                    </div>
+                  ) : isReturn ? (
+                    <div className="flex items-center gap-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 px-2.5 py-1 text-[11px] text-orange-700 dark:text-orange-300 font-medium">
+                      <Icon name="home" className="text-[13px] text-orange-500 shrink-0" />
+                      <span className="truncate">Đang quay về trạm sạc</span>
+                    </div>
+                  ) : assignedRoute ? (
                     <div className="flex items-center gap-1.5 rounded-lg bg-smb-surface-container-low/80 px-2.5 py-1 text-[11px]">
                       <Icon name="route" className="text-[14px] text-emerald-600 dark:text-emerald-400" />
                       <span className="truncate font-medium text-smb-on-surface">{assignedRoute.routeName}</span>
                     </div>
                   ) : (
                     <div className="flex items-center gap-1.5 rounded-lg border border-dashed border-smb-outline-variant/60 px-2.5 py-1 text-[10px] text-smb-on-surface-variant/70">
-                      <Icon name="link_off" className="text-[13px]" />
-                      Chưa gán lộ trình
+                      <Icon name="check_circle" className="text-[13px] text-emerald-500/80" />
+                      Sẵn sàng nhận lệnh
                     </div>
                   )}
                 </button>

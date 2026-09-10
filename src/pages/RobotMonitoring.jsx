@@ -51,7 +51,7 @@ export function RobotMonitoring() {
               <div className="flex-1 min-h-0">
                 <MapSkeleton />
               </div>
-              <div className="w-80 shrink-0">
+              <div className="w-[360px] shrink-0">
                 <PanelSkeleton />
               </div>
             </div>
@@ -68,7 +68,7 @@ export function RobotMonitoring() {
                 />
               </div>
               {/* Sidebar panel — fixed width, internal scroll */}
-              <div className="w-80 shrink-0 flex flex-col min-h-0 overflow-hidden rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest">
+              <div className="w-[360px] shrink-0 flex flex-col min-h-0 overflow-hidden rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest">
                 <RobotAssignmentPanel
                   robots={robots}
                   poses={poses}

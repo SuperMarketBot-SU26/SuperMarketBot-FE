@@ -407,6 +407,17 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
         />
       )}
 
+      {/* Robot Charging Safety Notice */}
+      {(selectedRobotObj?.deviceIsCharging || selectedRobotObj?.status === 'Offline_Charging' || selectedRobotObj?.status === 'Charging') && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-amber-800 dark:text-amber-300 flex items-center gap-2.5">
+          <Icon name="bolt" className="text-[22px] text-amber-500 animate-pulse shrink-0" />
+          <div className="text-xs">
+            <span className="font-bold">Robot đang cắm sạc pin ({selectedRobotObj.deviceBatteryPct ?? selectedRobotObj.batteryPct}%)</span>
+            <p className="text-[11px] opacity-90 mt-0.5">Vui lòng rút dây sạc ra khỏi thiết bị trước khi phát lệnh điều hướng robot di chuyển.</p>
+          </div>
+        </div>
+      )}
+
       {/* Guide Active Warning Banner */}
       {missionState && missionState.flowType === 'guide' && (
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5 text-amber-800 dark:text-amber-300 animate-pulse">
@@ -890,13 +901,14 @@ function Tabs({ value, onChange }) {
 /*  Shared helpers                                                      */
 /* -------------------------------------------------------------------- */
 
-function labelForStatus(s) {
+function labelForStatus(s, isCharging = false) {
+  if (isCharging || s === 'Offline_Charging' || s === 'Charging') return 'đang sạc'
   switch (s) {
     case 'Moving': return 'đang di chuyển'
     case 'Idle': return 'rảnh'
     case 'Interacting': return 'đang tương tác'
-    case 'Offline_Charging': return 'sạc / ngoại tuyến'
     case 'Power_Off': return 'đã tắt nguồn'
+    case 'Online': return 'online'
     default: return s
   }
 }
@@ -930,8 +942,8 @@ function RobotDetailModal({ robotCode, onClose }) {
           setPose(p)
           if (!r) setError('Không tìm thấy robot này.')
         }
-      } catch {
-        if (!cancelled) setError('Không tải được thông tin robot.')
+      } catch (err) {
+        if (!cancelled) setError(err?.message ?? 'Lỗi tải thông tin robot.')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -942,17 +954,17 @@ function RobotDetailModal({ robotCode, onClose }) {
 
   if (!robotCode) return null
 
-  const p = robot ? statusPalette(robot.status) : null
+  const p = statusPalette(robot?.deviceIsCharging ? 'Offline_Charging' : (robot?.status ?? 'Unknown'))
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 smb-fade-in">
-      <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-smb-outline-variant/60 bg-smb-surface-container-lowest shadow-2xl smb-pop-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs smb-fade-in">
+      <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-smb-outline-variant bg-smb-surface-container-lowest shadow-2xl smb-pop-in">
         <div className="flex items-center justify-between border-b border-smb-outline-variant p-4">
-          <h2 className="text-base font-semibold text-smb-on-surface">Thông tin Robot</h2>
+          <h2 className="text-sm font-semibold text-smb-on-surface">Thông Tin Chi Tiết Robot</h2>
           <button
             type="button"
             onClick={onClose}
-            className="flex size-8 items-center justify-center rounded-full text-smb-on-surface-variant hover:bg-smb-surface-container-low"
+            className="flex size-7 items-center justify-center rounded text-smb-on-surface-variant hover:bg-smb-surface-container-hover"
           >
             <Icon name="close" className="text-[18px]" />
           </button>
@@ -967,11 +979,19 @@ function RobotDetailModal({ robotCode, onClose }) {
           ) : robot ? (
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <div className={`flex size-12 shrink-0 items-center justify-center rounded-full ${p.dot} text-smb-on-primary`}>
+                <div className={`flex size-12 shrink-0 items-center justify-center rounded-full ${robot.deviceIsCharging ? 'bg-amber-500' : p.dot} text-smb-on-primary shadow-xs`}>
                   <Icon name="smart_toy" className="text-2xl" />
                 </div>
                 <div>
-                  <p className="font-semibold text-smb-on-surface">{robot.robotName}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-semibold text-smb-on-surface">{robot.robotName}</p>
+                    {robot.deviceIsCharging && (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.2 text-[9px] font-bold text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                        <Icon name="bolt" className="text-[10px] text-amber-500" />
+                        Đang sạc
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-smb-on-surface-variant">{robot.robotCode}</p>
                 </div>
               </div>
@@ -987,7 +1007,30 @@ function RobotDetailModal({ robotCode, onClose }) {
               <div className="border-t border-smb-outline-variant" />
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                 <dt className="text-xs text-smb-on-surface-variant">Trạng thái</dt>
-                <dd className={`font-medium ${p.text}`}>{labelForStatus(robot.status)}</dd>
+                <dd className={`font-semibold ${robot.deviceIsCharging ? 'text-amber-600 dark:text-amber-400 flex items-center gap-1' : p.text}`}>
+                  {robot.deviceIsCharging ? (
+                    <>
+                      <Icon name="bolt" className="text-[14px] text-amber-500 animate-pulse" />
+                      Đang sạc (Điện thoại)
+                    </>
+                  ) : (
+                    labelForStatus(robot.status)
+                  )}
+                </dd>
+                <dt className="text-xs text-smb-on-surface-variant">Nhiệm vụ</dt>
+                <dd className="font-semibold text-xs">
+                  {robot.activeFlowType === 'ad' ? (
+                    <span className="text-emerald-600 dark:text-emerald-400">📢 Quảng cáo</span>
+                  ) : robot.activeFlowType === 'patrol' ? (
+                    <span className="text-blue-600 dark:text-blue-400">🔍 Tuần tra</span>
+                  ) : robot.activeFlowType === 'guide' ? (
+                    <span className="text-purple-600 dark:text-purple-400">🛒 Dẫn đường</span>
+                  ) : robot.activeFlowType === 'return' ? (
+                    <span className="text-orange-600 dark:text-orange-400">🏠 Quay về trạm</span>
+                  ) : (
+                    <span className="text-smb-on-surface-variant">Chờ lệnh</span>
+                  )}
+                </dd>
                 <dt className="text-xs text-smb-on-surface-variant">Chế độ</dt>
                 <dd className="font-medium text-smb-on-surface">{robot.mode}</dd>
                 <dt className="text-xs text-smb-on-surface-variant">IP</dt>
@@ -1034,7 +1077,20 @@ function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot }
 
   const summary = useMemo(() => {
     const acc = { Moving: 0, Idle: 0, Interacting: 0, Offline_Charging: 0, Power_Off: 0 }
-    robots.forEach((r) => { acc[r.status] = (acc[r.status] ?? 0) + 1 })
+    robots.forEach((r) => {
+      const isCharging = r.deviceIsCharging === true || r.status === 'Offline_Charging' || r.status === 'Charging'
+      if (isCharging) {
+        acc.Offline_Charging = (acc.Offline_Charging ?? 0) + 1
+      } else if (r.status === 'Moving' || r.mode === 'moving') {
+        acc.Moving = (acc.Moving ?? 0) + 1
+      } else if (r.status === 'Interacting' || r.mode === 'interacting') {
+        acc.Interacting = (acc.Interacting ?? 0) + 1
+      } else if (r.status === 'Power_Off' || r.status === 'Offline') {
+        acc.Power_Off = (acc.Power_Off ?? 0) + 1
+      } else {
+        acc.Idle = (acc.Idle ?? 0) + 1
+      }
+    })
     return acc
   }, [robots])
 
@@ -1069,26 +1125,152 @@ function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot }
           <ul className="flex-1 divide-y divide-smb-outline-variant overflow-y-auto">
             {robots.map((r) => {
               const pose = poses[r.robotCode]
-              const p = statusPalette(r.status)
+              const isCharging = r.deviceIsCharging === true || r.status === 'Offline_Charging' || r.status === 'Charging'
+              const p = statusPalette(isCharging ? 'Offline_Charging' : r.status)
               const isSel = selectedRobotCode === r.robotCode
+              const isMoving = (r.status === 'Moving' || r.mode === 'moving') && !isCharging
+              const isAd = r.activeFlowType === 'ad'
+              const isPatrol = r.activeFlowType === 'patrol'
+              const isGuide = r.activeFlowType === 'guide'
+              const isReturn = r.activeFlowType === 'return'
+
               return (
-                <li key={r.robotId}>
+                <li key={r.robotId} className="border-b border-smb-outline-variant/40 last:border-b-0">
                   <div
                     onClick={() => onSelectRobot?.(r)}
-                    className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left cursor-pointer transition-colors ${isSel ? 'bg-smb-active-bg' : 'hover:bg-smb-surface-container-low'}`}
+                    className={`flex w-full flex-col gap-2 p-3 text-left cursor-pointer transition-colors ${
+                      isSel ? 'bg-smb-active-bg ring-1 ring-inset ring-smb-primary/30' : 'hover:bg-smb-surface-container-low'
+                    }`}
                   >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className={`flex size-9 shrink-0 items-center justify-center rounded-full ${p.dot} text-smb-on-primary`}>
-                        <Icon name="smart_toy" className="text-[18px]" />
+                    {/* Row 1: Avatar + Robot Name + Mission/Charging Badges (left) & Actions (right) */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="relative shrink-0">
+                          <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${
+                            isCharging ? 'bg-amber-500' : isAd ? 'bg-emerald-600' : isPatrol ? 'bg-blue-600' : isGuide ? 'bg-purple-600' : p.dot
+                          } text-white shadow-xs`}>
+                            <Icon
+                              name={isCharging ? 'bolt' : isAd ? 'campaign' : isPatrol ? 'search' : isGuide ? 'navigation' : 'smart_toy'}
+                              className="text-[18px]"
+                            />
+                          </div>
+                          {isCharging ? (
+                            <span className="absolute -bottom-1 -right-1 flex size-3.5 items-center justify-center rounded-full bg-amber-500 text-white ring-2 ring-white dark:ring-gray-900" title="Đang sạc pin">
+                              <Icon name="bolt" className="text-[10px]" />
+                            </span>
+                          ) : isMoving ? (
+                            <span className="absolute -bottom-0.5 -right-0.5 flex size-2.5">
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                              <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-sm font-bold text-smb-on-surface truncate">{r.robotName}</span>
+                            {isCharging && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0">
+                                <Icon name="bolt" className="text-[10px] text-amber-500" />
+                                Đang sạc
+                              </span>
+                            )}
+                            {isAd && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shrink-0">
+                                <Icon name="campaign" className="text-[10px] text-emerald-500" />
+                                Quảng cáo
+                              </span>
+                            )}
+                            {isPatrol && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-bold text-blue-600 dark:text-blue-400 border border-blue-500/30 shrink-0">
+                                <Icon name="search" className="text-[10px] text-blue-500" />
+                                Tuần tra
+                              </span>
+                            )}
+                            {isGuide && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full bg-purple-500/15 px-1.5 py-0.5 text-[9px] font-bold text-purple-600 dark:text-purple-400 border border-purple-500/30 shrink-0">
+                                <Icon name="navigation" className="text-[10px] text-purple-500" />
+                                Dẫn đường
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-smb-on-surface-variant flex items-center gap-1 mt-0.5">
+                            <span className="font-mono text-[10px] opacity-75">{r.robotCode}</span>
+                            <span>·</span>
+                            {isCharging ? (
+                              <span className="font-semibold text-amber-600 dark:text-amber-400">Đang cắm sạc</span>
+                            ) : (
+                              <span className={p.text}>{labelForStatus(r.status)}</span>
+                            )}
+                            <span>·</span>
+                            <span className="capitalize">{r.mode}</span>
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-smb-on-surface">{r.robotName}</p>
-                        <p className="truncate text-xs text-smb-on-surface-variant">{labelForStatus(r.status)} · {r.mode}</p>
-                        <p className="mt-0.5 truncate text-[11px] italic text-smb-on-surface-variant">Chưa gán lộ trình</p>
+
+                      {/* Top right Action Buttons */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          title="Dừng Khẩn Cấp (Cancel Route)"
+                          onClick={(e) => { e.stopPropagation(); handleCancelRobot(r.robotCode) }}
+                          className="flex size-7 shrink-0 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-500/15 transition-colors"
+                        >
+                          <Icon name="cancel" className="text-[17px]" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Xem chi tiết"
+                          onClick={(e) => { e.stopPropagation(); setDetailRobotCode(r.robotCode) }}
+                          className="flex size-7 shrink-0 items-center justify-center rounded-lg text-smb-on-surface-variant hover:bg-smb-surface-container-hover hover:text-smb-primary transition-colors"
+                        >
+                          <Icon name="info" className="text-[17px]" />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="shrink-0 text-right">
+
+                    {/* Row 2: Mission Detail / Route + Battery Indicator */}
+                    <div className="mt-0.5 flex items-center justify-between gap-2 pt-1.5 border-t border-smb-outline-variant/30 text-xs">
+                      <div className="min-w-0 flex-1">
+                        {isCharging ? (
+                          <div className="flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400 truncate">
+                            <Icon name="bolt" className="text-[12px] text-amber-500 shrink-0" />
+                            <span className="truncate">Điện thoại đang sạc ({r.deviceBatteryPct ?? r.batteryPct ?? 0}%)</span>
+                          </div>
+                        ) : isAd ? (
+                          <div className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 truncate">
+                            <Icon name="campaign" className="text-[12px] text-emerald-500 shrink-0" />
+                            <span className="truncate">QC: {r.activeMission?.campaignName || 'Chiến dịch siêu thị'}</span>
+                          </div>
+                        ) : isPatrol ? (
+                          <div className="flex items-center gap-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 truncate">
+                            <Icon name="search" className="text-[12px] text-blue-500 shrink-0" />
+                            <span className="truncate">Tuần tra kệ hàng AI Vision</span>
+                          </div>
+                        ) : isGuide ? (
+                          <div className="flex items-center gap-1 text-[11px] font-medium text-purple-600 dark:text-purple-400 truncate">
+                            <Icon name="navigation" className="text-[12px] text-purple-500 shrink-0" />
+                            <span className="truncate">Dẫn đường khách mua hàng</span>
+                          </div>
+                        ) : isReturn ? (
+                          <div className="flex items-center gap-1 text-[11px] font-medium text-orange-600 dark:text-orange-400 truncate">
+                            <Icon name="home" className="text-[12px] text-orange-500 shrink-0" />
+                            <span className="truncate">Quay về trạm sạc</span>
+                          </div>
+                        ) : isMoving ? (
+                          <div className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 truncate">
+                            <Icon name="near_me" className="text-[12px] text-emerald-500 shrink-0" />
+                            <span className="truncate">Đang di chuyển trên bản đồ</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-[11px] text-smb-on-surface-variant/70 truncate">
+                            <Icon name="check_circle" className="text-[12px] text-emerald-500 shrink-0" />
+                            <span className="truncate">Sẵn sàng nhận lệnh</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="shrink-0 flex items-center gap-1.5">
                         <DualBatteryIndicator
                           batteryPct={r.batteryPct}
                           deviceBatteryPct={r.deviceBatteryPct}
@@ -1097,28 +1279,12 @@ function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot }
                           espBatteryVolts={r.espBatteryVolts}
                           variant="compact"
                         />
-                        <p className="mt-0.5 text-[9px] text-smb-on-surface-variant/70 tabular-nums">
+                        <span className="text-[9px] text-smb-on-surface-variant/70 font-mono">
                           {typeof (pose?.x ?? pose?.xCoord) === 'number' && typeof (pose?.y ?? pose?.yCoord) === 'number'
                             ? `(${(pose.x ?? pose.xCoord).toFixed(1)}, ${(pose.y ?? pose.yCoord).toFixed(1)})`
-                            : '—'}
-                        </p>
+                            : ''}
+                        </span>
                       </div>
-                      <button
-                        type="button"
-                        title="Dừng Khẩn Cấp (Cancel Route)"
-                        onClick={(e) => { e.stopPropagation(); handleCancelRobot(r.robotCode) }}
-                        className="flex size-7 shrink-0 items-center justify-center rounded text-rose-500 hover:bg-rose-500/10"
-                      >
-                        <Icon name="cancel" className="text-[16px]" />
-                      </button>
-                      <button
-                        type="button"
-                        title="Xem chi tiết"
-                        onClick={(e) => { e.stopPropagation(); setDetailRobotCode(r.robotCode) }}
-                        className="flex size-7 shrink-0 items-center justify-center rounded text-smb-on-surface-variant hover:bg-smb-surface-container-hover hover:text-smb-primary"
-                      >
-                        <Icon name="info" className="text-[16px]" />
-                      </button>
                     </div>
                   </div>
                 </li>

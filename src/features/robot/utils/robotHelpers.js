@@ -7,7 +7,9 @@ export const STATUS_COLORS = {
   Idle:              { bg: 'bg-smb-secondary-container', text: 'text-smb-on-secondary-container', dot: 'bg-smb-secondary-container' },
   Moving:            { bg: 'bg-smb-active-bg',           text: 'text-smb-primary-container',  dot: 'bg-smb-success' },
   Interacting:       { bg: 'bg-smb-tertiary-fixed',      text: 'text-smb-on-tertiary-fixed-variant', dot: 'bg-smb-tertiary-container' },
-  Offline_Charging:  { bg: 'bg-smb-surface-container-high', text: 'text-smb-on-surface-variant', dot: 'bg-smb-outline-variant' },
+  Offline_Charging:  { bg: 'bg-amber-500/15',            text: 'text-amber-600 dark:text-amber-400', dot: 'bg-amber-500' },
+  Charging:          { bg: 'bg-amber-500/15',            text: 'text-amber-600 dark:text-amber-400', dot: 'bg-amber-500' },
+  Online:            { bg: 'bg-emerald-500/10',          text: 'text-emerald-600 dark:text-emerald-400', dot: 'bg-emerald-500' },
   Unknown:           { bg: 'bg-smb-surface-container-high', text: 'text-smb-on-surface-variant', dot: 'bg-smb-outline-variant' },
 }
 
