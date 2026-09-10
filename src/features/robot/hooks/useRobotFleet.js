@@ -83,8 +83,11 @@ export function useRobotFleet({ pollMs = 5000 } = {}) {
         ...prev,
         [code]: {
           robotCode: code,
+          x,
+          y,
           xCoord: x,
           yCoord: y,
+          headingDeg: yaw,
           headingYawDeg: yaw,
           lastUpdatedAt: new Date().toISOString(),
         },

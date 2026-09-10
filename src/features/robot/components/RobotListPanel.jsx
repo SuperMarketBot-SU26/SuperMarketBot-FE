@@ -123,7 +123,9 @@ function RobotDetailModal({ robotCode, onClose }) {
                 <dd className="font-semibold text-smb-on-surface">{robot.mode}</dd>
                 <dt className="text-smb-on-surface-variant">Vị trí (X, Y)</dt>
                 <dd className="font-semibold tabular-nums text-smb-on-surface">
-                  {pose ? `(${pose.x.toFixed(2)}m, ${(pose.y ?? 0).toFixed(2)}m)` : '—'}
+                  {typeof (pose?.x ?? pose?.xCoord) === 'number' && typeof (pose?.y ?? pose?.yCoord) === 'number'
+                    ? `(${(pose.x ?? pose.xCoord).toFixed(2)}m, ${(pose.y ?? pose.yCoord).toFixed(2)}m)`
+                    : '—'}
                 </dd>
               </dl>
             </div>

@@ -224,6 +224,9 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
   const [estopMsg, setEstopMsg]   = useState(null)
   const [readiness, setReadiness] = useState(null)
   
+  const [adMode, setAdMode] = useState('free') // 'free' | 'shelf'
+  const [selectedAdShelfIds, setSelectedAdShelfIds] = useState([])
+
   const [missionState, setMissionState] = useState(null)
   const [campaigns, setCampaigns] = useState([])
   const [selectedCampaign, setSelectedCampaign] = useState('')
@@ -413,95 +416,169 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
       <div className="flex flex-col gap-3">
 
         {/* ── Flow 1: Quảng Cáo (Ad) ── */}
-        <div className="rounded-2xl border border-orange-500/30 bg-orange-500/5 p-4">
+        {/* ── Flow 1: Quảng Cáo (Ad) ── */}
+        {/* ── Flow 1: Quảng Cáo (Ad) ── */}
+        <div className="rounded-2xl border-2 border-orange-400 bg-orange-50/40 p-4 shadow-sm">
           <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="flex size-6 items-center justify-center rounded-lg bg-orange-500/20 text-orange-600">
-                <Icon name="campaign" className="text-[15px]" />
+              <span className="flex size-7 items-center justify-center rounded-lg bg-orange-600 text-white shadow-xs">
+                <Icon name="campaign" className="text-[17px]" />
               </span>
               <div>
-                <p className="font-bold text-orange-800 dark:text-orange-300">Flow Quảng Cáo Kệ Hàng</p>
-                <p className="text-[10px] text-orange-700/80 dark:text-orange-400/80">Phát video & TTS giới thiệu sản phẩm tại kệ</p>
+                <p className="font-extrabold text-orange-950 text-sm">Flow Quảng Cáo Kệ Hàng</p>
+                <p className="text-xs font-semibold text-orange-900">Phát video & TTS giới thiệu sản phẩm tại kệ</p>
               </div>
             </div>
-            <span className="rounded-full bg-orange-500/20 px-2.5 py-1 text-[10px] font-bold text-orange-700">Tự động TTS</span>
+            <span className="rounded-full bg-orange-200 px-2.5 py-1 text-[11px] font-bold text-orange-950 border border-orange-300">Tự động TTS</span>
           </div>
 
-          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-orange-700/70">
-            Chiến dịch (Campaign)
-          </label>
-          <select
-            value={selectedCampaign}
-            onChange={(e) => setSelectedCampaign(e.target.value)}
-            className="mb-3 w-full rounded-xl border border-orange-500/40 bg-smb-surface-container-lowest px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-orange-500"
-          >
-            {campaignOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-
-          <div className="mb-3.5 grid grid-cols-2 gap-2.5">
-            {/* Dwell Time Input (Seconds) */}
-            <div className="flex flex-col">
-              <label className="mb-1 text-[11px] font-bold text-orange-950 dark:text-orange-200">
-                Dừng tại mỗi kệ
-              </label>
-              <div className="relative flex items-center">
-                <input
-                  type="number"
-                  min="5"
-                  max="300"
-                  placeholder="20"
-                  value={adDwell}
-                  onChange={(e) => setAdDwell(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full rounded-xl border border-orange-400/50 bg-smb-surface-container-lowest py-2 pl-3 pr-12 text-xs font-bold text-smb-on-surface outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 shadow-sm"
-                />
-                <span className="absolute right-3 text-[11px] font-semibold text-orange-700/80 pointer-events-none">
-                  giây
-                </span>
-              </div>
-              <span className="mt-1 text-[10px] text-orange-800/80">Phát video & TTS tại kệ</span>
-            </div>
-
-            {/* Total Duration Input (Minutes) */}
-            <div className="flex flex-col">
-              <label className="mb-1 text-[11px] font-bold text-orange-950 dark:text-orange-200">
-                Tổng thời gian lặp
-              </label>
-              <div className="relative flex items-center">
-                <input
-                  type="number"
-                  min="1"
-                  max="480"
-                  placeholder="1 vòng"
-                  value={adDuration}
-                  onChange={(e) => setAdDuration(e.target.value)}
-                  className="w-full rounded-xl border border-orange-400/50 bg-smb-surface-container-lowest py-2 pl-3 pr-12 text-xs font-bold text-smb-on-surface outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 shadow-sm"
-                />
-                <span className="absolute right-3 text-[11px] font-semibold text-orange-700/80 pointer-events-none">
-                  phút
-                </span>
-              </div>
-              <span className="mt-1 text-[10px] text-orange-800/80">Trống = đi 1 vòng</span>
-            </div>
-          </div>
-
-          <div className="mb-3 flex gap-2">
+          {/* Ad Mode Segmented Buttons */}
+          <div className="mb-3 grid grid-cols-2 gap-1.5 rounded-xl bg-orange-200/70 p-1 border border-orange-300">
             <button
-              disabled={dispatching}
-              onClick={() => handleDispatch('ad', {
-                campaignId: selectedCampaign ? Number(selectedCampaign) : undefined,
-                dwellTimeSeconds: adDwell ? Number(adDwell) : 20,
-                durationMinutes: adDuration ? Number(adDuration) : undefined,
-              })}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-orange-700 hover:to-amber-600 active:scale-95 disabled:opacity-50 disabled:scale-100"
+              type="button"
+              onClick={() => setAdMode('free')}
+              className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all ${
+                adMode === 'free'
+                  ? 'bg-white text-orange-950 shadow-md'
+                  : 'text-orange-900 hover:text-orange-950'
+              }`}
             >
-              {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="play_arrow" className="text-[16px]" />}
-              Phát Lệnh Quảng Cáo Tự Do (Toàn Siêu Thị)
+              <Icon name="route" className="text-[15px]" />
+              Tự Do
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdMode('shelf')}
+              className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all ${
+                adMode === 'shelf'
+                  ? 'bg-white text-orange-950 shadow-md'
+                  : 'text-orange-900 hover:text-orange-950'
+              }`}
+            >
+              <Icon name="format_list_bulleted" className="text-[15px]" />
+              Theo Kệ
             </button>
           </div>
+
+          {adMode === 'free' ? (
+            <>
+              <div className="mb-3.5 flex flex-col">
+                <label className="mb-1 text-xs font-extrabold text-neutral-900">
+                  Tổng thời gian đi dạo (phút)
+                </label>
+                <div className="relative flex items-center">
+                  <input
+                    type="number"
+                    min="1"
+                    max="480"
+                    placeholder="1 vòng"
+                    value={adDuration}
+                    onChange={(e) => setAdDuration(e.target.value)}
+                    className="w-full rounded-xl border-2 border-orange-300 bg-white py-2 pl-3 pr-12 text-xs font-extrabold text-neutral-900 outline-none focus:border-orange-600 focus:ring-1 focus:ring-orange-600 shadow-sm"
+                  />
+                  <span className="absolute right-3 text-xs font-bold text-orange-900 pointer-events-none">
+                    phút
+                  </span>
+                </div>
+                <span className="mt-1 text-xs font-semibold text-neutral-800">Robot đi liên tục không dừng, phát quảng cáo toàn siêu thị. Trống = đi 1 vòng.</span>
+              </div>
+
+              <div className="mb-3 flex gap-2">
+                <button
+                  disabled={dispatching}
+                  onClick={() => handleDispatch('ad', {
+                    dwellTimeSeconds: 0,
+                    isLooping: true,
+                    durationMinutes: adDuration ? Number(adDuration) : undefined,
+                  })}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 py-3 text-xs font-extrabold text-white shadow-md transition-all hover:from-orange-700 hover:to-amber-700 active:scale-95 disabled:opacity-50 disabled:scale-100"
+                >
+                  {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="play_arrow" className="text-[16px]" />}
+                  Phát Lệnh Quảng Cáo Tự Do
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="text-xs font-extrabold uppercase tracking-wider text-neutral-900">
+                  Danh sách kệ (Đã chọn: {selectedAdShelfIds.length}/{validShelves.length})
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedAdShelfIds.length === validShelves.length) setSelectedAdShelfIds([])
+                    else setSelectedAdShelfIds(validShelves.map(s => s.shelfId))
+                  }}
+                  className="text-xs font-extrabold text-orange-700 hover:text-orange-900 hover:underline"
+                >
+                  {selectedAdShelfIds.length === validShelves.length ? 'Bỏ chọn' : 'Chọn tất cả'}
+                </button>
+              </div>
+              <div className="mb-3 max-h-[220px] overflow-y-auto rounded-xl border-2 border-orange-200 bg-white p-2 shadow-inner">
+                {validShelves.map((shelf) => {
+                  const isSelected = selectedAdShelfIds.includes(shelf.shelfId)
+                  return (
+                    <label
+                      key={`ad-${shelf.shelfId}`}
+                      className={`flex cursor-pointer items-center gap-2.5 rounded-lg p-2.5 transition-colors ${
+                        isSelected 
+                          ? 'bg-orange-100 border border-orange-300 shadow-xs' 
+                          : 'hover:bg-neutral-100 border border-transparent'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="size-4 rounded accent-orange-600 cursor-pointer"
+                        checked={isSelected}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedAdShelfIds(prev => [...prev, shelf.shelfId])
+                          else setSelectedAdShelfIds(prev => prev.filter(id => id !== shelf.shelfId))
+                        }}
+                      />
+                      <Icon name="shelves" className="text-[18px] text-orange-700 shrink-0" />
+                      <div className="flex-1 text-xs">
+                        <span className="font-bold text-neutral-900">{shelf.shelfName}</span>
+                        {shelf.aisleName && (
+                          <span className="ml-1.5 text-[11px] font-semibold text-neutral-600">
+                            ({shelf.aisleName})
+                          </span>
+                        )}
+                      </div>
+                    </label>
+                  )
+                })}
+                {validShelves.length === 0 && (
+                  <div className="p-3 text-center text-xs font-semibold text-neutral-600">
+                    Không có kệ nào được gán tọa độ (nodeId).
+                  </div>
+                )}
+              </div>
+
+              {/* Note giải thích tự động tính thời gian theo playlist - Nền sáng chữ đen đậm rõ 100% */}
+              <div className="mb-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-3 text-xs text-neutral-900 shadow-xs">
+                <div className="flex items-start gap-2">
+                  <Icon name="info" className="mt-0.5 text-[18px] text-amber-800 shrink-0" />
+                  <p className="leading-relaxed font-semibold">
+                    Robot sẽ lần lượt đến các kệ đã chọn, tự động đọc và chiếu <strong className="font-extrabold text-orange-900 underline decoration-orange-400">tất cả chiến dịch quảng cáo</strong> trên kệ theo thứ tự ưu tiên điểm gói (VIP &gt; Nâng cao &gt; Cơ bản) cho tới hết, sau đó tự động hoàn tất và quay về trạm.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-3 flex gap-2">
+                <button
+                  disabled={dispatching || selectedAdShelfIds.length === 0}
+                  onClick={() => handleDispatch('ad', {
+                    shelfIds: selectedAdShelfIds,
+                  })}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 py-3 text-xs font-extrabold text-white shadow-md transition-all hover:from-orange-700 hover:to-amber-700 active:scale-95 disabled:opacity-50 disabled:scale-100"
+                >
+                  {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="play_arrow" className="text-[16px]" />}
+                  Bắt Đầu Quảng Cáo Theo Kệ
+                </button>
+              </div>
+            </>
+          )}
 
           <StatusBadge msg={adMsg} />
           <WaypointList waypoints={adWaypoints} />
@@ -876,11 +953,15 @@ function RobotDetailModal({ robotCode, onClose }) {
                 <dd className="font-medium text-smb-on-surface tabular-nums">{robot.ipAddress ?? '—'}</dd>
                 <dt className="text-xs text-smb-on-surface-variant">Tọa độ</dt>
                 <dd className="font-medium text-smb-on-surface tabular-nums">
-                  {pose ? `(${pose.x.toFixed(2)}, ${pose.y.toFixed(2)})` : '—'}
+                  {typeof (pose?.x ?? pose?.xCoord) === 'number' && typeof (pose?.y ?? pose?.yCoord) === 'number'
+                    ? `(${(pose.x ?? pose.xCoord).toFixed(2)}, ${(pose.y ?? pose.yCoord).toFixed(2)})`
+                    : '—'}
                 </dd>
                 <dt className="text-xs text-smb-on-surface-variant">Hướng</dt>
                 <dd className="font-medium text-smb-on-surface tabular-nums">
-                  {pose ? `${pose.headingDeg.toFixed(1)}°` : '—'}
+                  {typeof (pose?.headingDeg ?? pose?.headingYawDeg) === 'number'
+                    ? `${(pose.headingDeg ?? pose.headingYawDeg).toFixed(1)}°`
+                    : '—'}
                 </dd>
                 <dt className="text-xs text-smb-on-surface-variant">Hoạt động lần cuối</dt>
                 <dd className="text-xs font-medium text-smb-on-surface">
@@ -976,7 +1057,9 @@ function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot }
                           variant="compact"
                         />
                         <p className="mt-0.5 text-[9px] text-smb-on-surface-variant/70 tabular-nums">
-                          {pose ? `(${pose.x.toFixed(1)}, ${(pose.y ?? 0).toFixed(1)})` : '—'}
+                          {typeof (pose?.x ?? pose?.xCoord) === 'number' && typeof (pose?.y ?? pose?.yCoord) === 'number'
+                            ? `(${(pose.x ?? pose.xCoord).toFixed(1)}, ${(pose.y ?? pose.yCoord).toFixed(1)})`
+                            : '—'}
                         </p>
                       </div>
                       <button
