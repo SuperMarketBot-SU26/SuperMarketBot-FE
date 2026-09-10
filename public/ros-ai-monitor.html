@@ -703,7 +703,7 @@
 
                 <!-- Action Button -->
                 <div style="flex: 1.3; min-width: 220px; display: flex; align-items: flex-end;">
-                    <button id="btn-trigger-scan" onclick="triggerManualShelfScan()" class="btn-scan-action">
+                    <button id="btn-trigger-scan" onclick="triggerManualShelfSweep()" class="btn-scan-action">
                         <span class="scan-icon" style="font-size: 1.1rem;">⚡</span>
                         <span id="btn-scan-text">KÍCH HOẠT QUÉT & BÁO CÁO BE</span>
                     </button>
@@ -1075,7 +1075,7 @@
             statusText.innerText = text;
         }
 
-        function triggerManualShelfScan() {
+        function triggerManualShelfSweep() {
             if (isSweeping) return;
 
             const shelfSelect = document.getElementById('shelf-select');
@@ -1134,6 +1134,9 @@
 
             showToast(`🚀 Bắt đầu quét Kệ #${shelfId} (${duration}s)...`, 'info');
         }
+        // Aliases for compatibility
+        window.triggerManualShelfSweep = triggerManualShelfSweep;
+        window.triggerManualShelfScan = triggerManualShelfSweep;
 
         async function finalizeAndDispatchShelfReport(shelfId) {
             // Lấy thông số mật độ: ưu tiên từ camera phân tích gần nhất, nếu không lấy từ giao diện
