@@ -90,10 +90,23 @@ export function useRobotFleet({ pollMs = 5000 } = {}) {
         },
       }))
 
-      if (telemetry.batteryPercentage !== undefined || telemetry.batteryPct !== undefined) {
-        const pct = telemetry.batteryPercentage ?? telemetry.batteryPct
+      const rawBat = telemetry.batteryPercentage ?? telemetry.batteryPct ?? telemetry.battery ?? telemetry.Battery
+      if (rawBat !== undefined || telemetry.deviceBattery !== undefined || telemetry.espBattery !== undefined) {
         setRobots((prev) =>
-          prev.map((r) => (r.robotCode === code ? { ...r, batteryPct: pct } : r))
+          prev.map((r) => {
+            const isMatch = r.robotCode === code ||
+              (code === 'RB001' && r.robotCode === 'RB0001') ||
+              (code === 'RB0001' && r.robotCode === 'RB001')
+            if (!isMatch) return r
+            return {
+              ...r,
+              batteryPct: rawBat !== undefined ? rawBat : r.batteryPct,
+              deviceBatteryPct: telemetry.deviceBattery !== undefined ? telemetry.deviceBattery : r.deviceBatteryPct,
+              deviceIsCharging: telemetry.deviceIsCharging !== undefined ? telemetry.deviceIsCharging : r.deviceIsCharging,
+              espBatteryPct: telemetry.espBattery !== undefined ? telemetry.espBattery : r.espBatteryPct,
+              espBatteryVolts: telemetry.espBatteryVolts !== undefined ? telemetry.espBatteryVolts : r.espBatteryVolts,
+            }
+          })
         )
       }
       setTick((t) => t + 1)
@@ -102,7 +115,7 @@ export function useRobotFleet({ pollMs = 5000 } = {}) {
     const handleNavStatus = (statusUpdate) => {
       if (!statusUpdate?.robotCode) return
       const code = statusUpdate.robotCode
-      const statusText = statusUpdate.status || statusUpdate.navigationStatus
+      const statusText = statusUpdate.status || statusUpdate.navigationStatus || statusUpdate.navStatus
       if (statusText) {
         setRobots((prev) =>
           prev.map((r) => (r.robotCode === code ? { ...r, status: statusText } : r))
@@ -111,8 +124,14 @@ export function useRobotFleet({ pollMs = 5000 } = {}) {
       setTick((t) => t + 1)
     }
 
+    connection.on('telemetry', handleTelemetry)
     connection.on('ReceiveTelemetry', handleTelemetry)
+    connection.on('navigationStatus', handleNavStatus)
     connection.on('ReceiveNavigationStatus', handleNavStatus)
+    connection.on('status', () => {})
+    connection.on('robotLog', () => {})
+    connection.on('zoneEntered', () => {})
+    connection.on('slamMapStream', () => {})
 
     connection.start().catch(() => {
       // Graceful fallback to HTTP polling if WebSocket is blocked
@@ -120,8 +139,14 @@ export function useRobotFleet({ pollMs = 5000 } = {}) {
 
     return () => {
       if (signalrConnectionRef.current) {
+        signalrConnectionRef.current.off('telemetry')
         signalrConnectionRef.current.off('ReceiveTelemetry')
+        signalrConnectionRef.current.off('navigationStatus')
         signalrConnectionRef.current.off('ReceiveNavigationStatus')
+        signalrConnectionRef.current.off('status')
+        signalrConnectionRef.current.off('robotLog')
+        signalrConnectionRef.current.off('zoneEntered')
+        signalrConnectionRef.current.off('slamMapStream')
         signalrConnectionRef.current.stop().catch(() => {})
         signalrConnectionRef.current = null
       }

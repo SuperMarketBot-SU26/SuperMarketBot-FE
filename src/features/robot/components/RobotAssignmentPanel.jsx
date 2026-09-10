@@ -7,6 +7,7 @@ import {
 } from '../api/robotRoutesApi'
 import { getRobot, getRobotPose } from '../api/robotApi'
 import { getZones as fetchZones } from '../api/zonesApi'
+import { DualBatteryIndicator } from './DualBatteryIndicator'
 
 function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
@@ -274,6 +275,11 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
   }, [defaultRoute, robots])
 
   const selectedRobotId = robots.find((robot) => robot.robotCode === selectedRobot)?.robotId
+  const selectedRobotObj = robots.find(
+    (r) => r.robotCode === selectedRobot ||
+      (selectedRobot === 'RB001' && r.robotCode === 'RB0001') ||
+      (selectedRobot === 'RB0001' && r.robotCode === 'RB001')
+  )
 
   const patrolRoutes = useMemo(() => {
     const matched = routes.filter((route) =>
@@ -377,6 +383,18 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
           )}
         </select>
       </div>
+
+      {/* Dual-Battery System Indicator */}
+      {selectedRobotObj && (
+        <DualBatteryIndicator
+          batteryPct={selectedRobotObj.batteryPct}
+          deviceBatteryPct={selectedRobotObj.deviceBatteryPct}
+          deviceIsCharging={selectedRobotObj.deviceIsCharging}
+          espBatteryPct={selectedRobotObj.espBatteryPct}
+          espBatteryVolts={selectedRobotObj.espBatteryVolts}
+          variant="card"
+        />
+      )}
 
       {/* Guide Active Warning Banner */}
       {missionState && missionState.flowType === 'guide' && (
@@ -840,13 +858,20 @@ function RobotDetailModal({ robotCode, onClose }) {
                 </div>
               </div>
               <div className="border-t border-smb-outline-variant" />
+              <DualBatteryIndicator
+                batteryPct={robot.batteryPct}
+                deviceBatteryPct={robot.deviceBatteryPct}
+                deviceIsCharging={robot.deviceIsCharging}
+                espBatteryPct={robot.espBatteryPct}
+                espBatteryVolts={robot.espBatteryVolts}
+                variant="card"
+              />
+              <div className="border-t border-smb-outline-variant" />
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                 <dt className="text-xs text-smb-on-surface-variant">Trạng thái</dt>
                 <dd className={`font-medium ${p.text}`}>{labelForStatus(robot.status)}</dd>
                 <dt className="text-xs text-smb-on-surface-variant">Chế độ</dt>
                 <dd className="font-medium text-smb-on-surface">{robot.mode}</dd>
-                <dt className="text-xs text-smb-on-surface-variant">Pin</dt>
-                <dd className="font-medium text-smb-on-surface tabular-nums">{robot.batteryPct}%</dd>
                 <dt className="text-xs text-smb-on-surface-variant">IP</dt>
                 <dd className="font-medium text-smb-on-surface tabular-nums">{robot.ipAddress ?? '—'}</dd>
                 <dt className="text-xs text-smb-on-surface-variant">Tọa độ</dt>
@@ -942,8 +967,15 @@ function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot }
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="shrink-0 text-right">
-                        <p className="text-sm font-semibold tabular-nums text-smb-on-surface">{r.batteryPct}%</p>
-                        <p className="text-[10px] text-smb-on-surface-variant tabular-nums">
+                        <DualBatteryIndicator
+                          batteryPct={r.batteryPct}
+                          deviceBatteryPct={r.deviceBatteryPct}
+                          deviceIsCharging={r.deviceIsCharging}
+                          espBatteryPct={r.espBatteryPct}
+                          espBatteryVolts={r.espBatteryVolts}
+                          variant="compact"
+                        />
+                        <p className="mt-0.5 text-[9px] text-smb-on-surface-variant/70 tabular-nums">
                           {pose ? `(${pose.x.toFixed(1)}, ${(pose.y ?? 0).toFixed(1)})` : '—'}
                         </p>
                       </div>

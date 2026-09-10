@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { statusPalette } from '../utils/robotHelpers'
 import { getRobot, getRobotPose } from '../api/robotApi'
+import { DualBatteryIndicator } from './DualBatteryIndicator'
 
 function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
@@ -106,13 +107,20 @@ function RobotDetailModal({ robotCode, onClose }) {
                 </div>
               </div>
               <div className="border-t border-smb-outline-variant/40" />
+              <DualBatteryIndicator
+                batteryPct={robot.batteryPct}
+                deviceBatteryPct={robot.deviceBatteryPct}
+                deviceIsCharging={robot.deviceIsCharging}
+                espBatteryPct={robot.espBatteryPct}
+                espBatteryVolts={robot.espBatteryVolts}
+                variant="card"
+              />
+              <div className="border-t border-smb-outline-variant/40" />
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
                 <dt className="text-smb-on-surface-variant">Trạng thái</dt>
                 <dd className={`font-semibold ${p.text}`}>{labelForStatus(robot.status)}</dd>
                 <dt className="text-smb-on-surface-variant">Chế độ</dt>
                 <dd className="font-semibold text-smb-on-surface">{robot.mode}</dd>
-                <dt className="text-smb-on-surface-variant">Pin</dt>
-                <dd><BatteryBar pct={robot.batteryPct} /></dd>
                 <dt className="text-smb-on-surface-variant">Vị trí (X, Y)</dt>
                 <dd className="font-semibold tabular-nums text-smb-on-surface">
                   {pose ? `(${pose.x.toFixed(2)}m, ${(pose.y ?? 0).toFixed(2)}m)` : '—'}
@@ -225,7 +233,14 @@ export function RobotListPanel({
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <BatteryBar pct={r.batteryPct} />
+                      <DualBatteryIndicator
+                        batteryPct={r.batteryPct}
+                        deviceBatteryPct={r.deviceBatteryPct}
+                        deviceIsCharging={r.deviceIsCharging}
+                        espBatteryPct={r.espBatteryPct}
+                        espBatteryVolts={r.espBatteryVolts}
+                        variant="compact"
+                      />
                       <button
                         type="button"
                         title="Xem chi tiết"
