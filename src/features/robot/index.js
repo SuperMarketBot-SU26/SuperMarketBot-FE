@@ -1,4 +1,5 @@
 export { default as FleetMap } from './components/FleetMap'
+export { default as SupermarketInteractiveMap } from './components/SupermarketInteractiveMap'
 export { default as RobotAssignmentPanel } from './components/RobotAssignmentPanel'
 export { default as RobotListPanel } from './components/RobotListPanel'
 export { default as RouteAssignmentPanel } from './components/RouteAssignmentPanel'

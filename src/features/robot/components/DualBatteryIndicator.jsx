@@ -28,9 +28,14 @@ export function DualBatteryIndicator({
   deviceIsCharging = false,
   espBatteryPct,
   espBatteryVolts,
+  robotStatus = '',
   variant = 'card',
   className = '',
 }) {
+  // Xác định robot có thực sự đang online/kết nối hay không
+  const isOffline = ['Power_Off', 'Offline', 'Unknown', ''].includes(robotStatus) && batteryPct == null
+  const isPowerOff = robotStatus === 'Power_Off' || robotStatus === 'Offline'
+
   const overall = batteryPct != null ? Math.max(0, Math.min(100, Math.round(batteryPct))) : null
   const devBat = deviceBatteryPct != null ? Math.max(0, Math.min(100, Math.round(deviceBatteryPct))) : null
   const espBat = espBatteryPct != null ? Math.max(0, Math.min(100, Math.round(espBatteryPct))) : (overall != null ? overall : null)
@@ -82,6 +87,29 @@ export function DualBatteryIndicator({
   }
 
   // Variant = 'card' (Display on RobotAssignmentPanel and RobotDetailModal)
+  // Nếu robot tắt nguồn hoặc chưa kết nối → hiển thị trạng thái tắt thay vì pin giả
+  if (isPowerOff || isOffline) {
+    return (
+      <div className={`rounded-xl border border-smb-outline-variant/50 bg-smb-surface-container-lowest/80 p-3 shadow-xs ${className}`}>
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-gray-500/15 text-gray-500">
+            <Icon name="power_settings_new" className="text-[22px]" />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-bold text-smb-on-surface">
+              {isPowerOff ? '🔴 Robot đang tắt nguồn' : '⚪ Chưa nhận được dữ liệu pin'}
+            </p>
+            <p className="text-[10px] text-smb-on-surface-variant/80 mt-0.5">
+              {isPowerOff
+                ? 'Bật nguồn robot và khởi động ứng dụng trên Tablet để bắt đầu.'
+                : 'Đang chờ kết nối từ thiết bị... Kiểm tra robot đã bật và có WiFi.'}
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={`rounded-xl border border-smb-outline-variant/50 bg-smb-surface-container-lowest/80 p-3 shadow-xs ${className}`}>
       {/* 1. Pin Tổng (Overall Battery) */}

@@ -4,6 +4,7 @@ import { useAuth } from '../features/auth/useAuth'
 
 const navItems = [
   { icon: 'smart_toy', label: 'Giám Sát Robot', path: '/robots' },
+  { icon: 'map', label: 'Bản Đồ & Định Vị Robot', path: '/ros-map' },
   { icon: 'manage_accounts', label: 'Quản Lý Tài Khoản', path: '/accounts' },
   { icon: 'campaign', label: 'Chiến Dịch Quảng Cáo', path: '/' },
   { icon: 'sell', label: 'Gói Quảng Cáo', path: '/ad-packages' },

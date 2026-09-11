@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react'
 import { StatCard } from '../../../components/StatCard'
 
-export function FleetStatsHeader({ robots = [] }) {
+export function FleetStatsHeader({ robots = [], compact = true }) {
   const stats = useMemo(() => {
     const isCharging = (r) =>
       r.deviceIsCharging === true ||
@@ -66,7 +66,7 @@ export function FleetStatsHeader({ robots = [] }) {
   }, [robots])
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className={`grid ${compact ? 'gap-3' : 'gap-4'} sm:grid-cols-2 lg:grid-cols-4`}>
       <StatCard
         title="Tổng Robot"
         value={String(stats.total)}
@@ -75,6 +75,7 @@ export function FleetStatsHeader({ robots = [] }) {
         trend="up"
         trendValue={`Pin TB ${stats.avgBattery}%`}
         color="primary"
+        compact={compact}
       />
       <StatCard
         title="Đang Di Chuyển"
@@ -106,6 +107,7 @@ export function FleetStatsHeader({ robots = [] }) {
                   : 'Chờ nhiệm vụ'
         }
         color={stats.movingCount > 0 ? 'success' : 'primary'}
+        compact={compact}
       />
       <StatCard
         title="Pin Yếu (<25%)"
@@ -121,6 +123,7 @@ export function FleetStatsHeader({ robots = [] }) {
         trend={stats.lowBat > 0 ? (stats.offlineCharging > 0 ? 'up' : 'down') : 'neutral'}
         trendValue={stats.lowBat > 0 ? (stats.offlineCharging > 0 ? 'Đang sạc' : 'Cảnh báo') : 'Ổn định'}
         color="warning"
+        compact={compact}
       />
       <StatCard
         title="Ngoại Tuyến / Đang Sạc"
@@ -130,6 +133,7 @@ export function FleetStatsHeader({ robots = [] }) {
         trend={stats.offlineCharging > 0 ? 'up' : 'neutral'}
         trendValue={stats.offlineCharging > 0 ? `${stats.offlineCharging} đang sạc pin` : 'Cập nhật liên tục'}
         color={stats.offlineCharging > 0 ? 'warning' : 'danger'}
+        compact={compact}
       />
     </div>
   )

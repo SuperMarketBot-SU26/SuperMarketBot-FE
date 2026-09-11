@@ -314,7 +314,7 @@
         <div class="header">
             <div class="header-title">
                 <div class="header-icon"></div>
-                SMB Fleet
+                Đội Robot Siêu Thị
             </div>
             <div class="global-status" id="global-ros-status">
                 <span style="font-size: 10px;">🔴</span> NGOẠI TUYẾN
@@ -322,134 +322,130 @@
         </div>
 
         <div class="imgui-collapsible open">
-            <div class="summary" onclick="this.parentElement.classList.toggle('open')">ROS2</div>
+            <div class="summary" onclick="this.parentElement.classList.toggle('open')">Bảng Điều Khiển Vận Hành</div>
             <div class="details-content">
         <div class="card">
-            <div class="card-title">1. KẾT NỐI ROBOT (ROS 2)</div>
+            <div class="card-title">1. KẾT NỐI & CHẾ ĐỘ VẬN HÀNH</div>
             <div class="text-sm text-muted" style="margin-bottom: 8px;">
-                Quản lý ROS 2 Process và kết nối WebSocket (Rosbridge).
+                Chọn chế độ hoạt động hoặc kết nối tới hệ thống điều khiển robot.
             </div>
 
             <div style="display: flex; gap: 8px; flex-direction: column; margin-bottom: 12px;">
-                <div class="input-group" style="display: flex; gap: 4px;">
-                    <button id="btn-agent-start-slam" onclick="startRobotOS('slam')" class="btn btn-primary btn-flex" style="background-color: #3b82f6;">🚀 Quét Map SLAM</button>
-                    <button id="btn-agent-start-amcl" onclick="startRobotOS('amcl')" class="btn btn-primary btn-flex" style="background-color: #10b981;">🚀 Điều Hướng AMCL</button>
+                <div class="input-group" style="display: flex; gap: 6px;">
+                    <button id="btn-agent-start-slam" onclick="startRobotOS('slam')" class="btn btn-primary btn-flex" style="background-color: #2563eb;" title="Bắt đầu chạy quét và vẽ bản đồ siêu thị mới">🗺️ Quét Bản Đồ Mới</button>
+                    <button id="btn-agent-start-amcl" onclick="startRobotOS('amcl')" class="btn btn-primary btn-flex" style="background-color: #059669;" title="Kích hoạt chế độ tự hành dẫn đường">🧭 Dẫn Đường Tự Hành</button>
                 </div>
-                <div class="input-group" style="display: flex; gap: 4px;">
-                    <button id="btn-agent-stop" onclick="stopRobotOS()" class="btn btn-secondary btn-flex">🛑 Dừng ROS 2</button>
-                    <button id="btn-agent-save" onclick="saveRobotMap()" class="btn btn-success btn-flex" title="Lưu bản đồ SLAM hiện tại">💾 Lưu Bản Đồ</button>
+                <div class="input-group" style="display: flex; gap: 6px;">
+                    <button id="btn-agent-stop" onclick="stopRobotOS()" class="btn btn-secondary btn-flex" title="Tạm dừng mọi tiến trình di chuyển">🛑 Dừng Hoạt Động</button>
+                    <button id="btn-agent-save" onclick="saveRobotMap()" class="btn btn-success btn-flex" title="Lưu lại bản đồ vừa quét">💾 Lưu Bản Đồ</button>
                 </div>
             </div>
 
+            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px; font-weight: 500;">Địa chỉ kết nối Robot:</div>
             <div class="input-group">
                 <input type="text" id="ros-ws-url" value="ws://snake.local:9090" placeholder="ws://snake.local:9090">
                 <button id="btn-ros-connect" onclick="connectROS()" style="background: #10b981;">Kết Nối</button>
             </div>
             <div class="data-row" style="margin-top: 8px;">
-                <span>Trạng thái OS:</span><span class="value" id="val-agent-status"
-                    class="value text-muted">Checking...</span>
+                <span>Hệ thống Robot:</span><span class="value" id="val-agent-status"
+                    class="value text-muted">Đang kiểm tra...</span>
             </div>
             <div class="data-row">
-                <span>Trạng thái WS:</span><span class="value" id="val-ros-status"
-                    class="value text-danger">Đã Ngắt Kết Nối</span>
+                <span>Cổng điều khiển:</span><span class="value" id="val-ros-status"
+                    class="value text-danger">Chưa kết nối</span>
             </div>
         </div>
 
-        <div class="card" >
-            <div class="card-title" class="text-warning">2. Tải Bản Đồ & Waypoint</div>
-            <div style="font-size: 12px; color: #fff; margin-bottom: 12px;">
-                Tải bản đồ từ Backend hoặc Upload thủ công (.pgm + .yaml).
+        <div class="card">
+            <div class="card-title text-warning">2. DỮ LIỆU BẢN ĐỒ & TƯỜNG NGĂN</div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+                Tải bản đồ chuẩn từ hệ thống máy chủ hoặc hiệu chỉnh tường ngăn.
             </div>
             <button onclick="fetchActiveMapFromBE()"
-                style="width: 100%; background: #38bdf8; margin-bottom: 12px; color: #0f172a;">🌐 Tải từ Backend
-                C#</button>
-            <div class="text-sm" style="margin-bottom: 4px;">
-                Bản đồ được tự động tải từ Backend cho robot.
+                style="width: 100%; background: #0284c7; margin-bottom: 8px; color: #ffffff; font-weight: 600; padding: 9px;" class="btn">📥 Tải Bản Đồ Chuẩn Từ Máy Chủ</button>
+            <div class="text-sm text-muted" style="margin-bottom: 4px;">
+                Bản đồ sẽ được tự động đồng bộ xuống robot để định vị.
             </div>
 
             <div id="amcl-upload-section"
                 style="display: none; margin-top: 12px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 12px;">
-                <div style="font-size: 12px; color: #f59e0b; margin-bottom: 8px;">Tải Bản Đồ Lên Robot (AMCL)</div>
-                <input type="file" id="amclMapFiles" multiple accept=".pgm,.yaml"
-                     />
-                <button onclick="uploadMapToRobot()" class="btn btn-warning btn-full">Upload to
-                    Robot</button>
+                <div style="font-size: 12px; color: #f59e0b; margin-bottom: 8px;">Tải Tệp Bản Đồ Lên Robot</div>
+                <input type="file" id="amclMapFiles" multiple accept=".pgm,.yaml" />
+                <button onclick="uploadMapToRobot()" class="btn btn-warning btn-full">Tải Lên Robot</button>
             </div>
 
-            <div id="map-edit-section" style="margin-top: 12px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 12px;">
-                <button id="btn-edit-map" onclick="toggleMapEditMode()" class="btn btn-purple btn-full" style="margin-bottom: 8px;">✏️ Chỉnh Sửa Bản Đồ</button>
+            <div id="map-edit-section" style="margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px;">
+                <button id="btn-edit-map" onclick="toggleMapEditMode()" class="btn btn-purple btn-full" style="margin-bottom: 8px;">✏️ Chỉnh Sửa Vật Cản Bản Đồ</button>
                 <div id="edit-tools" style="display: none; flex-direction: column; gap: 6px;">
-                    <div style="display: flex; gap: 4px;">
-                        <button onclick="setBrush('draw')" id="btn-draw" class="btn btn-secondary btn-flex">🖋️ Vẽ Cản</button>
-                        <button onclick="setBrush('erase')" id="btn-erase" class="btn btn-secondary btn-flex">🧽 Xoá (Trống)</button>
+                    <div style="display: flex; gap: 6px;">
+                        <button onclick="setBrush('draw')" id="btn-draw" class="btn btn-secondary btn-flex">🧱 Vẽ Tường / Cản</button>
+                        <button onclick="setBrush('erase')" id="btn-erase" class="btn btn-secondary btn-flex">🧹 Xóa (Đường Trống)</button>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #ccc;">
-                        <span>Cỡ cọ:</span>
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #cbd5e1; background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 6px;">
+                        <span>Độ dày nét:</span>
                         <input type="range" id="brush-size" min="1" max="20" value="5" style="flex: 1;" oninput="document.getElementById('brush-val').innerText = this.value + 'px'">
-                        <span id="brush-val" style="min-width: 30px;">5px</span>
+                        <span id="brush-val" style="min-width: 35px; font-weight: 600;">5px</span>
                     </div>
-                    <div style="display: flex; gap: 4px; margin-top: 4px;">
+                    <div style="display: flex; gap: 6px; margin-top: 4px;">
                         <button onclick="saveEditedMap()" class="btn btn-success btn-flex">💾 Cập Nhật Robot</button>
-                        <button onclick="toggleMapEditMode()" class="btn btn-danger btn-flex">❌ Huỷ</button>
+                        <button onclick="toggleMapEditMode()" class="btn btn-danger btn-flex">❌ Hủy Bỏ</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="card" >
-            <div class="card-title" class="text-primary">3. ĐIỀU KHIỂN ĐIỀU HƯỚNG</div>
+        <div class="card">
+            <div class="card-title text-primary">3. CÔNG CỤ TƯƠNG TÁC BẢN ĐỒ</div>
 
             <div class="mode-switcher">
                 <label class="mode-label">
-                    <input type="radio" name="toolMode" value="pan" checked> 🖐️ Kéo Bản Đồ
+                    <input type="radio" name="toolMode" value="pan" checked> 🖐️ Di Chuyển Map
                 </label>
                 <label class="mode-label mode-draw">
-                    <input type="radio" name="toolMode" value="draw"> 🎯 Tạo WP
+                    <input type="radio" name="toolMode" value="draw"> 📍 Thêm Điểm Dừng
                 </label>
                 <label class="mode-label mode-initial">
-                    <input type="radio" name="toolMode" value="initialpose"> 📍 Vị Trí Ban Đầu
+                    <input type="radio" name="toolMode" value="initialpose"> 🏠 Đặt Vị Trí Xe
                 </label>
                 <label class="mode-label mode-goal">
-                    <input type="radio" name="toolMode" value="navgoal"> 🚀 Mục Tiêu Di Chuyển
+                    <input type="radio" name="toolMode" value="navgoal"> 🎯 Đích Đến Tức Thì
                 </label>
             </div>
 
-            <div style="font-size: 14px; color: #fff; margin-bottom: 12px; line-height: 1.4;">
+            <div style="font-size: 13px; color: #f8fafc; margin-bottom: 12px; line-height: 1.5; background: rgba(15, 23, 42, 0.6); padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
                 <span id="instruction-pan">
-                    🖱️ <b>Kéo thả chuột (Drag):</b> Di chuyển bản đồ<br>
-                    📍 <b>Kéo thả Waypoint:</b> Nhấn giữ vào Waypoint để dời vị trí<br>
-                    ⚙️ <b>Click vào Waypoint:</b> Mở bảng cấu hình<br>
-                    🔍 <b>Lăn chuột (Scroll):</b> Phóng to / Thu nhỏ<br>
-                    ❌ <b>Click chuột phải:</b> Xóa Waypoint
+                    🖱️ <b>Giữ chuột trái & kéo:</b> Di chuyển góc nhìn bản đồ<br>
+                    🔍 <b>Lăn chuột:</b> Phóng to / Thu nhỏ bản đồ<br>
+                    📍 <b>Kéo thả điểm dừng:</b> Thay đổi vị trí điểm dừng<br>
+                    ⚙️ <b>Nhấp vào điểm dừng:</b> Xem & chỉnh tọa độ chi tiết<br>
+                    ❌ <b>Nhấp chuột phải:</b> Xóa điểm dừng này
                 </span>
                 <span id="instruction-draw" style="display:none; color: #fecdd3;">
-                    🎯 <b>Giữ chuột trái & Kéo (vùng trống):</b> Đặt Waypoint mới.<br>
-                    📍 <b>Kéo thả Waypoint cũ:</b> Di chuyển vị trí Waypoint<br>
-                    ⚙️ <b>Click vào Waypoint:</b> Mở bảng cấu hình<br>
-                    ❌ <b>Click chuột phải:</b> Xóa Waypoint
+                    🎯 <b>Nhấn giữ chuột trái & kéo hướng:</b> Đặt điểm dừng mới và hướng quay của xe.<br>
+                    📍 <b>Kéo thả điểm dừng:</b> Thay đổi vị trí điểm dừng<br>
+                    ⚙️ <b>Nhấp vào điểm dừng:</b> Xem & chỉnh tọa độ chi tiết<br>
+                    ❌ <b>Nhấp chuột phải:</b> Xóa điểm dừng
                 </span>
                 <span id="instruction-initialpose" style="display:none; color: #d1fae5;">
-                    📍 <b>Giữ chuột trái & Kéo:</b> Cập nhật vị trí bắt đầu (Vị Trí Ban Đầu) cho AMCL trên ROS 2.
+                    🏠 <b>Nhấn giữ chuột trái & kéo hướng:</b> Đặt lại vị trí xuất phát thực tế của xe trong siêu thị.
                 </span>
                 <span id="instruction-navgoal" style="display:none; color: #fef3c7;">
-                    🚀 <b>Giữ chuột trái & Kéo:</b> Ra lệnh cho Robot tự động chạy tới điểm này (Gửi /goal_pose).
+                    🚀 <b>Nhấn giữ chuột trái & kéo hướng:</b> Ra lệnh cho robot lập tức tự lái đến vị trí vừa chọn.
                 </span>
             </div>
-            <div class="data-row"><span>👉 Tọa độ X:</span><span class="value" class="value text-danger"
+            <div class="data-row"><span>📍 Tọa độ chuột X:</span><span class="value text-danger"
                     id="val-wx">-</span></div>
-            <div class="data-row"><span>👉 Tọa độ Y:</span><span class="value" class="value text-danger"
+            <div class="data-row"><span>📍 Tọa độ chuột Y:</span><span class="value text-danger"
                     id="val-wy">-</span></div>
         </div>
 
         <div class="card" style="border-color: #10b981;">
-            <div class="card-title" style="color: #10b981;">5. Cloud Sync (Backend)</div>
-            <div style="font-size: 12px; color: #fff; margin-bottom: 12px;">
-                Đồng bộ dữ liệu trực tiếp lên Database.
+            <div class="card-title" style="color: #10b981;">4. LƯU TRỮ & ĐỒNG BỘ MÁY CHỦ</div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+                Đồng bộ bản đồ và danh sách các điểm dừng lên cơ sở dữ liệu siêu thị.
             </div>
-            <button onclick="syncMapFilesToBE()" style="width: 100%; background: #10b981; margin-bottom: 8px;">☁️ Lưu
-                Bản Đồ Lên Server</button>
-            <button onclick="syncWaypointsToBE()" style="width: 100%; background: #0ea5e9;">☁️ Lưu Waypoint Lên
-                Server</button>
+            <button onclick="syncMapFilesToBE()" style="width: 100%; background: #10b981; margin-bottom: 8px; font-weight: 600;" class="btn">💾 Lưu Bản Đồ Lên Máy Chủ</button>
+            <button onclick="syncWaypointsToBE()" style="width: 100%; background: #0284c7; font-weight: 600;" class="btn">📍 Lưu Điểm Dừng Lên Máy Chủ</button>
         </div>
 
         <!-- Removed Export Mission -->
@@ -467,19 +463,19 @@
         <div class="log-panel" id="logPanel">
             <div class="panel-controls">
                 <div class="log-toggle-btn" onclick="toggleLogPanel()" id="logToggleBtn">
-                    Nhật Ký (Logs) 🔼
+                    Nhật Ký Robot 🔼
                 </div>
                 <div class="shutdown-btn" onclick="shutdownPi()" title="Tắt Nguồn Robot (Shutdown)">
-                    ⏻ Tắt Nguồn
+                    ⏻ Tắt Nguồn Robot
                 </div>
             </div>
             <div class="log-header" onclick="toggleLogPanel()">
-                <div style="font-weight: 600; font-size: 14px;">/rosout (ROS 2 System Logs)</div>
+                <div style="font-weight: 600; font-size: 14px;">Nhật Ký Hoạt Động Robot (System Logs)</div>
                 <button onclick="clearLogs(); event.stopPropagation();"
-                    style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 2px 8px; font-size: 12px; color: #fff; cursor: pointer;">Clear</button>
+                    style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 2px 8px; font-size: 12px; color: #fff; cursor: pointer;">Xóa Nhật Ký</button>
             </div>
             <div class="log-content" id="logContent">
-                <div class="log-line log-info">[System] Đang chờ kết nối ROS 2...</div>
+                <div class="log-line log-info">[Hệ thống] Đang chờ kết nối tới robot...</div>
             </div>
         </div>
     </div>
@@ -487,75 +483,74 @@
     <div class="right-sidebar">
         <div class="card">
             <div class="card-title">THÔNG SỐ BẢN ĐỒ</div>
-            <div class="data-row"><span>Độ phân giải</span><span class="value" id="val-res">0.05</span></div>
-            <div class="data-row"><span>Gốc X</span><span class="value" id="val-ox">-10.00</span></div>
-            <div class="data-row"><span>Gốc Y</span><span class="value" id="val-oy">-10.00</span></div>
-            <div class="data-row"><span>Kích thước Ảnh</span><span class="value" id="val-size">800x600</span></div>
-            <div class="data-row"><span>Mức Thu phóng</span><span class="value" id="val-zoom">100%</span></div>
+            <div class="data-row"><span>Độ chi tiết ô:</span><span class="value" id="val-res">0.05 m/px</span></div>
+            <div class="data-row"><span>Tọa độ gốc X:</span><span class="value" id="val-ox">-10.00 m</span></div>
+            <div class="data-row"><span>Tọa độ gốc Y:</span><span class="value" id="val-oy">-10.00 m</span></div>
+            <div class="data-row"><span>Kích thước lưới:</span><span class="value" id="val-size">800×600</span></div>
+            <div class="data-row"><span>Tỷ lệ thu phóng:</span><span class="value" id="val-zoom">100%</span></div>
         </div>
 
         <div class="card">
-            <div class="card-title">4. THÔNG TIN ROBOT (ROS 2)</div>
-            <div style="font-size: 12px; color: #a1a1aa; margin-bottom: 8px;">
-                Tự động cập nhật vị trí xe theo thời gian thực (1-2 Hz).
+            <div class="card-title">5. THEO DÕI VỊ TRÍ XE THỜI GIAN THỰC</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
+                Cập nhật vị trí thực tế của robot đang di chuyển trong siêu thị.
             </div>
 
-            <div class="data-row">
-                <span style="font-size: 14px;">Topic Vị trí:</span>
-                <select id="ros-pose-topic"
-                    >
-                    <option value="/odom_relay">/odom_relay (Bánh xe)</option>
-                    <option value="/pose">/pose (SLAM)</option>
-                    <option value="/amcl_pose">/amcl_pose (Nav2)</option>
-                    <option value="/odom">/odom (Thô)</option>
-                    <option value="/scan">/scan (Chỉ Kiểm tra Tần số)</option>
+            <div class="data-row" style="flex-direction: column; align-items: stretch; gap: 6px;">
+                <span style="font-size: 12px; color: var(--text-muted);">Nguồn dữ liệu cảm biến:</span>
+                <select id="ros-pose-topic">
+                    <option value="/odom_relay">Cảm biến hành trình bánh xe</option>
+                    <option value="/pose">Định vị quét bản đồ</option>
+                    <option value="/amcl_pose">Định vị tự hành thông minh</option>
+                    <option value="/odom">Dữ liệu thô bánh xe</option>
+                    <option value="/scan">Kiểm tra cảm biến khoảng cách</option>
                 </select>
             </div>
 
             <div class="data-row" style="margin-top: 10px;">
-                <span>Vị trí X:</span><span class="value" id="live-rx" class="value text-primary">0.000</span>
+                <span>Tọa độ xe X:</span><span class="value text-primary" id="live-rx">0.000 m</span>
             </div>
             <div class="data-row">
-                <span>Vị trí Y:</span><span class="value" id="live-ry" class="value text-primary">0.000</span>
+                <span>Tọa độ xe Y:</span><span class="value text-primary" id="live-ry">0.000 m</span>
             </div>
             <div class="data-row" style="margin-top: 5px; border-top: 1px dashed #334155; padding-top: 5px;">
-                <span>Tần số:</span><span class="value" id="live-hz" class="value text-success">0 Hz</span>
+                <span>Tần số truyền nhận:</span><span class="value text-success" id="live-hz">0 Hz</span>
             </div>
 
             <div class="data-row"
                 style="margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px;">
-                <label style="font-size: 14px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" id="toggle-live-map" autocomplete="off" onchange="toggleLiveMap()"> Hiện Bản Đồ Trực Tiếp (/map)
+                <label style="font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-secondary);">
+                    <input type="checkbox" id="toggle-live-map" autocomplete="off" onchange="toggleLiveMap()"> Hiện Lớp Bản Đồ Trực Tiếp
                 </label>
             </div>
             <div class="data-row" style="margin-top: 5px;">
-                <label style="font-size: 14px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" id="toggle-live-scan" autocomplete="off" onchange="toggleLiveScan()"> Hiện Quét Trực Tiếp (/scan)
+                <label style="font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-secondary);">
+                    <input type="checkbox" id="toggle-live-scan" autocomplete="off" onchange="toggleLiveScan()"> Hiện Tia Quét Cảm Biến Khoảng Cách
                 </label>
             </div>
         </div>
 
-        <div class="card" style="margin-top: 24px;">
-            <div class="card-title" class="text-purple">5. LUỒNG CAMERA</div>
-            <div style="font-size: 12px; color: #a1a1aa; margin-bottom: 8px;">
-                Livestream từ Pi 5 Camera.
+        <div class="card" style="margin-top: 8px;">
+            <div class="card-title text-purple">6. CAMERA QUAN SÁT TRỰC TIẾP</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
+                Hình ảnh trực tiếp từ camera mặt trước của xe.
             </div>
-            <div style="width: 100%; aspect-ratio: 16/9; background: #0f172a; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <div style="width: 100%; aspect-ratio: 16/9; background: #0f172a; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
                 <img id="camera-stream-img" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;" />
-                <span id="camera-placeholder" style="color: #64748b; font-size: 14px;">Bật công tắc để xem</span>
+                <span id="camera-placeholder" style="color: #64748b; font-size: 13px;">Chưa bật camera quan sát</span>
             </div>
             <div class="data-row" style="margin-top: 10px;">
-                <label style="font-size: 14px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" id="toggle-camera" autocomplete="off" onchange="toggleCameraStream()"> Bật Camera (/camera/image_raw/compressed)
+                <label style="font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-secondary);">
+                    <input type="checkbox" id="toggle-camera" autocomplete="off" onchange="toggleCameraStream()"> Bật Luồng Camera Robot
                 </label>
             </div>
             <div style="margin-top: 12px; border-top: 1px dashed var(--border-strong); padding-top: 12px;">
-                <a href="/ros-ai-monitor.html" class="btn btn-purple btn-full" target="_blank" style="text-decoration: none;">🧠 Mở AI Camera Monitor</a>
+                <a href="/ros-ai-monitor.html" class="btn btn-purple btn-full" target="_blank" style="text-decoration: none;">🧠 Mở Màn Hình AI Nhận Diện Sản Phẩm</a>
             </div>
         </div>
     </div>
 
-    <div class="toast" id="toast">✅ Đã lưu Waypoint!</div>
+    <div class="toast" id="toast">✅ Đã lưu điểm dừng!</div>
 
     <!-- Waypoint Edit Modal -->
     <div id="wp-modal-overlay"
@@ -565,7 +560,7 @@
         style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1e293b; padding: 24px; border-radius: 12px; border: 1px solid #334155; z-index: 1000; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); min-width: 360px; font-family: 'Inter', sans-serif;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <h3 style="margin: 0; color: #38bdf8; font-size: 1.15rem; font-weight: 600; display: flex; align-items: center; gap: 8px;">
-                <span>📍</span> Cập Nhật Tọa Độ Node
+                <span>📍</span> Cập Nhật Tọa Độ Điểm Dừng
             </h3>
             <button onclick="closeWpModal()"
                 style="background: transparent; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer; padding: 0;">&times;</button>
@@ -583,11 +578,11 @@
         <!-- Readonly Node Info Card -->
         <div style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
             <div>
-                <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Thông tin Node</div>
-                <div id="wp-display-name" style="font-size: 14px; font-weight: 600; color: #f8fafc; margin-top: 2px;">Waypoint</div>
+                <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Điểm Dừng Đang Chọn</div>
+                <div id="wp-display-name" style="font-size: 14px; font-weight: 600; color: #f8fafc; margin-top: 2px;">Điểm Dừng</div>
             </div>
             <div id="wp-display-badge" style="font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">
-                📍 Node
+                📍 Điểm Dừng
             </div>
         </div>
 
@@ -595,7 +590,7 @@
         <div style="display: flex; gap: 12px; margin-bottom: 12px;">
             <div style="flex: 1;">
                 <label style="display: block; color: #cbd5e1; font-size: 13px; margin-bottom: 6px; font-weight: 600;">
-                    Tọa độ X (m):
+                    Tọa độ X (mét):
                 </label>
                 <input type="number" id="wp-edit-x" step="0.01"
                     style="width: 100%; background: #0f172a; border: 1.5px solid #38bdf8; border-radius: 8px; padding: 10px 12px; color: #fff; font-size: 15px; font-weight: 700; font-family: monospace; outline: none;"
@@ -604,7 +599,7 @@
             </div>
             <div style="flex: 1;">
                 <label style="display: block; color: #cbd5e1; font-size: 13px; margin-bottom: 6px; font-weight: 600;">
-                    Tọa độ Y (m):
+                    Tọa độ Y (mét):
                 </label>
                 <input type="number" id="wp-edit-y" step="0.01"
                     style="width: 100%; background: #0f172a; border: 1.5px solid #38bdf8; border-radius: 8px; padding: 10px 12px; color: #fff; font-size: 15px; font-weight: 700; font-family: monospace; outline: none;"
@@ -614,7 +609,7 @@
         </div>
 
         <div style="font-size: 11px; color: #94a3b8; margin-bottom: 20px; line-height: 1.5; background: rgba(56, 189, 248, 0.05); padding: 8px 10px; border-radius: 6px; border-left: 3px solid #38bdf8;">
-            ℹ️ <i>Cập nhật vị trí X, Y của node trên bản đồ. Các thông tin khác (tên, vai trò, liên kết) được giữ nguyên.</i>
+            ℹ️ <i>Cập nhật vị trí X, Y của điểm dừng trên bản đồ. Các thông tin liên kết kệ hàng và cấu hình khác được giữ nguyên.</i>
         </div>
 
         <div style="display: flex; justify-content: flex-end; gap: 10px;">
@@ -793,7 +788,14 @@
 
             const displayBadgeElem = document.getElementById('wp-display-badge');
             if (displayBadgeElem) {
-                displayBadgeElem.innerText = `📍 ${wp.nodeType || 'Waypoint'} · ${wp.role || 'ad'}`;
+                let roleStr = 'Quảng cáo';
+                if (wp.role === 'patrol') roleStr = 'Tuần tra';
+                else if (wp.role === 'charging') roleStr = 'Trạm sạc';
+                else if (wp.role === 'guide') roleStr = 'Dẫn đường';
+                else if (wp.role) roleStr = wp.role;
+
+                let typeStr = wp.nodeType === 'ChargingStation' ? 'Trạm sạc' : (wp.nodeType === 'Waypoint' ? 'Điểm dừng' : (wp.nodeType || 'Điểm dừng'));
+                displayBadgeElem.innerText = `📍 ${typeStr} · ${roleStr}`;
             }
 
             document.getElementById('wp-modal-overlay').style.display = 'block';
@@ -833,7 +835,7 @@
                 renderUI();
 
                 const toast = document.getElementById('toast');
-                toast.innerText = `✅ Đã cập nhật tọa độ (${waypoints[index].x.toFixed(2)}, ${waypoints[index].y.toFixed(2)})! Bấm "Lưu Waypoint Lên Server" để đồng bộ.`;
+                toast.innerText = `✅ Đã cập nhật tọa độ (${waypoints[index].x.toFixed(2)}, ${waypoints[index].y.toFixed(2)})! Bấm "Lưu Điểm Dừng Lên Máy Chủ" để đồng bộ.`;
                 toast.style.background = '#0ea5e9';
                 toast.classList.add('show');
                 setTimeout(() => toast.classList.remove('show'), 3500);
@@ -1030,20 +1032,23 @@
                 if (!statusEl) return;
 
                 if (data.status === 'running') {
-                    const modeText = data.mode && data.mode !== 'unknown' ? ` [${data.mode.toUpperCase()}]` : '';
-                    statusEl.innerText = `Đang chạy${modeText}`;
+                    let modeLabel = '';
+                    if (data.mode === 'slam') modeLabel = ' [Quét Bản Đồ]';
+                    else if (data.mode === 'amcl') modeLabel = ' [Dẫn Đường]';
+                    else if (data.mode && data.mode !== 'unknown') modeLabel = ` [${data.mode.toUpperCase()}]`;
+                    statusEl.innerText = `Đang hoạt động${modeLabel}`;
                     statusEl.style.color = '#10b981';
                 } else if (data.status === 'starting') {
-                    statusEl.innerText = 'Starting...';
+                    statusEl.innerText = 'Đang khởi động...';
                     statusEl.style.color = '#f59e0b';
                 } else {
-                    statusEl.innerText = 'Đã Dừng';
+                    statusEl.innerText = 'Đã dừng';
                     statusEl.style.color = '#ef4444';
                 }
             } catch (err) {
                 const statusEl = document.getElementById('val-agent-status');
                 if (statusEl) {
-                    statusEl.innerText = 'Unreachable';
+                    statusEl.innerText = 'Chưa kết nối';
                     statusEl.style.color = '#64748b';
                 }
             }
@@ -1056,19 +1061,19 @@
             window.currentBootMode = mode; // Lưu lại để dùng cho hàm save
             sessionStorage.setItem('currentBootMode', mode);
             const statusEl = document.getElementById('val-agent-status');
-            statusEl.innerText = 'Booting...';
+            statusEl.innerText = 'Đang khởi động...';
             statusEl.style.color = '#f59e0b';
             try {
                 if (mode === 'amcl') {
                     if (!window.activeMapImageUrl || !window.activeMapData) {
-                        alert("Không tìm thấy dữ liệu Active Map từ Backend. Chờ tải Map xong rồi thử lại.");
-                        statusEl.innerText = 'Sync Failed';
+                        alert("Chưa có dữ liệu bản đồ đang hoạt động từ máy chủ. Vui lòng bấm 'Tải Bản Đồ Chuẩn Từ Máy Chủ' trước khi khởi động.");
+                        statusEl.innerText = 'Đồng bộ thất bại';
                         statusEl.style.color = '#ef4444';
                         return;
                     }
                     
                     const toast = document.getElementById('toast');
-                    toast.innerText = '⏳ Đang đồng bộ Map từ Server xuống Robot...';
+                    toast.innerText = '⏳ Đang gửi bản đồ chuẩn xuống Robot...';
                     toast.style.background = '#3b82f6';
                     toast.classList.add('show');
                     
@@ -1143,13 +1148,13 @@ free_thresh: 0.196
                     const uploadData = await uploadRes.json();
                     if (uploadData.error) {
                         toast.classList.remove('show');
-                        alert("Lỗi khi đồng bộ Map xuống Robot: " + uploadData.error);
-                        statusEl.innerText = 'Sync Failed';
+                        alert("Lỗi khi gửi bản đồ xuống Robot: " + uploadData.error);
+                        statusEl.innerText = 'Gửi bản đồ thất bại';
                         statusEl.style.color = '#ef4444';
                         return;
                     }
                     
-                    toast.innerText = '✅ Đã đồng bộ Map! Đang khởi động ROS 2...';
+                    toast.innerText = '✅ Đã đồng bộ bản đồ! Đang khởi động hệ thống tự hành...';
                     toast.style.background = '#10b981';
                     setTimeout(() => toast.classList.remove('show'), 2000);
                 }
@@ -1162,15 +1167,15 @@ free_thresh: 0.196
                 });
                 const data = await res.json();
                 if (data.error) {
-                    alert("Boot failed: " + data.error);
-                    statusEl.innerText = 'Failed';
+                    alert("Khởi động hệ thống Robot thất bại: " + data.error);
+                    statusEl.innerText = 'Thất bại';
                     statusEl.style.color = '#ef4444';
                     return;
                 }
                 setTimeout(checkAgentStatus, 2000);
             } catch (err) {
                 console.error("Boot error:", err);
-                alert("Failed to contact Agent Server");
+                alert("Không thể kết nối đến hệ thống điều khiển Robot");
             }
         }
 
@@ -1178,19 +1183,19 @@ free_thresh: 0.196
             window.currentBootMode = null;
             sessionStorage.removeItem('currentBootMode');
             const statusEl = document.getElementById('val-agent-status');
-            statusEl.innerText = 'Stopping...';
+            statusEl.innerText = 'Đang dừng...';
             statusEl.style.color = '#f59e0b';
             try {
                 await fetch(`${getAgentApiUrl()}/stop`, { method: 'POST' });
                 if (ros) ros.close();
                 setTimeout(checkAgentStatus, 1500);
             } catch (err) {
-                alert("Failed to contact Agent Server");
+                alert("Không thể kết nối đến hệ thống điều khiển Robot");
             }
         }
 
         async function shutdownPi() {
-            if (!confirm("⚠️ CẢNH BÁO: Hành động này sẽ TẮT NGUỒN (Shutdown) máy tính Raspberry Pi trên Robot.\nBạn sẽ mất kết nối hoàn toàn và phải bật lại nguồn bằng tay.\n\nBạn có chắc chắn muốn TẮT NGUỒN không?")) {
+            if (!confirm("⚠️ CẢNH BÁO: Hành động này sẽ TẮT NGUỒN máy tính trung tâm trên Robot.\nBạn sẽ mất kết nối hoàn toàn và phải bật lại công tắc nguồn trực tiếp trên thân xe.\n\nBạn có chắc chắn muốn TẮT NGUỒN không?")) {
                 return;
             }
             try {
@@ -1199,10 +1204,10 @@ free_thresh: 0.196
                 if (data.error) {
                     alert("Lỗi: " + data.error);
                 } else {
-                    alert("Robot đang tắt nguồn...");
+                    alert("Robot đang tiến hành tắt nguồn hệ thống...");
                 }
             } catch (err) {
-                alert("Không thể kết nối đến Agent Server để tắt nguồn: " + err);
+                alert("Không thể kết nối đến hệ thống Robot để tắt nguồn: " + err);
             }
         }
 
@@ -1210,11 +1215,11 @@ free_thresh: 0.196
         async function saveRobotMap() {
             const mode = window.currentBootMode || sessionStorage.getItem('currentBootMode');
             if (mode !== 'slam') {
-                alert("Bạn chỉ có thể lưu bản đồ khi đang chạy chế độ Quét Map (SLAM)!");
+                alert("Bạn chỉ có thể lưu bản đồ khi đang chạy chế độ Quét Bản Đồ Mới!");
                 return;
             }
             
-            if (!confirm("Hành động này sẽ lưu bản đồ đang quét lên Robot, sau đó TỰ ĐỘNG đồng bộ lên Hệ thống Backend (C#). Bạn có chắc chắn không?")) return;
+            if (!confirm("Hệ thống sẽ lưu bản đồ hiện tại trên Robot và tự động đồng bộ lên máy chủ. Bạn có chắc chắn muốn thực hiện không?")) return;
             
             try {
                 const toast = document.getElementById('toast');
@@ -1225,14 +1230,14 @@ free_thresh: 0.196
                 const res = await fetch(`${getAgentApiUrl()}/save_map`, { method: 'POST' });
                 const data = await res.json();
                 if (data.error) {
-                    alert("Lỗi khi lưu trên Robot: " + data.error);
+                    alert("Lỗi khi lưu bản đồ trên Robot: " + data.error);
                     toast.classList.remove('show');
                     return;
                 }
                 
                 // Trigger downloads if backend returned the files
                 if (data.yaml_b64 && data.pgm_b64) {
-                    toast.innerText = '☁️ Đang đồng bộ bản đồ lên Server Backend...';
+                    toast.innerText = '☁️ Đang đồng bộ bản đồ lên máy chủ...';
                     
                     const base64ToBlob = (b64, type) => {
                         const bin = atob(b64);
@@ -1258,7 +1263,7 @@ free_thresh: 0.196
                     });
 
                     if (syncRes.ok) {
-                        toast.innerText = '✅ Đã đồng bộ lên Backend thành công!';
+                        toast.innerText = '✅ Đã đồng bộ bản đồ lên máy chủ thành công!';
                         toast.style.background = '#10b981';
                         // Refresh the map on screen
                         setTimeout(() => {
@@ -1266,11 +1271,11 @@ free_thresh: 0.196
                             fetchActiveMapFromBE();
                         }, 2000);
                     } else {
-                        alert("Bản đồ đã lưu trên Robot nhưng LỖI khi đồng bộ lên Backend!");
+                        alert("Bản đồ đã được lưu trên Robot nhưng xảy ra lỗi khi đồng bộ lên máy chủ!");
                         toast.classList.remove('show');
                     }
                 } else {
-                    toast.innerText = '✅ Lưu trên Robot thành công (không có file upload).';
+                    toast.innerText = '✅ Lưu trên Robot thành công (không có file đính kèm).';
                     toast.style.background = '#10b981';
                     setTimeout(() => toast.classList.remove('show'), 3000);
                 }
@@ -1358,7 +1363,7 @@ free_thresh: 0.196
 
             statusEl.innerText = 'Đang kết nối...';
             statusEl.style.color = '#f59e0b';
-            globalStatus.innerHTML = '<span style="font-size: 10px;">🟡</span> CONNECTING';
+            globalStatus.innerHTML = '<span style="font-size: 10px;">🟡</span> ĐANG KẾT NỐI';
 
             ros = new ROSLIB.Ros({
                 url: wsUrl
@@ -1371,7 +1376,7 @@ free_thresh: 0.196
                 btn.style.background = '#ef4444';
 
                 globalStatus.classList.add('connected');
-                globalStatus.innerHTML = '<span style="font-size: 10px;">🟢</span> ROS 2 ONLINE';
+                globalStatus.innerHTML = '<span style="font-size: 10px;">🟢</span> TRỰC TUYẾN';
 
                 initialPoseTopic = new ROSLIB.Topic({
                     ros: ros,
@@ -1405,21 +1410,21 @@ free_thresh: 0.196
                     }
                 });
 
-                alert('✅ Kết nối ROS 2 thành công! Bạn có thể dùng chế độ Vị Trí Ban Đầu hoặc Mục Tiêu Di Chuyển.');
+                alert('✅ Đã kết nối cổng điều khiển thành công! Bạn có thể đặt vị trí xe hoặc gửi mục tiêu di chuyển.');
             });
 
             ros.on('error', function (error) {
-                statusEl.innerText = 'Error';
+                statusEl.innerText = 'Lỗi kết nối';
                 statusEl.style.color = '#ef4444';
                 globalStatus.classList.remove('connected');
-                globalStatus.innerHTML = '<span style="font-size: 10px;">🔴</span> ERROR';
-                console.error('Lỗi kết nối ROS:', error);
+                globalStatus.innerHTML = '<span style="font-size: 10px;">🔴</span> LỖI KẾT NỐI';
+                console.error('Lỗi kết nối Robot:', error);
             });
 
             ros.on('close', function () {
-                statusEl.innerText = 'Đã Ngắt Kết Nối';
+                statusEl.innerText = 'Đã ngắt kết nối';
                 statusEl.style.color = '#ef4444';
-                btn.innerText = 'Connect';
+                btn.innerText = 'Kết Nối';
                 btn.style.background = '#10b981';
                 globalStatus.classList.remove('connected');
                 globalStatus.innerHTML = '<span style="font-size: 10px;">🔴</span> NGOẠI TUYẾN';
@@ -1492,7 +1497,7 @@ free_thresh: 0.196
                     if (wasMoved) {
                         const wp = waypoints[wpIdx];
                         const toast = document.getElementById('toast');
-                        toast.innerText = `📍 Đã dời "${wp.name || 'Waypoint ' + (wpIdx + 1)}" đến (${wp.x.toFixed(2)}, ${wp.y.toFixed(2)})! Bấm "Lưu Waypoint Lên Server" để đồng bộ.`;
+                        toast.innerText = `📍 Đã dời "${wp.name || 'Điểm dừng ' + (wpIdx + 1)}" đến (${wp.x.toFixed(2)}, ${wp.y.toFixed(2)})! Bấm "Lưu Điểm Dừng Lên Máy Chủ" để đồng bộ.`;
                         toast.style.background = '#0ea5e9';
                         toast.classList.add('show');
                         setTimeout(() => toast.classList.remove('show'), 3500);
@@ -1526,23 +1531,23 @@ free_thresh: 0.196
                             x: draftWaypoint.x,
                             y: draftWaypoint.y,
                             heading: draftWaypoint.heading,
-                            name: `Waypoint ${waypoints.length + 1}`,
+                            name: `Điểm dừng ${waypoints.length + 1}`,
                             role: 'ad',
                             nodeType: 'Waypoint',
                             isBlocked: false,
                             dwellTimeSeconds: 30
                         });
-                        toast.innerText = '✅ Đã lưu Waypoint vào file YAML!';
+                        toast.innerText = '✅ Đã thêm điểm dừng mới!';
                         toast.style.background = '#10b981';
                         toast.classList.add('show');
 
                     } else if (currentMode === 'initialpose') {
                         if (sendRosPose(initialPoseTopic, draftWaypoint.x, draftWaypoint.y, draftWaypoint.heading)) {
-                            toast.innerText = '📍 Đã cài đặt Vị Trí Ban Đầu!';
+                            toast.innerText = '📍 Đã thiết lập vị trí xuất phát cho xe!';
                             toast.style.background = 'rgba(16, 185, 129, 0.9)';
                             toast.classList.add('show');
                         } else {
-                            alert("Vui lòng kết nối ROS 2 trước!");
+                            alert("Vui lòng kết nối cổng điều khiển Robot trước!");
                         }
                     } else if (currentMode === 'navgoal') {
                         if (sendRosPose(goalPoseTopic, draftWaypoint.x, draftWaypoint.y, draftWaypoint.heading)) {
@@ -1550,16 +1555,16 @@ free_thresh: 0.196
                             if (window.supervisorCmdClient) {
                                 const request = new ROSLIB.ServiceRequest({ command: 'nav', current_state: '' });
                                 window.supervisorCmdClient.callService(request, (result) => {
-                                    appendLog({ level: 20, name: 'WebUI', msg: 'Chuyển Supervisor sang chế độ NAV: ' + result.message });
+                                    appendLog({ level: 20, name: 'WebUI', msg: 'Chuyển xe sang chế độ di chuyển: ' + result.message });
                                 }, (err) => {
-                                    appendLog({ level: 40, name: 'WebUI', msg: 'Lỗi khi gọi supervisor/cmd: ' + err });
+                                    appendLog({ level: 40, name: 'WebUI', msg: 'Lỗi khi gửi lệnh di chuyển: ' + err });
                                 });
                             }
-                            toast.innerText = '🚀 Đã gửi Mục Tiêu Di Chuyển! Robot đang di chuyển...';
+                            toast.innerText = '🚀 Đã gửi điểm đến! Robot đang bắt đầu di chuyển...';
                             toast.style.background = 'rgba(245, 158, 11, 0.9)'; // Màu cam
                             toast.classList.add('show');
                         } else {
-                            alert("Vui lòng kết nối ROS 2 trước!");
+                            alert("Vui lòng kết nối cổng điều khiển Robot trước!");
                         }
                     }
 
@@ -1611,7 +1616,7 @@ free_thresh: 0.196
                     renderUI();
 
                     const toast = document.getElementById('toast');
-                    toast.innerText = '🗑️ Đã xóa Waypoint!';
+                    toast.innerText = '🗑️ Đã xóa điểm dừng!';
                     toast.style.background = '#ef4444';
                     toast.classList.add('show');
                     setTimeout(() => toast.classList.remove('show'), 2000);
@@ -1731,25 +1736,73 @@ free_thresh: 0.196
                 ctx.fill();
             }
 
-            // Cục node màu đỏ (Nổi bật hơn nếu đang nháp hoặc chuyển sang cyan khi kéo)
+            // Điểm nút tròn (Đổi màu theo trạng thái và chức năng)
+            const isCharging = wpData && (wpData.role === 'charging' || wpData.nodeType === 'ChargingStation');
+            const nodeColor = isDragging ? '#0ea5e9' : (isDraft ? '#f59e0b' : (isCharging ? '#10b981' : '#f43f5e'));
+
             ctx.beginPath();
             ctx.arc(screenPx.x, screenPx.y, isDragging ? 10 : (isDraft ? 9 : 7), 0, Math.PI * 2);
-            ctx.fillStyle = isDragging ? '#0ea5e9' : '#f43f5e';
+            ctx.fillStyle = nodeColor;
             ctx.fill();
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = (isDraft || isDragging) ? 3 : 2;
             ctx.stroke();
 
-            // Tên WP
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold 12px sans-serif';
-            ctx.fillText(labelText, screenPx.x - 14, screenPx.y - 15);
+            // Thẻ nhãn tên điểm dừng (Pill badge nền tối có viền, rõ ràng chống chìm vào bản đồ)
+            ctx.font = 'bold 11px sans-serif';
+            const textMetrics = ctx.measureText(labelText);
+            const badgeW = textMetrics.width + 14;
+            const badgeH = 20;
+            const badgeX = screenPx.x - badgeW / 2;
+            const badgeY = screenPx.y - 28;
+
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 5);
+            } else {
+                ctx.rect(badgeX, badgeY, badgeW, badgeH);
+            }
+            ctx.fillStyle = isDragging ? 'rgba(14, 165, 233, 0.95)' : (isDraft ? 'rgba(245, 158, 11, 0.95)' : 'rgba(15, 23, 42, 0.88)');
+            ctx.fill();
+            ctx.strokeStyle = isDragging ? '#38bdf8' : (isDraft ? '#fbbf24' : (isCharging ? '#34d399' : '#475569'));
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.fillStyle = isDragging ? '#ffffff' : (isDraft ? '#1e293b' : '#f8fafc');
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(labelText, screenPx.x, badgeY + badgeH / 2);
+            ctx.textAlign = 'start';
+            ctx.textBaseline = 'alphabetic';
 
             // Hiển thị tọa độ real-time bên dưới node khi đang kéo
             if (isDragging && wpData) {
+                const coordText = `(${wpData.x.toFixed(2)}m, ${wpData.y.toFixed(2)}m)`;
+                ctx.font = 'bold 10px monospace';
+                const coordMetrics = ctx.measureText(coordText);
+                const cW = coordMetrics.width + 10;
+                const cH = 17;
+                const cX = screenPx.x - cW / 2;
+                const cY = screenPx.y + 14;
+
+                ctx.beginPath();
+                if (ctx.roundRect) {
+                    ctx.roundRect(cX, cY, cW, cH, 4);
+                } else {
+                    ctx.rect(cX, cY, cW, cH);
+                }
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+                ctx.fill();
+                ctx.strokeStyle = '#0ea5e9';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
                 ctx.fillStyle = '#38bdf8';
-                ctx.font = 'bold 11px monospace';
-                ctx.fillText(`(${wpData.x.toFixed(2)}, ${wpData.y.toFixed(2)})`, screenPx.x - 22, screenPx.y + 24);
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(coordText, screenPx.x, cY + cH / 2);
+                ctx.textAlign = 'start';
+                ctx.textBaseline = 'alphabetic';
             }
         }
 
@@ -1765,14 +1818,14 @@ free_thresh: 0.196
             ctxUI.beginPath(); ctxUI.arc(originScreen.x, originScreen.y, 5, 0, Math.PI * 2);
             ctxUI.fillStyle = '#10b981'; ctxUI.fill();
             ctxUI.font = 'bold 12px sans-serif';
-            ctxUI.fillText('Gốc ROS (0,0)', originScreen.x + 8, originScreen.y - 8);
+            ctxUI.fillText('Tọa độ gốc (0,0)', originScreen.x + 8, originScreen.y - 8);
 
             // Vẽ Waypoints đã lưu
             waypoints.forEach((wp, index) => {
                 const px = mapToPixel(wp.x, wp.y);
                 const screenPx = pixelToScreen(px.x, px.y);
                 const isThisDragging = (draggingWpIndex === index && isWpMoved);
-                drawWaypoint(ctxUI, screenPx, wp.heading, wp.name || `WP ${index + 1}`, false, isThisDragging, wp);
+                drawWaypoint(ctxUI, screenPx, wp.heading, wp.name || `Điểm dừng ${index + 1}`, false, isThisDragging, wp);
             });
 
             // Vẽ Waypoint ĐANG KÉO NHÁP (Draft)
@@ -1781,7 +1834,7 @@ free_thresh: 0.196
                 const screenPx = pixelToScreen(px.x, px.y);
                 // Vẽ tia đứt quãng cho sinh động khi kéo
                 ctxUI.setLineDash([5, 5]);
-                drawWaypoint(ctxUI, screenPx, draftWaypoint.heading, `New WP`, true);
+                drawWaypoint(ctxUI, screenPx, draftWaypoint.heading, `Điểm mới`, true);
                 ctxUI.setLineDash([]); // Reset
             }
 
@@ -2101,13 +2154,13 @@ free_thresh: 0.196
 
                 const totalSaved = (result.nodesCreated || 0) + (result.nodesUpdated || 0);
                 const toast = document.getElementById('toast');
-                toast.innerText = `✅ Sync thành công! Đã lưu ${totalSaved} nodes.`;
+                toast.innerText = `✅ Đã lưu ${totalSaved} điểm dừng lên máy chủ thành công!`;
                 toast.style.background = '#10b981';
                 toast.classList.add('show');
                 setTimeout(() => toast.classList.remove('show'), 3000);
             } catch (err) {
                 console.error(err);
-                alert("❌ Lỗi khi sync waypoints: " + err.message);
+                alert("❌ Lỗi khi lưu điểm dừng lên máy chủ: " + err.message);
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
@@ -2163,13 +2216,13 @@ free_thresh: 0.196
                 window.currentMapId = result.mapId;
 
                 const toast = document.getElementById('toast');
-                toast.innerText = `✅ Upload bản đồ mới thành công! (Map ID: ${result.mapId})`;
+                toast.innerText = `✅ Đã tải bản đồ mới lên máy chủ thành công! (Mã bản đồ: ${result.mapId})`;
                 toast.style.background = '#10b981';
                 toast.classList.add('show');
                 setTimeout(() => toast.classList.remove('show'), 3000);
             } catch (err) {
                 console.error(err);
-                alert("❌ Lỗi khi upload bản đồ: " + err.message);
+                alert("❌ Lỗi khi tải bản đồ lên máy chủ: " + err.message);
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
@@ -2284,7 +2337,7 @@ free_thresh: 0.196
                         applyTransform();
 
                         const toast = document.getElementById('toast');
-                        toast.innerText = '✅ Đã tải bản đồ từ BE!';
+                        toast.innerText = '✅ Đã tải bản đồ chuẩn từ máy chủ thành công!';
                         toast.style.background = '#10b981';
                         toast.classList.add('show');
                         setTimeout(() => toast.classList.remove('show'), 3000);
@@ -2296,7 +2349,7 @@ free_thresh: 0.196
 
             } catch (err) {
                 console.error("Fetch BE error:", err);
-                alert("Lỗi khi tải Map từ BE: " + err.message);
+                alert("Lỗi khi tải bản đồ từ máy chủ: " + err.message);
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;

@@ -1,12 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { toast } from 'react-toastify'
 import { statusPalette } from '../utils/robotHelpers'
-import {
-  getRoute,
-  createRoute,
-} from '../api/robotRoutesApi'
 import { getRobot, getRobotPose } from '../api/robotApi'
-import { getZones as fetchZones } from '../api/zonesApi'
 import { DualBatteryIndicator } from './DualBatteryIndicator'
 
 function Icon({ name, className = '' }) {
@@ -33,15 +28,8 @@ export function getRouteTypeMeta(type) {
 /**
  * RobotAssignmentPanel
  * Sidebar for the Giám Sát Robot page. Tabbed view:
- *   • Tab 1 — "Gán lộ trình"   : route-centric. Lists every route; lets the
- *                                 operator preview its polyline on the map and
- *                                 create a new route (dropdowns for Map/Zone,
- *                                 chip-based ordered node picker).
- *   • Tab 2 — "Robot"          : list of robots, click to select.
- *
- * Route↔robot assignment is not wired because the BE doesn't expose
- * `POST /v1/routes/{id}/assign`. Once that endpoint lands, reintroduce the
- * assign UI; until then this panel stays read-only for the assignment side.
+ *   • Tab 1 — "Điều Khiển Nhiệm Vụ" : Dispatch ad/patrol autonomous missions.
+ *   • Tab 2 — "Trạng Thái & Can Thiệp" : Battery, controls, fleet list, connection.
  */
 export function RobotAssignmentPanel({
   robots = [],
@@ -50,50 +38,62 @@ export function RobotAssignmentPanel({
   map = null,
   selectedRobotCode = null,
   onSelectRobot,
-  onPreviewRoute,
-  onRouteCreated,
+  onMissionDispatched,
 }) {
-  const [tab, setTab] = useState('assign') // land on the action page by default
-  const [selectedRouteForExecution, setSelectedRouteForExecution] = useState(null)
+  const [tab, setTab] = useState('missions') // Default to 'missions' (Điều Khiển Nhiệm Vụ)
 
-  // Switch to the "Robot" tab automatically the first time a robot gets picked
-  // from the map (so the operator sees context for which one they clicked).
-  useEffect(() => {
-    if (selectedRobotCode) setTab('robots')
-  }, [selectedRobotCode])
+  // Shared robot selector — dùng chung cho cả 2 tab
+  const activeRobotCode = selectedRobotCode || robots?.[0]?.robotCode || ''
+  const selectedRobotObj = robots.find(
+    (r) => r.robotCode === activeRobotCode ||
+      (activeRobotCode === 'RB001' && r.robotCode === 'RB0001') ||
+      (activeRobotCode === 'RB0001' && r.robotCode === 'RB001')
+  )
 
   return (
     <div className="flex h-full flex-col rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest">
+      {/* Shared Robot Selector — nằm trên Tabs, dùng chung */}
+      <div className="px-3 pt-3 pb-1">
+        <select
+          value={activeRobotCode}
+          onChange={(e) => {
+            const r = robots.find((item) => item.robotCode === e.target.value)
+            if (r && onSelectRobot) onSelectRobot(r)
+          }}
+          className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-smb-primary"
+        >
+          {robots.length === 0 ? (
+            <option value="">Chưa có robot (Nhấn F5 để tải lại)</option>
+          ) : (
+            robots.map((r) => (
+              <option key={r.robotCode} value={r.robotCode}>
+                {r.robotName || r.robotCode} · {r.status} · {r.batteryPct ?? '?'}%
+              </option>
+            ))
+          )}
+        </select>
+      </div>
+
       <Tabs value={tab} onChange={setTab} />
       {/* Tab content — flex-1 min-h-0 so scroll works */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        {tab === 'assign' ? (
-          <AssignTab
-            robots={robots}
-            routes={routes}
-            map={map}
-            onPreviewRoute={onPreviewRoute}
-            onRouteCreated={onRouteCreated}
-            onSelectForExecution={(route) => {
-              setSelectedRouteForExecution(route)
-              setTab('autonomous')
-            }}
-          />
-        ) : tab === 'autonomous' ? (
+        {tab === 'missions' ? (
           <AutonomousTab 
             robots={robots} 
             routes={routes} 
             map={map} 
-            defaultRoute={selectedRouteForExecution} 
-            selectedRobotCode={selectedRobotCode}
+            selectedRobotCode={activeRobotCode}
             onSelectRobot={onSelectRobot}
+            onMissionDispatched={onMissionDispatched}
           />
         ) : (
           <RobotsTab
             robots={robots}
             poses={poses}
-            selectedRobotCode={selectedRobotCode}
+            selectedRobotCode={activeRobotCode}
+            selectedRobotObj={selectedRobotObj}
             onSelectRobot={onSelectRobot}
+            onMissionDispatched={onMissionDispatched}
           />
         )}
       </div>
@@ -114,6 +114,7 @@ import {
   resumeRobotNavigation,
   getActiveCampaigns,
   getRobotMissionState,
+  publishRobotCommand,
 } from '../api/navigationApi'
 import { getShelves } from '../api/shelvesApi'
 
@@ -194,12 +195,8 @@ function WaypointList({ waypoints }) {
   )
 }
 
-function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRobotCode, onSelectRobot }) {
+function AutonomousTab({ robots = [], routes = [], map, selectedRobotCode, onSelectRobot, onMissionDispatched }) {
   const selectedRobot = selectedRobotCode || ''
-  const setSelectedRobot = (code) => {
-    const robot = robots.find(r => r.robotCode === code)
-    if (robot && onSelectRobot) onSelectRobot(robot)
-  }
 
   const [selectedPatrolRoute, setSelectedPatrolRoute] = useState('')
   const [patrolMode, setPatrolMode] = useState('route') // 'route' | 'shelf'
@@ -220,30 +217,21 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
     return [...new Set(ids)]
   }, [validShelves, selectedShelfIds])
 
-
-  // Dwell & Duration settings
-  const [adDwell, setAdDwell] = useState(20) // default 20s for shelf
+  // Duration settings
   const [adDuration, setAdDuration] = useState('') // optional total duration in minutes
 
   const [adMsg, setAdMsg]         = useState(null)
   const [adWaypoints, setAdWaypoints] = useState(null)
   const [patrolMsg, setPatrolMsg] = useState(null)
   const [patrolWaypoints, setPatrolWaypoints] = useState(null)
-  const [estopMsg, setEstopMsg]   = useState(null)
   const [readiness, setReadiness] = useState(null)
   
   const [adMode, setAdMode] = useState('free') // 'free' | 'shelf'
   const [selectedAdShelfIds, setSelectedAdShelfIds] = useState([])
 
   const [missionState, setMissionState] = useState(null)
-  const [campaigns, setCampaigns] = useState([])
-  const [selectedCampaign, setSelectedCampaign] = useState('')
 
   const [dispatching, setDispatching] = useState(false)
-
-  useEffect(() => {
-    getActiveCampaigns().then(setCampaigns).catch(() => {})
-  }, [])
 
   useEffect(() => {
     if (!selectedRobot) {
@@ -263,34 +251,7 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
     return () => clearInterval(id)
   }, [selectedRobot])
 
-  // Auto-select the first robot when the list first loads
-  useEffect(() => {
-    if (robots.length > 0 && !selectedRobot) {
-      setSelectedRobot(robots[0].robotCode)
-    }
-  }, [robots, selectedRobot])
-
-  // Auto-select route when navigating from AssignTab
-  useEffect(() => {
-    if (defaultRoute) {
-      if (defaultRoute.routeType?.toLowerCase().includes('ad')) {
-         // Defaulting to ad campaign 
-      } else {
-         setSelectedPatrolRoute(String(defaultRoute.robotRouteId))
-      }
-      if (defaultRoute.robotId) {
-         const matchedRobot = robots.find(r => r.robotId === defaultRoute.robotId)
-         if (matchedRobot) setSelectedRobot(matchedRobot.robotCode)
-      }
-    }
-  }, [defaultRoute, robots])
-
   const selectedRobotId = robots.find((robot) => robot.robotCode === selectedRobot)?.robotId
-  const selectedRobotObj = robots.find(
-    (r) => r.robotCode === selectedRobot ||
-      (selectedRobot === 'RB001' && r.robotCode === 'RB0001') ||
-      (selectedRobot === 'RB0001' && r.robotCode === 'RB001')
-  )
 
   const patrolRoutes = useMemo(() => {
     const matched = routes.filter((route) =>
@@ -326,98 +287,25 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
       const msg = `✅ ${data.message || `Đã phát lệnh ${flowType}!`}`
       if (flowType === 'ad')      { setAdMsg({ type: 'success', text: msg });      setAdWaypoints(data.waypoints) }
       if (flowType === 'patrol')  { setPatrolMsg({ type: 'success', text: msg });  setPatrolWaypoints(data.waypoints) }
-      if (flowType === 'return')  { setEstopMsg({ type: 'success', text: `🚀 Robot đang quay về ${extra.nodeIds?.[0] === 10029 ? 'Trạm Sạc (WP7)' : 'Vị Trí Gốc (WP8)'}.` }) }
-
+      if (onMissionDispatched) {
+        onMissionDispatched({
+          ...data,
+          flowType,
+          status: 'NAVIGATING',
+          currentWaypointIndex: 0,
+        })
+      }
     } catch (e) {
       const err = `❌ ${e?.response?.data?.detail || e?.response?.data?.title || e?.response?.data?.message || e?.message || 'Lỗi phát lệnh'}`
       if (flowType === 'ad')      setAdMsg({ type: 'error', text: err })
       if (flowType === 'patrol')  setPatrolMsg({ type: 'error', text: err })
-      if (flowType === 'return')  setEstopMsg({ type: 'error', text: err })
     } finally {
       setDispatching(false)
     }
   }
-
-  const handleControl = async (action, label) => {
-    setDispatching(true)
-    setEstopMsg(null)
-    try {
-      await action(selectedRobot)
-      setEstopMsg({ type: 'success', text: `Đã gửi lệnh ${label} tới ${selectedRobot}.` })
-    } catch (e) {
-      setEstopMsg({ type: 'error', text: e?.response?.data?.detail || e?.message || `Không gửi được ${label}.` })
-    } finally {
-      setDispatching(false)
-    }
-  }
-
-  const handleCancel = async () => {
-    setDispatching(true)
-    setEstopMsg(null)
-    try {
-      await cancelRobotNavigation(selectedRobot)
-      setEstopMsg({ type: 'success', text: `⏹ Đã gửi lệnh DỪNG NHIỆM VỤ tới Robot ${selectedRobot}.` })
-
-    } catch (e) {
-      setEstopMsg({ type: 'error', text: `❌ Lỗi: ${e?.message}` })
-    } finally {
-      setDispatching(false)
-    }
-  }
-
-  const campaignOptions = [
-    { value: '', label: '— Không gắn chiến dịch (Quảng cáo tự do toàn siêu thị) —' },
-    ...campaigns.map((c) => {
-      const id = c.adCampaignId ?? c.campaignId ?? c.id
-      return { value: String(id), label: c.campaignName || `#${id}` }
-    }),
-  ]
 
   return (
     <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 text-xs">
-      {/* Robot selector */}
-      <div className="rounded-xl border border-smb-outline-variant/60 bg-smb-surface-container p-3.5">
-        <label className="mb-2 block font-bold text-smb-on-surface text-[11px] uppercase tracking-wider">Robot thực thi</label>
-        <select
-          value={selectedRobot}
-          onChange={(e) => setSelectedRobot(e.target.value)}
-          className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-smb-primary"
-        >
-          {robots.length === 0 ? (
-            <option value="">Chưa có robot (Nhấn F5 để thử lại)</option>
-          ) : (
-            robots.map((r) => (
-              <option key={r.robotCode} value={r.robotCode}>
-                {r.robotName || r.robotCode} · {r.status} · {r.batteryPct ?? '?'}%
-              </option>
-            ))
-          )}
-        </select>
-      </div>
-
-      {/* Dual-Battery System Indicator */}
-      {selectedRobotObj && (
-        <DualBatteryIndicator
-          batteryPct={selectedRobotObj.batteryPct}
-          deviceBatteryPct={selectedRobotObj.deviceBatteryPct}
-          deviceIsCharging={selectedRobotObj.deviceIsCharging}
-          espBatteryPct={selectedRobotObj.espBatteryPct}
-          espBatteryVolts={selectedRobotObj.espBatteryVolts}
-          variant="card"
-        />
-      )}
-
-      {/* Robot Charging Safety Notice */}
-      {(selectedRobotObj?.deviceIsCharging || selectedRobotObj?.status === 'Offline_Charging' || selectedRobotObj?.status === 'Charging') && (
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-amber-800 dark:text-amber-300 flex items-center gap-2.5">
-          <Icon name="bolt" className="text-[22px] text-amber-500 animate-pulse shrink-0" />
-          <div className="text-xs">
-            <span className="font-bold">Robot đang cắm sạc pin ({selectedRobotObj.deviceBatteryPct ?? selectedRobotObj.batteryPct}%)</span>
-            <p className="text-[11px] opacity-90 mt-0.5">Vui lòng rút dây sạc ra khỏi thiết bị trước khi phát lệnh điều hướng robot di chuyển.</p>
-          </div>
-        </div>
-      )}
-
       {/* Guide Active Warning Banner */}
       {missionState && missionState.flowType === 'guide' && (
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5 text-amber-800 dark:text-amber-300 animate-pulse">
@@ -434,8 +322,6 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
       {/* Flow Cards */}
       <div className="flex flex-col gap-3">
 
-        {/* ── Flow 1: Quảng Cáo (Ad) ── */}
-        {/* ── Flow 1: Quảng Cáo (Ad) ── */}
         {/* ── Flow 1: Quảng Cáo (Ad) ── */}
         <div className="rounded-2xl border-2 border-orange-400 bg-orange-50/40 p-4 shadow-sm">
           <div className="mb-2 flex items-center justify-between">
@@ -604,44 +490,44 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
         </div>
 
         {/* ── Flow 2: Tuần Tra Kệ Hàng (Patrol) ── */}
-        <div className="rounded-2xl border border-blue-500/30 bg-blue-500/5 p-4">
+        <div className="rounded-2xl border-2 border-blue-400 bg-blue-50/40 p-4 shadow-sm">
           <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="flex size-6 items-center justify-center rounded-lg bg-blue-500/20 text-blue-600">
-                <Icon name="shield" className="text-[15px]" />
+              <span className="flex size-7 items-center justify-center rounded-lg bg-blue-600 text-white shadow-xs">
+                <Icon name="shield" className="text-[17px]" />
               </span>
               <div>
-                <p className="font-bold text-blue-800 dark:text-blue-300">Flow Tuần Tra Kệ Hàng</p>
-                <p className="text-[10px] text-blue-700/80 dark:text-blue-400/80">Robot chụp ảnh kệ → Gemini AI phân tích mật độ</p>
+                <p className="font-extrabold text-blue-950 text-sm">Flow Tuần Tra Kệ Hàng</p>
+                <p className="text-xs font-semibold text-blue-900">Robot chụp ảnh kệ → Gemini AI phân tích mật độ</p>
               </div>
             </div>
-            <span className="rounded-full bg-blue-500/20 px-2.5 py-1 text-[10px] font-bold text-blue-700">AI Vision</span>
+            <span className="rounded-full bg-blue-200 px-2.5 py-1 text-[11px] font-bold text-blue-950 border border-blue-300">AI Vision</span>
           </div>
 
           {/* Patrol Mode Segmented Buttons */}
-          <div className="mb-3 grid grid-cols-2 gap-1.5 rounded-xl bg-blue-500/10 p-1">
+          <div className="mb-3 grid grid-cols-2 gap-1.5 rounded-xl bg-blue-200/70 p-1 border border-blue-300">
             <button
               type="button"
               onClick={() => setPatrolMode('route')}
-              className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-bold transition-all ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all ${
                 patrolMode === 'route'
-                  ? 'bg-white text-blue-700 shadow-sm dark:bg-blue-950 dark:text-blue-300'
-                  : 'text-blue-700/70 hover:text-blue-800'
+                  ? 'bg-white text-blue-950 shadow-md'
+                  : 'text-blue-900 hover:text-blue-950'
               }`}
             >
-              <Icon name="route" className="text-[14px]" />
+              <Icon name="route" className="text-[15px]" />
               Theo Route
             </button>
             <button
               type="button"
               onClick={() => setPatrolMode('shelf')}
-              className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-bold transition-all ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all ${
                 patrolMode === 'shelf'
-                  ? 'bg-white text-blue-700 shadow-sm dark:bg-blue-950 dark:text-blue-300'
-                  : 'text-blue-700/70 hover:text-blue-800'
+                  ? 'bg-white text-blue-950 shadow-md'
+                  : 'text-blue-900 hover:text-blue-950'
               }`}
             >
-              <Icon name="format_list_bulleted" className="text-[14px]" />
+              <Icon name="format_list_bulleted" className="text-[15px]" />
               Chọn Kệ
             </button>
           </div>
@@ -672,10 +558,10 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
                     floorId: map?.floorId || 1,
                     dwellTimeSeconds: Number(patrolDwell) || 3
                   })}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-blue-700 hover:to-blue-600 active:scale-95 disabled:opacity-50 disabled:scale-100"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 py-3 text-xs font-extrabold text-white shadow-md transition-all hover:from-blue-700 hover:to-indigo-700 active:scale-95 disabled:opacity-50 disabled:scale-100"
                 >
                   {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="search" className="text-[16px]" />}
-                  Phát lệnh tuần tra
+                  Phát Lệnh Tuần Tra Theo Route
                 </button>
               </div>
             </>
@@ -772,10 +658,10 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
                     floorId: map?.floorId || 1,
                     dwellTimeSeconds: Number(patrolDwell) || 3
                   })}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-blue-700 hover:to-blue-600 active:scale-95 disabled:opacity-50 disabled:scale-100"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 py-3 text-xs font-extrabold text-white shadow-md transition-all hover:from-blue-700 hover:to-indigo-700 active:scale-95 disabled:opacity-50 disabled:scale-100"
                 >
-                  {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : null}
-                  🚀 Tuần tra {selectedShelfIds.length} kệ đã chọn
+                  {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="search" className="text-[16px]" />}
+                  Tuần Tra {selectedShelfIds.length} Kệ Đã Chọn
                 </button>
               </div>
             </>
@@ -794,69 +680,6 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
         </div>
       )}
 
-      {/* Control Buttons Grid */}
-      <div className="space-y-2">
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            disabled={dispatching || !selectedRobot}
-            onClick={() => handleControl(pauseRobotNavigation, 'TẠM DỪNG')}
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 py-2.5 font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
-          >
-            <Icon name="pause" className="text-[16px]" />
-            Tạm dừng
-          </button>
-          <button
-            type="button"
-            disabled={dispatching || !selectedRobot}
-            onClick={() => handleControl(resumeRobotNavigation, 'TIẾP TỤC')}
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 py-2.5 font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
-          >
-            <Icon name="play_arrow" className="text-[16px]" />
-            Tiếp tục
-          </button>
-          <button
-            type="button"
-            disabled={dispatching || !selectedRobot}
-            onClick={handleCancel}
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 py-2.5 font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
-          >
-            <Icon name="stop" className="text-[16px]" />
-            Dừng nhiệm vụ
-          </button>
-          <button
-            type="button"
-            disabled={dispatching || !selectedRobot}
-            onClick={() => handleControl(emergencyStopRobot, 'E-STOP')}
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-red-950 hover:bg-red-900 py-2.5 font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
-          >
-            <Icon name="e911_emergency" className="text-[16px]" />
-            E-STOP
-          </button>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            disabled={dispatching || !selectedRobot}
-            onClick={() => handleDispatch('return', { nodeIds: [10029], floorId: 1 })}
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 py-3 font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
-          >
-            <Icon name="ev_station" className="text-[16px]" />
-            Về Trạm Sạc (WP7)
-          </button>
-          <button
-            type="button"
-            disabled={dispatching || !selectedRobot}
-            onClick={() => handleDispatch('return', { nodeIds: [10033], floorId: 1 })}
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 py-3 font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
-          >
-            <Icon name="flag" className="text-[16px]" />
-            Về Vị Trí Gốc (WP8)
-          </button>
-        </div>
-      </div>
-      <StatusBadge msg={estopMsg} />
-
     </div>
   )
 }
@@ -867,13 +690,12 @@ function AutonomousTab({ robots = [], routes = [], map, defaultRoute, selectedRo
 
 function Tabs({ value, onChange }) {
   const items = [
-    { id: 'assign', label: 'Gán Lộ Trình', icon: 'route' },
-    { id: 'autonomous', label: 'Flow Tự Hành', icon: 'smart_toy' },
-    { id: 'robots', label: 'Đội Robot', icon: 'precision_manufacturing' },
+    { id: 'missions', label: 'Điều Khiển Nhiệm Vụ', icon: 'smart_toy' },
+    { id: 'status', label: 'Trạng Thái & Can Thiệp', icon: 'settings_remote' },
   ]
   return (
     <div className="p-2 border-b border-smb-outline-variant/60 bg-smb-surface-container-low/50">
-      <div className="grid grid-cols-3 gap-1 rounded-xl bg-smb-surface-container-high/60 p-1">
+      <div className="grid grid-cols-2 gap-1 rounded-xl bg-smb-surface-container-high/60 p-1">
         {items.map((it) => {
           const active = value === it.id
           return (
@@ -881,7 +703,7 @@ function Tabs({ value, onChange }) {
               key={it.id}
               type="button"
               onClick={() => onChange(it.id)}
-              className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-[11px] font-bold transition-all duration-150 active:scale-95 ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all duration-150 active:scale-95 ${
                 active
                   ? 'bg-smb-surface-container-lowest text-smb-primary shadow-sm dark:bg-emerald-500/20 dark:text-emerald-300'
                   : 'text-smb-on-surface-variant/80 hover:text-smb-on-surface'
@@ -1002,6 +824,7 @@ function RobotDetailModal({ robotCode, onClose }) {
                 deviceIsCharging={robot.deviceIsCharging}
                 espBatteryPct={robot.espBatteryPct}
                 espBatteryVolts={robot.espBatteryVolts}
+                robotStatus={robot.status}
                 variant="card"
               />
               <div className="border-t border-smb-outline-variant" />
@@ -1063,235 +886,816 @@ function RobotDetailModal({ robotCode, onClose }) {
 /*  Tab 1 — Robot list                                                  */
 /* -------------------------------------------------------------------- */
 
-function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot }) {
+function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot, onMissionDispatched }) {
   const [detailRobotCode, setDetailRobotCode] = useState(null)
-  
-  const handleCancelRobot = async (robotCode) => {
+  const [ctrlLoading, setCtrlLoading] = useState(false)
+  const [ctrlMsg, setCtrlMsg] = useState(null)
+  const [activeKey, setActiveKey] = useState(null)
+  const [teleopSpeed, setTeleopSpeed] = useState(80)
+
+  const selectedRobot = selectedRobotCode || (robots[0]?.robotCode ?? '')
+  const selectedRobotObj = robots.find(
+    (r) => r.robotCode === selectedRobot ||
+      (selectedRobot === 'RB001' && r.robotCode === 'RB0001') ||
+      (selectedRobot === 'RB0001' && r.robotCode === 'RB001')
+  )
+
+  // ─── Điều Khiển Lái Tay Trực Tiếp (MQTT Backend & ESP32) ───────────────────
+  const moveIntervalRef = useRef(null)
+  const isMovingRef = useRef(false)
+  const teleopSpeedRef = useRef(80)
+  teleopSpeedRef.current = teleopSpeed
+
+  const sendRawCommand = useCallback((x, y, strafe = 0) => {
+    if (!selectedRobot) return
+    const payloadStr = JSON.stringify({ t: 'joy', x, y, s: strafe })
+    publishRobotCommand({
+      robotCode: selectedRobot,
+      command: 'MANUAL_TELEOP',
+      payload: payloadStr,
+      commandType: 'MANUAL_TELEOP',
+      payloadJson: payloadStr,
+    }).catch(() => {})
+  }, [selectedRobot])
+
+  const startManualDrive = useCallback((direction, x, y, strafe = 0) => {
+    if (!selectedRobot) return
+    setActiveKey(direction)
+    isMovingRef.current = true
+
+    if (moveIntervalRef.current) {
+      clearInterval(moveIntervalRef.current)
+    }
+
+    // Gửi lệnh đầu tiên ngay lập tức
+    sendRawCommand(x, y, strafe)
+
+    // Lặp gửi lại mỗi 140ms để nuôi Watchdog (>500ms) trên firmware ESP32 mượt mà
+    moveIntervalRef.current = setInterval(() => {
+      sendRawCommand(x, y, strafe)
+    }, 140)
+  }, [selectedRobot, sendRawCommand])
+
+  const stopManualDrive = useCallback(() => {
+    if (!selectedRobot && !isMovingRef.current) return
+    setActiveKey(null)
+    isMovingRef.current = false
+
+    if (moveIntervalRef.current) {
+      clearInterval(moveIntervalRef.current)
+      moveIntervalRef.current = null
+    }
+
+    // Dừng motor ngay lập tức
+    sendRawCommand(0, 0, 0)
+    // Backup stop lần 2 sau 70ms đảm bảo nhận lệnh dừng
+    setTimeout(() => {
+      sendRawCommand(0, 0, 0)
+    }, 70)
+  }, [selectedRobot, sendRawCommand])
+
+  // Lắng nghe phím mũi tên & WASD trên bàn phím
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Bỏ qua khi người dùng đang nhập liệu trong ô input / select / textarea
+      if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target?.tagName)) return
+      const spd = teleopSpeedRef.current || 80
+
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+        e.preventDefault()
+        if (e.repeat) return
+        startManualDrive('forward', 0, spd, 0)
+      } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+        e.preventDefault()
+        if (e.repeat) return
+        startManualDrive('backward', 0, -spd, 0)
+      } else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        e.preventDefault()
+        if (e.repeat) return
+        startManualDrive('left', -spd, 0, 0)
+      } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        e.preventDefault()
+        if (e.repeat) return
+        startManualDrive('right', spd, 0, 0)
+      } else if (e.key === ' ' || e.key === 'Spacebar') {
+        e.preventDefault()
+        stopManualDrive()
+      }
+    }
+
+    const handleKeyUp = (e) => {
+      if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target?.tagName)) return
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'W', 's', 'S', 'a', 'A', 'd', 'D', ' '].includes(e.key)) {
+        stopManualDrive()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+      if (moveIntervalRef.current) {
+        clearInterval(moveIntervalRef.current)
+      }
+    }
+  }, [selectedRobot, startManualDrive, stopManualDrive])
+
+  const handleControl = async (action, label) => {
+    if (!selectedRobot) return
+    setCtrlLoading(true)
+    setCtrlMsg(null)
     try {
-      await cancelRobotNavigation(robotCode)
-      alert(`Đã gửi lệnh dừng khẩn cấp cho Robot ${robotCode}`)
+      await action(selectedRobot)
+      setCtrlMsg({ type: 'success', text: `✅ Đã gửi lệnh ${label} tới Robot ${selectedRobot}.` })
+      toast.success(`Đã gửi lệnh ${label} tới Robot ${selectedRobot}`)
     } catch (e) {
-      alert(`Lỗi khi dừng khẩn cấp: ${e.message}`)
+      const err = e?.response?.data?.detail || e?.message || `Không gửi được ${label}.`
+      setCtrlMsg({ type: 'error', text: `❌ ${err}` })
+      toast.error(err)
+    } finally {
+      setCtrlLoading(false)
     }
   }
 
-  const summary = useMemo(() => {
-    const acc = { Moving: 0, Idle: 0, Interacting: 0, Offline_Charging: 0, Power_Off: 0 }
-    robots.forEach((r) => {
-      const isCharging = r.deviceIsCharging === true || r.status === 'Offline_Charging' || r.status === 'Charging'
-      if (isCharging) {
-        acc.Offline_Charging = (acc.Offline_Charging ?? 0) + 1
-      } else if (r.status === 'Moving' || r.mode === 'moving') {
-        acc.Moving = (acc.Moving ?? 0) + 1
-      } else if (r.status === 'Interacting' || r.mode === 'interacting') {
-        acc.Interacting = (acc.Interacting ?? 0) + 1
-      } else if (r.status === 'Power_Off' || r.status === 'Offline') {
-        acc.Power_Off = (acc.Power_Off ?? 0) + 1
-      } else {
-        acc.Idle = (acc.Idle ?? 0) + 1
+  const handleCancelMission = async () => {
+    if (!selectedRobot) return
+    if (!window.confirm(`Bạn có chắc muốn dừng nhiệm vụ của Robot ${selectedRobot}?`)) return
+    setCtrlLoading(true)
+    setCtrlMsg(null)
+    try {
+      await cancelRobotNavigation(selectedRobot)
+      setCtrlMsg({ type: 'success', text: `⏹ Đã gửi lệnh DỪNG NHIỆM VỤ tới Robot ${selectedRobot}.` })
+      toast.warn(`⏹ Đã gửi lệnh DỪNG NHIỆM VỤ tới Robot ${selectedRobot}`)
+    } catch (e) {
+      const err = `❌ Lỗi: ${e?.message}`
+      setCtrlMsg({ type: 'error', text: err })
+      toast.error(err)
+    } finally {
+      setCtrlLoading(false)
+    }
+  }
+
+  const handleReturn = async (nodeId, destinationName) => {
+    if (!selectedRobot) return
+    setCtrlLoading(true)
+    setCtrlMsg(null)
+    try {
+      const data = await dispatchAutonomous({
+        robotCode: selectedRobot,
+        flowType: 'return',
+        nodeIds: [nodeId],
+        floorId: 1,
+      })
+      const msg = `🚀 Robot đang quay về ${destinationName}.`
+      setCtrlMsg({ type: 'success', text: msg })
+      toast.info(msg)
+      if (onMissionDispatched) {
+        onMissionDispatched({
+          ...data,
+          flowType: 'return',
+          status: 'NAVIGATING',
+          currentWaypointIndex: 0,
+        })
       }
-    })
-    return acc
-  }, [robots])
+    } catch (e) {
+      const err = `❌ Lỗi phát lệnh: ${e?.response?.data?.detail || e?.message}`
+      setCtrlMsg({ type: 'error', text: err })
+      toast.error(err)
+    } finally {
+      setCtrlLoading(false)
+    }
+  }
+
+  const handleCancelRobot = async (robotCode) => {
+    try {
+      await cancelRobotNavigation(robotCode)
+      toast.warn(`Đã gửi lệnh dừng khẩn cấp cho Robot ${robotCode}`)
+    } catch (e) {
+      toast.error(`Lỗi khi dừng khẩn cấp: ${e.message}`)
+    }
+  }
+
+  // ─── Quản lý Kết Nối Robot (Agent Server & Rosbridge WebSocket) ───────────
+  const [rosWsUrl, setRosWsUrl] = useState(() => {
+    return localStorage.getItem('globalSetting_rosWsUrl') || 'ws://snake.local:9090'
+  })
+  const [wsConnected, setWsConnected] = useState(false)
+  const [wsConnecting, setWsConnecting] = useState(false)
+  const [showWsConfig, setShowWsConfig] = useState(false)
+  const [agentStatus, setAgentStatus] = useState('checking') // 'checking' | 'running' | 'starting' | 'stopped' | 'unreachable'
+  const [agentMode, setAgentMode] = useState(null)
+  const [bootLoading, setBootLoading] = useState(null) // 'slam' | 'amcl' | 'stop' | 'save' | null
+
+  // Trích xuất Agent Server API URL từ WebSocket URL
+  const getAgentApiUrl = (urlStr) => {
+    try {
+      const url = new URL((urlStr || 'ws://snake.local:9090').replace('ws://', 'http://'))
+      return `http://${url.hostname}:5000/api/robot`
+    } catch {
+      return 'http://192.168.0.100:5000/api/robot'
+    }
+  }
+
+  // Định kỳ kiểm tra trạng thái Agent Server trên Robot
+  const checkAgentStatus = async () => {
+    try {
+      const apiUrl = getAgentApiUrl(rosWsUrl)
+      const res = await fetch(`${apiUrl}/status`, { signal: AbortSignal.timeout(3000) })
+      const data = await res.json()
+      if (data.status === 'running') {
+        setAgentStatus('running')
+        setAgentMode(data.mode && data.mode !== 'unknown' ? data.mode : null)
+      } else if (data.status === 'starting') {
+        setAgentStatus('starting')
+      } else {
+        setAgentStatus('stopped')
+        setAgentMode(null)
+      }
+    } catch {
+      setAgentStatus('unreachable')
+    }
+  }
+
+  useEffect(() => {
+    checkAgentStatus()
+    const timer = setInterval(checkAgentStatus, 4000)
+    return () => clearInterval(timer)
+  }, [rosWsUrl])
+
+  // Khởi động ROS 2 OS (SLAM hoặc AMCL)
+  const handleStartOS = async (mode) => {
+    setBootLoading(mode)
+    const apiUrl = getAgentApiUrl(rosWsUrl)
+    try {
+      if (mode === 'amcl') {
+        // Đồng bộ Active Map nếu có
+        try {
+          const baseUrl = window.SMB_ENV?.BE_URL !== undefined ? window.SMB_ENV.BE_URL : 'http://localhost:5000'
+          const token = localStorage.getItem('accessToken')
+          const headers = { 'ngrok-skip-browser-warning': 'true' }
+          if (token) headers['Authorization'] = 'Bearer ' + token
+
+          const activeMapRes = await fetch(`${baseUrl}/api/v1/maps/active?floorId=1`, { headers })
+          if (activeMapRes.ok) {
+            const activeMapData = await activeMapRes.json()
+            if (activeMapData?.floorplanImageUrl) {
+              const yamlStr = `image: active_map.pgm\nresolution: ${activeMapData.resolution || 0.05}\norigin: [${activeMapData.originX || 0.0}, ${activeMapData.originY || 0.0}, ${activeMapData.originYaw || 0.0}]\nnegate: 0\noccupied_thresh: 0.65\nfree_thresh: 0.196\n`
+              const yamlB64 = btoa(unescape(encodeURIComponent(yamlStr)))
+
+              let imgUrl = activeMapData.floorplanImageUrl
+              if (imgUrl.startsWith('/')) imgUrl = baseUrl + imgUrl
+
+              const pgmB64 = await new Promise((resolve, reject) => {
+                const img = new Image()
+                img.crossOrigin = 'Anonymous'
+                img.onload = () => {
+                  const canvas = document.createElement('canvas')
+                  canvas.width = img.width
+                  canvas.height = img.height
+                  const ctx = canvas.getContext('2d')
+                  ctx.drawImage(img, 0, 0)
+                  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+                  const header = `P5\n${canvas.width} ${canvas.height}\n255\n`
+                  const headerBytes = new TextEncoder().encode(header)
+                  const pixelBytes = new Uint8Array(canvas.width * canvas.height)
+                  for (let i = 0; i < pixelBytes.length; i++) {
+                    const r = imgData.data[i * 4]
+                    const g = imgData.data[i * 4 + 1]
+                    const b = imgData.data[i * 4 + 2]
+                    pixelBytes[i] = Math.round(0.299 * r + 0.587 * g + 0.114 * b)
+                  }
+                  const pgmBuffer = new Uint8Array(headerBytes.length + pixelBytes.length)
+                  pgmBuffer.set(headerBytes, 0)
+                  pgmBuffer.set(pixelBytes, headerBytes.length)
+                  let binaryString = ''
+                  const chunkSize = 8192
+                  for (let i = 0; i < pgmBuffer.length; i += chunkSize) {
+                    binaryString += String.fromCharCode.apply(null, pgmBuffer.subarray(i, i + chunkSize))
+                  }
+                  resolve(btoa(binaryString))
+                }
+                img.onerror = () => reject(new Error('Failed to load map image'))
+                fetch(imgUrl)
+                  .then(r => r.blob())
+                  .then(b => { img.src = URL.createObjectURL(b) })
+                  .catch(() => { img.src = imgUrl })
+              })
+
+              await fetch(`${apiUrl}/upload_map`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ yaml_b64: yamlB64, pgm_b64: pgmB64 })
+              })
+            }
+          }
+        } catch (syncErr) {
+          console.warn('Map sync failed, proceeding with robot default map:', syncErr)
+        }
+      }
+
+      const res = await fetch(`${apiUrl}/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode })
+      })
+      const data = await res.json()
+      if (data.error) {
+        toast.error(`Khởi động thất bại: ${data.error}`)
+      } else {
+        toast.success(`Đã kích hoạt chế độ: ${mode === 'amcl' ? 'Dẫn Đường Tự Hành (AMCL)' : 'Quét Bản Đồ Mới (SLAM)'}`)
+        setTimeout(checkAgentStatus, 2000)
+      }
+    } catch (e) {
+      toast.error(`Không thể kết nối đến Agent Server: ${e.message}`)
+    } finally {
+      setBootLoading(null)
+    }
+  }
+
+  // Dừng ROS 2 OS
+  const handleStopOS = async () => {
+    if (!window.confirm('Bạn có chắc chắn muốn DỪNG HOẠT ĐỘNG hệ thống ROS 2 trên Robot?')) return
+    setBootLoading('stop')
+    const apiUrl = getAgentApiUrl(rosWsUrl)
+    try {
+      await fetch(`${apiUrl}/stop`, { method: 'POST' })
+      toast.warn('Đã gửi lệnh Dừng Hoạt Động tới Robot.')
+      setTimeout(checkAgentStatus, 1500)
+    } catch (e) {
+      toast.error(`Lỗi khi dừng ROS 2: ${e.message}`)
+    } finally {
+      setBootLoading(null)
+    }
+  }
+
+  // Lưu bản đồ SLAM
+  const handleSaveMap = async () => {
+    setBootLoading('save')
+    const apiUrl = getAgentApiUrl(rosWsUrl)
+    try {
+      const res = await fetch(`${apiUrl}/save_map`, { method: 'POST' })
+      const data = await res.json()
+      if (data.error) {
+        toast.error(`Lỗi lưu bản đồ: ${data.error}`)
+      } else {
+        if (data.yaml_b64 && data.pgm_b64) {
+          const aYaml = document.createElement('a')
+          aYaml.href = 'data:text/yaml;base64,' + data.yaml_b64
+          aYaml.download = 'active_map.yaml'
+          aYaml.click()
+          const aPgm = document.createElement('a')
+          aPgm.href = 'data:image/x-portable-graymap;base64,' + data.pgm_b64
+          aPgm.download = 'active_map.pgm'
+          aPgm.click()
+        }
+        toast.success(`Đã lưu bản đồ thành công: ${data.message || 'Bản đồ đã cập nhật'}`)
+      }
+    } catch (e) {
+      toast.error(`Không thể kết nối với Agent Server để lưu bản đồ: ${e.message}`)
+    } finally {
+      setBootLoading(null)
+    }
+  }
+
+  // Quản lý WebSocket Rosbridge
+  const handleToggleWs = () => {
+    if (wsConnected) {
+      if (window._rosInstance) {
+        window._rosInstance.close()
+        window._rosInstance = null
+      }
+      setWsConnected(false)
+      toast.info('Đã ngắt kết nối cổng WebSocket.')
+      return
+    }
+
+    setWsConnecting(true)
+    localStorage.setItem('globalSetting_rosWsUrl', rosWsUrl)
+    try {
+      const ws = new WebSocket(rosWsUrl)
+      ws.onopen = () => {
+        setWsConnected(true)
+        setWsConnecting(false)
+        window._rosInstance = ws
+        toast.success(`Đã kết nối thành công tới ${rosWsUrl}`)
+      }
+      ws.onerror = () => {
+        setWsConnected(false)
+        setWsConnecting(false)
+        toast.error(`Không thể kết nối tới ${rosWsUrl}`)
+      }
+      ws.onclose = () => {
+        setWsConnected(false)
+        setWsConnecting(false)
+      }
+    } catch (e) {
+      setWsConnected(false)
+      setWsConnecting(false)
+      toast.error(`Lỗi WebSocket: ${e.message}`)
+    }
+  }
 
   return (
     <>
-      <div className="flex min-h-0 flex-1 flex-col">
-        <header className="p-4">
-          <h3 className="text-sm font-semibold text-smb-on-surface">Danh sách Robot</h3>
-          <p className="text-xs text-smb-on-surface-variant">{robots.length} robot đang hoạt động</p>
-          {!!robots.length && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {Object.entries(summary).map(([status, count]) => {
-                if (!count) return null
-                const p = statusPalette(status)
-                return (
-                  <span key={status} className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${p.bg} ${p.text}`}>
-                    <span className={`size-1.5 rounded-full ${p.dot}`} />
-                    {count} {labelForStatus(status)}
-                  </span>
-                )
-              })}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto custom-scrollbar">
+        {/* ── 1. KHỐI KẾT NỐI, TRẠNG THÁI PIN, CẢNH BÁO SẠC VÀ 6 NÚT CAN THIỆP ROBOT ── */}
+        <div className="p-3.5 space-y-3 border-b border-smb-outline-variant/60 bg-smb-surface-container-low/30">
+          {/* 1. KẾT NỐI & CHẾ ĐỘ VẬN HÀNH (Màu nền sáng đồng bộ, Kích hoạt dẫn đường & Kết nối Robot) */}
+          <div className="rounded-xl border border-smb-outline-variant/60 bg-smb-surface-container p-3.5 space-y-3 shadow-xs">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-smb-on-surface flex items-center gap-1.5">
+                  1. KẾT NỐI & DẪN ĐƯỜNG ROBOT
+                </span>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-smb-surface-container-high text-smb-on-surface-variant border border-smb-outline-variant/60">
+                  {selectedRobot}
+                </span>
+              </div>
+              <p className="text-[11px] text-smb-on-surface-variant mt-1">
+                Kích hoạt chế độ dẫn đường tự hành và kết nối điều khiển robot.
+              </p>
+            </div>
+
+            {/* 2 Nút: Kích Hoạt Dẫn Đường & Dừng Dẫn Đường */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => handleStartOS('amcl')}
+                disabled={bootLoading !== null}
+                className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-2 text-center text-xs font-bold text-white shadow-xs transition-all active:scale-95 ${
+                  agentStatus === 'running' && agentMode === 'amcl'
+                    ? 'bg-emerald-700 ring-2 ring-emerald-400'
+                    : 'bg-emerald-600 hover:bg-emerald-500'
+                } disabled:opacity-50`}
+                title="Kích hoạt chế độ dẫn đường tự hành cho Robot"
+              >
+                <span>🧭</span>
+                <span>{bootLoading === 'amcl' ? 'Đang bật...' : 'Kích Hoạt Dẫn Đường'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleStopOS}
+                disabled={bootLoading !== null}
+                className="flex items-center justify-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 py-2.5 px-2 text-center text-xs font-bold text-white shadow-xs transition-all active:scale-95 disabled:opacity-50"
+                title="Dừng toàn bộ hệ thống dẫn đường của Robot"
+              >
+                <span>🛑</span>
+                <span>{bootLoading === 'stop' ? 'Đang dừng...' : 'Dừng Dẫn Đường'}</span>
+              </button>
+            </div>
+
+            {/* Nút Kích Hoạt Kết Nối Robot (Ẩn địa chỉ ws://snake.local:9090 mặc định) */}
+            <div className="space-y-1.5 pt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-smb-on-surface-variant">
+                  Cổng giao tiếp thông tin với Robot:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowWsConfig(!showWsConfig)}
+                  className="text-[10px] text-smb-on-surface-variant/80 hover:text-smb-primary transition-colors flex items-center gap-0.5"
+                  title="Cấu hình IP/Port kết nối nếu cần"
+                >
+                  <Icon name="settings" className="text-[11px]" />
+                  <span>{showWsConfig ? 'Thu gọn' : 'Đổi IP'}</span>
+                </button>
+              </div>
+
+              {showWsConfig && (
+                <input
+                  type="text"
+                  value={rosWsUrl}
+                  onChange={(e) => setRosWsUrl(e.target.value)}
+                  placeholder="ws://snake.local:9090"
+                  className="w-full rounded-lg bg-smb-surface-container-high border border-smb-outline-variant px-3 py-1.5 text-xs font-mono text-smb-on-surface placeholder-smb-on-surface-variant/50 outline-none focus:border-smb-primary mb-1.5"
+                />
+              )}
+
+              <button
+                type="button"
+                onClick={handleToggleWs}
+                disabled={wsConnecting}
+                className={`w-full flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-xs font-bold transition-all shadow-xs active:scale-98 ${
+                  wsConnected
+                    ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 hover:bg-rose-500/25'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                } disabled:opacity-50`}
+              >
+                <Icon name={wsConnecting ? 'sync' : wsConnected ? 'link_off' : 'wifi'} className={`text-[16px] ${wsConnecting ? 'animate-spin' : ''}`} />
+                <span>
+                  {wsConnecting
+                    ? 'Đang kích hoạt kết nối...'
+                    : wsConnected
+                      ? 'Ngắt Kết Nối Robot'
+                      : 'Kích Hoạt Kết Nối Robot'}
+                </span>
+              </button>
+            </div>
+
+            {/* Bảng Hiển Thị Trạng Thái (Hệ thống Robot & Cổng điều khiển) */}
+            <div className="pt-2 border-t border-smb-outline-variant/60 space-y-1.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-smb-on-surface-variant">Hệ thống Robot:</span>
+                <span className="font-semibold text-right">
+                  {agentStatus === 'running' ? (
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 justify-end">
+                      <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Đang hoạt động {agentMode ? `[${agentMode === 'amcl' ? 'Dẫn Đường' : 'Quét Map'}]` : ''}
+                    </span>
+                  ) : agentStatus === 'starting' ? (
+                    <span className="text-amber-600 dark:text-amber-400 font-bold">Đang khởi động...</span>
+                  ) : agentStatus === 'stopped' ? (
+                    <span className="text-rose-600 dark:text-rose-400 font-bold">Đã Dừng</span>
+                  ) : (
+                    <span className="text-smb-on-surface-variant">Ngoại tuyến (Unreachable)</span>
+                  )}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-smb-on-surface-variant">Cổng điều khiển:</span>
+                <span className="font-semibold">
+                  {wsConnected ? (
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                      <span className="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+                      Đã kết nối
+                    </span>
+                  ) : wsConnecting ? (
+                    <span className="text-amber-600 dark:text-amber-400">Đang kết nối...</span>
+                  ) : (
+                    <span className="text-rose-600 dark:text-rose-400">Chưa kết nối</span>
+                  )}
+                </span>
+              </div>
+            </div>
+
+            {/* Liên kết mở nhanh màn hình phụ ROS Tool / Camera AI */}
+            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-smb-outline-variant/60">
+              <a
+                href="/ros-ai-monitor.html"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-1.5 rounded-lg bg-smb-surface-container-high hover:bg-smb-surface-container-highest py-1.5 px-2 text-center text-[11px] font-medium text-emerald-600 dark:text-emerald-400 border border-smb-outline-variant/60 transition-all"
+                title="Mở màn hình Camera AI Kệ hàng"
+              >
+                <Icon name="videocam" className="text-[14px]" />
+                Camera AI Kệ
+              </a>
+              <a
+                href="/ros-test.html"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-1.5 rounded-lg bg-smb-surface-container-high hover:bg-smb-surface-container-highest py-1.5 px-2 text-center text-[11px] font-medium text-smb-on-surface-variant border border-smb-outline-variant/60 transition-all"
+                title="Mở bảng vận hành ROS 2 chi tiết"
+              >
+                <Icon name="terminal" className="text-[14px]" />
+                Bảng Vận Hành ROS
+              </a>
+            </div>
+          </div>
+
+          {/* Dual-Battery System Indicator (Khối Pin Tổng & Tablet & Động Cơ) */}
+          {selectedRobotObj && (
+            <DualBatteryIndicator
+              batteryPct={selectedRobotObj.batteryPct}
+              deviceBatteryPct={selectedRobotObj.deviceBatteryPct}
+              deviceIsCharging={selectedRobotObj.deviceIsCharging}
+              espBatteryPct={selectedRobotObj.espBatteryPct}
+              espBatteryVolts={selectedRobotObj.espBatteryVolts}
+              robotStatus={selectedRobotObj.status}
+              variant="card"
+            />
+          )}
+
+          {/* Robot Charging Safety Notice (Cảnh báo đang cắm sạc) */}
+          {(selectedRobotObj?.deviceIsCharging || selectedRobotObj?.status === 'Offline_Charging' || selectedRobotObj?.status === 'Charging') && (
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-amber-800 dark:text-amber-300 flex items-center gap-2.5 shadow-xs">
+              <Icon name="bolt" className="text-[22px] text-amber-500 animate-pulse shrink-0" />
+              <div className="text-xs">
+                <span className="font-bold">Robot đang cắm sạc pin ({selectedRobotObj.deviceBatteryPct ?? selectedRobotObj.batteryPct}%)</span>
+                <p className="text-[11px] opacity-90 mt-0.5">Vui lòng rút dây sạc ra khỏi thiết bị trước khi phát lệnh điều hướng robot di chuyển.</p>
+              </div>
             </div>
           )}
-        </header>
 
-        {!robots.length ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 pb-6 text-center text-smb-on-surface-variant">
-            <Icon name="smart_toy" className="text-3xl" />
-            <p className="text-xs">Chưa có robot nào trong hệ thống.</p>
+          {/* Cụm 6 Nút Điều Khiển & Can Thiệp Khẩn Cấp */}
+          <div className="rounded-xl border border-smb-outline-variant/60 bg-smb-surface-container p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-smb-on-surface">
+                Can thiệp & Điều khiển khẩn cấp
+              </span>
+              <span className="text-[10px] text-smb-on-surface-variant font-mono font-bold">
+                {selectedRobot}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={ctrlLoading || !selectedRobot}
+                onClick={() => handleControl(pauseRobotNavigation, 'TẠM DỪNG')}
+                className="flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 py-2.5 text-xs font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
+              >
+                <Icon name="pause" className="text-[16px]" />
+                Tạm dừng
+              </button>
+              <button
+                type="button"
+                disabled={ctrlLoading || !selectedRobot}
+                onClick={() => handleControl(resumeRobotNavigation, 'TIẾP TỤC')}
+                className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 py-2.5 text-xs font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
+              >
+                <Icon name="play_arrow" className="text-[16px]" />
+                Tiếp tục
+              </button>
+              <button
+                type="button"
+                disabled={ctrlLoading || !selectedRobot}
+                onClick={handleCancelMission}
+                className="flex items-center justify-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 py-2.5 text-xs font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
+              >
+                <Icon name="stop" className="text-[16px]" />
+                Dừng nhiệm vụ
+              </button>
+              <button
+                type="button"
+                disabled={ctrlLoading || !selectedRobot}
+                onClick={() => handleControl(emergencyStopRobot, 'E-STOP')}
+                className="flex items-center justify-center gap-1.5 rounded-xl bg-red-950 hover:bg-red-900 py-2.5 text-xs font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
+              >
+                <Icon name="e911_emergency" className="text-[16px]" />
+                E-STOP
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-0.5">
+              <button
+                type="button"
+                disabled={ctrlLoading || !selectedRobot}
+                onClick={() => handleReturn(10029, 'Trạm Sạc (WP7)')}
+                className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 py-3 text-xs font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
+              >
+                <Icon name="ev_station" className="text-[16px]" />
+                Về Trạm Sạc (WP7)
+              </button>
+              <button
+                type="button"
+                disabled={ctrlLoading || !selectedRobot}
+                onClick={() => handleReturn(10033, 'Vị Trí Gốc (WP8)')}
+                className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 py-3 text-xs font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
+              >
+                <Icon name="flag" className="text-[16px]" />
+                Về Vị Trí Gốc (WP8)
+              </button>
+            </div>
+
+            <StatusBadge msg={ctrlMsg} />
           </div>
-        ) : (
-          <ul className="flex-1 divide-y divide-smb-outline-variant overflow-y-auto">
-            {robots.map((r) => {
-              const pose = poses[r.robotCode]
-              const isCharging = r.deviceIsCharging === true || r.status === 'Offline_Charging' || r.status === 'Charging'
-              const p = statusPalette(isCharging ? 'Offline_Charging' : r.status)
-              const isSel = selectedRobotCode === r.robotCode
-              const isMoving = (r.status === 'Moving' || r.mode === 'moving') && !isCharging
-              const isAd = r.activeFlowType === 'ad'
-              const isPatrol = r.activeFlowType === 'patrol'
-              const isGuide = r.activeFlowType === 'guide'
-              const isReturn = r.activeFlowType === 'return'
+        </div>
 
-              return (
-                <li key={r.robotId} className="border-b border-smb-outline-variant/40 last:border-b-0">
-                  <div
-                    onClick={() => onSelectRobot?.(r)}
-                    className={`flex w-full flex-col gap-2 p-3 text-left cursor-pointer transition-colors ${
-                      isSel ? 'bg-smb-active-bg ring-1 ring-inset ring-smb-primary/30' : 'hover:bg-smb-surface-container-low'
+          {/* ── 2. ĐIỀU KHIỂN LÁI TAY ROBOT (D-PAD & BÀN PHÍM) ── */}
+          <div className="rounded-xl border border-smb-outline-variant/60 bg-smb-surface-container p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-smb-on-surface flex items-center gap-1.5">
+                <Icon name="sports_esports" className="text-[16px] text-indigo-500" />
+                Điều khiển lái tay (Lên / Xuống / Trái / Phải)
+              </span>
+              <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+                {activeKey ? `Phím: ${activeKey.toUpperCase()}` : 'Phím mũi tên / WASD'}
+              </span>
+            </div>
+
+            {/* Tốc độ lái tay selector */}
+            <div className="flex items-center justify-between px-1 py-0.5">
+              <span className="text-[11px] font-semibold text-smb-on-surface-variant flex items-center gap-1">
+                <Icon name="speed" className="text-[14px] text-indigo-500" />
+                Tốc độ motor:
+              </span>
+              <div className="flex items-center gap-1 bg-smb-surface-container-lowest p-1 rounded-lg border border-smb-outline-variant/50">
+                {[
+                  { label: 'Chậm (40%)', val: 40 },
+                  { label: 'Vừa (70%)', val: 70 },
+                  { label: 'Nhanh (100%)', val: 100 },
+                ].map((lvl) => (
+                  <button
+                    key={lvl.val}
+                    type="button"
+                    onClick={() => setTeleopSpeed(lvl.val)}
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${
+                      teleopSpeed === lvl.val
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-smb-on-surface hover:bg-indigo-500/10'
                     }`}
                   >
-                    {/* Row 1: Avatar + Robot Name + Mission/Charging Badges (left) & Actions (right) */}
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <div className="relative shrink-0">
-                          <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${
-                            isCharging ? 'bg-amber-500' : isAd ? 'bg-emerald-600' : isPatrol ? 'bg-blue-600' : isGuide ? 'bg-purple-600' : p.dot
-                          } text-white shadow-xs`}>
-                            <Icon
-                              name={isCharging ? 'bolt' : isAd ? 'campaign' : isPatrol ? 'search' : isGuide ? 'navigation' : 'smart_toy'}
-                              className="text-[18px]"
-                            />
-                          </div>
-                          {isCharging ? (
-                            <span className="absolute -bottom-1 -right-1 flex size-3.5 items-center justify-center rounded-full bg-amber-500 text-white ring-2 ring-white dark:ring-gray-900" title="Đang sạc pin">
-                              <Icon name="bolt" className="text-[10px]" />
-                            </span>
-                          ) : isMoving ? (
-                            <span className="absolute -bottom-0.5 -right-0.5 flex size-2.5">
-                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                              <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
-                            </span>
-                          ) : null}
-                        </div>
+                    {lvl.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-sm font-bold text-smb-on-surface truncate">{r.robotName}</span>
-                            {isCharging && (
-                              <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0">
-                                <Icon name="bolt" className="text-[10px] text-amber-500" />
-                                Đang sạc
-                              </span>
-                            )}
-                            {isAd && (
-                              <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shrink-0">
-                                <Icon name="campaign" className="text-[10px] text-emerald-500" />
-                                Quảng cáo
-                              </span>
-                            )}
-                            {isPatrol && (
-                              <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-bold text-blue-600 dark:text-blue-400 border border-blue-500/30 shrink-0">
-                                <Icon name="search" className="text-[10px] text-blue-500" />
-                                Tuần tra
-                              </span>
-                            )}
-                            {isGuide && (
-                              <span className="inline-flex items-center gap-0.5 rounded-full bg-purple-500/15 px-1.5 py-0.5 text-[9px] font-bold text-purple-600 dark:text-purple-400 border border-purple-500/30 shrink-0">
-                                <Icon name="navigation" className="text-[10px] text-purple-500" />
-                                Dẫn đường
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[11px] text-smb-on-surface-variant flex items-center gap-1 mt-0.5">
-                            <span className="font-mono text-[10px] opacity-75">{r.robotCode}</span>
-                            <span>·</span>
-                            {isCharging ? (
-                              <span className="font-semibold text-amber-600 dark:text-amber-400">Đang cắm sạc</span>
-                            ) : (
-                              <span className={p.text}>{labelForStatus(r.status)}</span>
-                            )}
-                            <span>·</span>
-                            <span className="capitalize">{r.mode}</span>
-                          </p>
-                        </div>
-                      </div>
+            {/* D-Pad Buttons */}
+            <div className="flex flex-col items-center justify-center gap-2 py-2">
+              {/* Nút Tiến */}
+              <button
+                type="button"
+                disabled={!selectedRobot}
+                onMouseDown={() => startManualDrive('forward', 0, teleopSpeed, 0)}
+                onMouseUp={stopManualDrive}
+                onMouseLeave={stopManualDrive}
+                onTouchStart={(e) => { e.preventDefault(); startManualDrive('forward', 0, teleopSpeed, 0) }}
+                onTouchEnd={stopManualDrive}
+                onTouchCancel={stopManualDrive}
+                className={`flex size-14 items-center justify-center rounded-2xl transition-all shadow-md active:scale-90 ${
+                  activeKey === 'forward'
+                    ? 'bg-indigo-600 text-white ring-4 ring-indigo-400/40 scale-95'
+                    : 'bg-smb-surface-container-lowest text-smb-on-surface hover:bg-indigo-500/15 hover:text-indigo-600 border-2 border-smb-outline-variant'
+                }`}
+                title="Tiến lên (Mũi tên Lên / Phím W)"
+              >
+                <Icon name="arrow_upward" className="text-[26px]" />
+              </button>
 
-                      {/* Top right Action Buttons */}
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          title="Dừng Khẩn Cấp (Cancel Route)"
-                          onClick={(e) => { e.stopPropagation(); handleCancelRobot(r.robotCode) }}
-                          className="flex size-7 shrink-0 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-500/15 transition-colors"
-                        >
-                          <Icon name="cancel" className="text-[17px]" />
-                        </button>
-                        <button
-                          type="button"
-                          title="Xem chi tiết"
-                          onClick={(e) => { e.stopPropagation(); setDetailRobotCode(r.robotCode) }}
-                          className="flex size-7 shrink-0 items-center justify-center rounded-lg text-smb-on-surface-variant hover:bg-smb-surface-container-hover hover:text-smb-primary transition-colors"
-                        >
-                          <Icon name="info" className="text-[17px]" />
-                        </button>
-                      </div>
-                    </div>
+              {/* Hàng ngang: Trái - Dừng - Phải */}
+              <div className="flex items-center justify-center gap-2">
+                {/* Nút Rẽ Trái */}
+                <button
+                  type="button"
+                  disabled={!selectedRobot}
+                  onMouseDown={() => startManualDrive('left', -teleopSpeed, 0, 0)}
+                  onMouseUp={stopManualDrive}
+                  onMouseLeave={stopManualDrive}
+                  onTouchStart={(e) => { e.preventDefault(); startManualDrive('left', -teleopSpeed, 0, 0) }}
+                  onTouchEnd={stopManualDrive}
+                  onTouchCancel={stopManualDrive}
+                  className={`flex size-14 items-center justify-center rounded-2xl transition-all shadow-md active:scale-90 ${
+                    activeKey === 'left'
+                      ? 'bg-indigo-600 text-white ring-4 ring-indigo-400/40 scale-95'
+                      : 'bg-smb-surface-container-lowest text-smb-on-surface hover:bg-indigo-500/15 hover:text-indigo-600 border-2 border-smb-outline-variant'
+                  }`}
+                  title="Quay trái (Mũi tên Trái / Phím A)"
+                >
+                  <Icon name="arrow_back" className="text-[26px]" />
+                </button>
 
-                    {/* Row 2: Mission Detail / Route + Battery Indicator */}
-                    <div className="mt-0.5 flex items-center justify-between gap-2 pt-1.5 border-t border-smb-outline-variant/30 text-xs">
-                      <div className="min-w-0 flex-1">
-                        {isCharging ? (
-                          <div className="flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400 truncate">
-                            <Icon name="bolt" className="text-[12px] text-amber-500 shrink-0" />
-                            <span className="truncate">Điện thoại đang sạc ({r.deviceBatteryPct ?? r.batteryPct ?? 0}%)</span>
-                          </div>
-                        ) : isAd ? (
-                          <div className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 truncate">
-                            <Icon name="campaign" className="text-[12px] text-emerald-500 shrink-0" />
-                            <span className="truncate">QC: {r.activeMission?.campaignName || 'Chiến dịch siêu thị'}</span>
-                          </div>
-                        ) : isPatrol ? (
-                          <div className="flex items-center gap-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 truncate">
-                            <Icon name="search" className="text-[12px] text-blue-500 shrink-0" />
-                            <span className="truncate">Tuần tra kệ hàng AI Vision</span>
-                          </div>
-                        ) : isGuide ? (
-                          <div className="flex items-center gap-1 text-[11px] font-medium text-purple-600 dark:text-purple-400 truncate">
-                            <Icon name="navigation" className="text-[12px] text-purple-500 shrink-0" />
-                            <span className="truncate">Dẫn đường khách mua hàng</span>
-                          </div>
-                        ) : isReturn ? (
-                          <div className="flex items-center gap-1 text-[11px] font-medium text-orange-600 dark:text-orange-400 truncate">
-                            <Icon name="home" className="text-[12px] text-orange-500 shrink-0" />
-                            <span className="truncate">Quay về trạm sạc</span>
-                          </div>
-                        ) : isMoving ? (
-                          <div className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 truncate">
-                            <Icon name="near_me" className="text-[12px] text-emerald-500 shrink-0" />
-                            <span className="truncate">Đang di chuyển trên bản đồ</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1 text-[11px] text-smb-on-surface-variant/70 truncate">
-                            <Icon name="check_circle" className="text-[12px] text-emerald-500 shrink-0" />
-                            <span className="truncate">Sẵn sàng nhận lệnh</span>
-                          </div>
-                        )}
-                      </div>
+                {/* Nút Dừng Trung Tâm */}
+                <button
+                  type="button"
+                  disabled={!selectedRobot}
+                  onClick={stopManualDrive}
+                  className="flex size-14 items-center justify-center rounded-2xl bg-rose-500/15 text-rose-600 hover:bg-rose-500 hover:text-white border-2 border-rose-400/40 shadow-md transition-all active:scale-90"
+                  title="Dừng khẩn cấp / Dừng lại (Phím Space)"
+                >
+                  <Icon name="pan_tool" className="text-[22px]" />
+                </button>
 
-                      <div className="shrink-0 flex items-center gap-1.5">
-                        <DualBatteryIndicator
-                          batteryPct={r.batteryPct}
-                          deviceBatteryPct={r.deviceBatteryPct}
-                          deviceIsCharging={r.deviceIsCharging}
-                          espBatteryPct={r.espBatteryPct}
-                          espBatteryVolts={r.espBatteryVolts}
-                          variant="compact"
-                        />
-                        <span className="text-[9px] text-smb-on-surface-variant/70 font-mono">
-                          {typeof (pose?.x ?? pose?.xCoord) === 'number' && typeof (pose?.y ?? pose?.yCoord) === 'number'
-                            ? `(${(pose.x ?? pose.xCoord).toFixed(1)}, ${(pose.y ?? pose.yCoord).toFixed(1)})`
-                            : ''}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        )}
+                {/* Nút Rẽ Phải */}
+                <button
+                  type="button"
+                  disabled={!selectedRobot}
+                  onMouseDown={() => startManualDrive('right', teleopSpeed, 0, 0)}
+                  onMouseUp={stopManualDrive}
+                  onMouseLeave={stopManualDrive}
+                  onTouchStart={(e) => { e.preventDefault(); startManualDrive('right', teleopSpeed, 0, 0) }}
+                  onTouchEnd={stopManualDrive}
+                  onTouchCancel={stopManualDrive}
+                  className={`flex size-14 items-center justify-center rounded-2xl transition-all shadow-md active:scale-90 ${
+                    activeKey === 'right'
+                      ? 'bg-indigo-600 text-white ring-4 ring-indigo-400/40 scale-95'
+                      : 'bg-smb-surface-container-lowest text-smb-on-surface hover:bg-indigo-500/15 hover:text-indigo-600 border-2 border-smb-outline-variant'
+                  }`}
+                  title="Quay phải (Mũi tên Phải / Phím D)"
+                >
+                  <Icon name="arrow_forward" className="text-[26px]" />
+                </button>
+              </div>
+
+              {/* Nút Lùi */}
+              <button
+                type="button"
+                disabled={!selectedRobot}
+                onMouseDown={() => startManualDrive('backward', 0, -teleopSpeed, 0)}
+                onMouseUp={stopManualDrive}
+                onMouseLeave={stopManualDrive}
+                onTouchStart={(e) => { e.preventDefault(); startManualDrive('backward', 0, -teleopSpeed, 0) }}
+                onTouchEnd={stopManualDrive}
+                onTouchCancel={stopManualDrive}
+                className={`flex size-14 items-center justify-center rounded-2xl transition-all shadow-md active:scale-90 ${
+                  activeKey === 'backward'
+                    ? 'bg-indigo-600 text-white ring-4 ring-indigo-400/40 scale-95'
+                    : 'bg-smb-surface-container-lowest text-smb-on-surface hover:bg-indigo-500/15 hover:text-indigo-600 border-2 border-smb-outline-variant'
+                }`}
+                title="Lùi lại (Mũi tên Xuống / Phím S)"
+              >
+                <Icon name="arrow_downward" className="text-[26px]" />
+              </button>
+            </div>
+
+            <div className="rounded-lg bg-smb-surface-container-lowest/80 p-2 text-center text-[10px] text-smb-on-surface-variant leading-relaxed border border-smb-outline-variant/40">
+              💡 <b>Mẹo:</b> Nhấp giữ nút chuột hoặc dùng các <b>phím mũi tên (↑ ↓ ← →)</b> hoặc <b>W, A, S, D</b> trên bàn phím để điều khiển xe trực tiếp. Phím <b>Space</b> để dừng.
+            </div>
+          </div>
       </div>
 
       <RobotDetailModal robotCode={detailRobotCode} onClose={() => setDetailRobotCode(null)} />
@@ -1299,607 +1703,5 @@ function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot }
   )
 }
 
-/* -------------------------------------------------------------------- */
-/*  Tab 2 — Assign route (route-centric, read-only assignment side)     */
-/* -------------------------------------------------------------------- */
-
-function AssignTab({
-  robots, routes, map,
-  onPreviewRoute, onRouteCreated, onSelectForExecution
-}) {
-  const [mode, setMode] = useState('list') // 'list' | 'create'
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <header className="border-b border-smb-outline-variant p-4">
-        <h3 className="text-sm font-semibold text-smb-on-surface">Gán lộ trình</h3>
-        <p className="mt-1 text-xs text-smb-on-surface-variant">
-          Quản lý lộ trình trên sơ đồ mặt bằng hiện tại.
-        </p>
-      </header>
-
-      <div className="flex border-b border-smb-outline-variant">
-        <SubTab active={mode === 'list'} onClick={() => setMode('list')}>
-          Tất cả lộ trình ({routes.length})
-        </SubTab>
-        <SubTab active={mode === 'new'} onClick={() => setMode('new')}>
-          Tạo lộ trình mới
-        </SubTab>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-4">
-        {mode === 'list' ? (
-          <RouteList
-            routes={routes}
-            onPreviewRoute={onPreviewRoute}
-            onSelectForExecution={onSelectForExecution}
-          />
-        ) : (
-          <NewRouteForm
-            key={map?.mapId ?? 'no-active-map'}
-            robots={robots}
-            map={map}
-            onCreated={() => {
-              setMode('list')
-              onRouteCreated?.()
-            }}
-          />
-        )}
-      </div>
-    </div>
-  )
-}
-
-function SubTab({ active, onClick, children }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
-        active
-          ? 'border-b-2 border-smb-primary-container text-smb-primary-container'
-          : 'border-b-2 border-transparent text-smb-on-surface-variant hover:text-smb-on-surface'
-      }`}
-    >
-      {children}
-    </button>
-  )
-}
-
-/* --- Route list (route-centric, no assignment actions) -------------- */
-
-function RouteList({ routes, onPreviewRoute, onSelectForExecution }) {
-  if (!routes.length) {
-    return (
-      <div className="flex flex-col items-center gap-2 py-10 text-center text-smb-on-surface-variant">
-        <Icon name="route" className="text-3xl" />
-        <p className="text-sm">Chưa có lộ trình nào trong hệ thống.</p>
-        <p className="text-xs">Mở tab "Tạo lộ trình mới" để bắt đầu.</p>
-      </div>
-    )
-  }
-
-  return (
-    <ul className="space-y-3">
-      {routes.map((r) => {
-        const isOwner = r.robotId
-        return (
-          <li
-            key={r.robotRouteId}
-            className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-low"
-          >
-            {/* Header */}
-            <div 
-              className="flex items-start justify-between gap-3 p-3 pb-2 cursor-pointer hover:bg-smb-surface-container-high transition-colors"
-              onClick={() => onSelectForExecution?.(r)}
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-smb-on-surface group-hover:text-smb-primary">{r.routeName}</p>
-                <p className="mt-0.5 text-[11px] text-smb-on-surface-variant">
-                  Map #{r.mapId} · {r.zoneName ?? 'Chưa gán khu vực'} · {JSON.parse(r.pathNodesJson || '[]').length || r.waypointCount || 0} điểm đến
-                </p>
-                {r.description && (
-                  <p className="mt-1 line-clamp-2 text-xs text-smb-on-surface-variant">
-                    {r.description}
-                  </p>
-                )}
-              </div>
-              <span
-                className="shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
-                style={{
-                  backgroundColor: getRouteTypeMeta(r.routeType).color + '20',
-                  color: getRouteTypeMeta(r.routeType).color,
-                }}
-              >
-                <span className="material-symbols-outlined text-[12px]">
-                  {getRouteTypeMeta(r.routeType).icon}
-                </span>
-                {getRouteTypeMeta(r.routeType).label}
-              </span>
-            </div>
-
-            {/* Owner (which robot owns this route) */}
-            <div className="border-t border-smb-outline-variant px-3 py-1.5 text-[11px] text-smb-on-surface-variant flex justify-between items-center">
-              <span>
-                Dành cho: <span className="font-mono text-smb-primary font-semibold">{r.robotCode || (r.robotId ? `Robot #${r.robotId}` : 'Mọi Robot')}</span>
-              </span>
-              {r.createdAt && (
-                <span className="text-[10px] opacity-70">
-                  Tạo ngày: {new Date(r.createdAt).toLocaleDateString('vi-VN')}
-                </span>
-              )}
-            </div>
-
-            {onPreviewRoute && (
-              <div className="flex gap-2 border-t border-smb-outline-variant px-3 py-2">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const detail = await getRoute(r.robotRouteId)
-                    onPreviewRoute(detail)
-                  }}
-                  className="flex w-full items-center justify-center gap-1 rounded border border-smb-outline-variant px-2 py-1.5 text-xs font-medium text-smb-on-surface-variant hover:bg-smb-surface-container-lowest"
-                >
-                  <Icon name="visibility" className="text-[14px]" /> Xem trước trên bản đồ
-                </button>
-              </div>
-            )}
-          </li>
-        )
-      })}
-    </ul>
-  )
-}
-
-/* --- New route form (matches RobotRouteCreateDto) ------------------- */
-
-function NewRouteForm({ robots, map, onCreated }) {
-  // RobotRouteCreateDto: { mapId, robotId, routeName, routeType?, description?, zoneId?, nodeIds: number[] }
-  const [form, setForm] = useState({
-    routeName: '',
-    routeType: 'patrol',
-    description: '',
-    robotId: robots.length === 1 ? String(robots[0].robotId) : '',
-    mapId: map?.mapId ?? '',
-    zoneId: '',
-    nodeIds: [], // ordered array of numbers
-  })
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState(null)
-
-  const [zones, setZones] = useState([])
-  const [loadingZones, setLoadingZones] = useState(false)
-
-  // Auto-select robot if only 1 exists
-  useEffect(() => {
-    if (robots.length === 1 && !form.robotId) {
-      setForm(prev => ({ ...prev, robotId: String(robots[0].robotId) }))
-    }
-  }, [robots, form.robotId])
-
-  // When mapId changes, reload zones from /v1/zones (filtered by floor).
-  useEffect(() => {
-    const floorId = map?.floorId
-    if (!form.mapId || floorId == null) {
-      setZones([])
-      setForm((prev) => (prev.zoneId ? { ...prev, zoneId: '' } : prev))
-      return
-    }
-    let cancelled = false
-    setLoadingZones(true)
-    fetchZones({ floorId })
-      .then((list) => {
-        if (cancelled) return
-        setZones(list)
-        // If the current zone isn't in the new list, drop it.
-        setForm((prev) => {
-          if (prev.zoneId && !list.some((z) => String(z.zoneId) === String(prev.zoneId))) {
-            return { ...prev, zoneId: '' }
-          }
-          return prev
-        })
-      })
-      .catch(() => {})
-      .finally(() => !cancelled && setLoadingZones(false))
-    return () => { cancelled = true }
-  }, [form.mapId, map?.floorId])
-
-  const set = (patch) => setForm((prev) => ({ ...prev, ...patch }))
-
-  const nodesForMap = useMemo(() => {
-    if (map && String(map.mapId) === String(form.mapId)) return map.nodes ?? []
-    return []
-  }, [map, form.mapId])
-
-  const addNode = (nodeId) => {
-    const node = nodesForMap.find((n) => String(n.nodeId) === String(nodeId))
-    if (!node || (!node.shelfId && !node.shelfName)) {
-      toast.warning('Điểm này không thuộc kệ hàng nào. Vui lòng chọn node có gắn kệ!')
-      return
-    }
-    setForm((prev) => ({ ...prev, nodeIds: [...prev.nodeIds, Number(nodeId)] }))
-  }
-
-  const autoGenerateNodesForZone = () => {
-    if (!form.zoneId) {
-      toast.warning('Vui lòng chọn Zone trước để tự động thêm!')
-      return
-    }
-    const zoneNodes = nodesForMap.filter(n => 
-      String(n.zoneId) === String(form.zoneId) && (n.shelfId || n.shelfName)
-    )
-    if (zoneNodes.length === 0) {
-      toast.warning('Không tìm thấy node nào thuộc Zone này có gắn kệ.')
-      return
-    }
-    const newNodeIds = zoneNodes.map(n => Number(n.nodeId))
-    setForm(prev => {
-      const existing = new Set(prev.nodeIds)
-      const toAdd = newNodeIds.filter(id => !existing.has(id))
-      return { ...prev, nodeIds: [...prev.nodeIds, ...toAdd] }
-    })
-    toast.success(`Đã tự động thêm ${zoneNodes.length} node có kệ trong Zone!`)
-  }
-
-  const removeNodeAt = (index) => {
-    setForm((prev) => ({
-      ...prev,
-      nodeIds: prev.nodeIds.filter((_, i) => i !== index),
-    }))
-  }
-  const moveNode = (index, delta) => {
-    setForm((prev) => {
-      const next = [...prev.nodeIds]
-      const target = index + delta
-      if (target < 0 || target >= next.length) return prev
-      const [item] = next.splice(index, 1)
-      next.splice(target, 0, item)
-      return { ...prev, nodeIds: next }
-    })
-  }
-
-  const validate = () => {
-    if (!form.routeName.trim()) return 'Vui lòng nhận tên lộ trình.'
-    if (!form.mapId) return 'Vui lòng chọn map.'
-    if (!form.robotId) return 'Vui lòng chọn robot sở hữu.'
-    if (!form.nodeIds.length) return 'Cần chọn ít nhất 1 node cho lộ trình.'
-    return null
-  }
-
-  const submit = async () => {
-    const validationError = validate()
-    if (validationError) {
-      setError(validationError)
-      return
-    }
-    setError(null)
-    setSubmitting(true)
-    const payload = {
-      mapId: Number(form.mapId),
-      robotId: Number(form.robotId),
-      routeName: form.routeName.trim(),
-      routeType: form.routeType,
-      description: form.description.trim() || undefined,
-      zoneId: form.zoneId ? Number(form.zoneId) : undefined,
-      nodeIds: form.nodeIds,
-    }
-    try {
-      const result = await createRoute(payload)
-      window.dispatchEvent(new CustomEvent('robot:route-created', { detail: result }))
-      onCreated?.(result)
-    } catch (err) {
-      setError(err?.message ?? 'Tạo lộ trình thất bại.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  // Build a label lookup once so each chip can show "A1-Start (id 3)".
-  const nodeLabelById = useMemo(() => {
-    const m = new Map()
-    nodesForMap.forEach((n) => {
-      let label = n.nodeName || ''
-      if (!label || label.toLowerCase().startsWith('node ') || label.toLowerCase().startsWith('waypoint ')) {
-        label = `Điểm đến ${n.nodeId}`
-      }
-      m.set(Number(n.nodeId), {
-        label,
-        type: n.nodeType ?? null,
-        blocked: !!n.isBlocked,
-      })
-    })
-    return m
-  }, [nodesForMap])
-
-  const selectedMap = map && String(map.mapId) === String(form.mapId) ? map : null
-
-  return (
-    <div className="space-y-4">
-      <p className="text-xs text-smb-on-surface-variant">
-        Khớp với backend <span className="font-mono">POST /api/v1/routes</span> →
-        DTO <span className="font-mono">RobotRouteCreateDto</span>.
-      </p>
-
-      <Field label="Tên lộ trình *">
-        <input
-          type="text"
-          value={form.routeName}
-          onChange={(e) => set({ routeName: e.target.value })}
-          placeholder="vd. Tuần tra khu rau củ sáng"
-          className="rounded border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface focus:border-smb-primary-container focus:outline-none focus:ring-2 focus:ring-smb-primary-container/20"
-        />
-      </Field>
-
-      <Field label="Sơ đồ mặt bằng hiện tại *">
-        {selectedMap && (
-          <div className="rounded border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
-            <p className="text-xs font-semibold text-emerald-600">
-              Sơ đồ #{selectedMap.mapId}{selectedMap.mapName && selectedMap.mapName !== 'ROS2 SLAM Map' ? ` · ${selectedMap.mapName}` : ''}
-            </p>
-            <p className="mt-1 text-[11px] text-smb-on-surface-variant">
-              {selectedMap.widthMeters}×{selectedMap.heightMeters} m ·{' '}
-              {nodesForMap.length || selectedMap.nodeCount || 0} điểm khả dụng
-            </p>
-          </div>
-        )}
-        {!selectedMap && (
-          <p className="rounded border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-600">
-            Chưa có sơ đồ mặt bằng nào. Không thể tạo lộ trình.
-          </p>
-        )}
-      </Field>
-
-      <div className="grid grid-cols-1 gap-3">
-        <Field label="Zone (tùy chọn)">
-          <Select
-            value={form.zoneId}
-            onChange={(v) => set({ zoneId: v })}
-            disabled={!form.mapId || loadingZones}
-            placeholder={
-              !form.mapId
-                ? 'Chọn map trước'
-                : loadingZones
-                  ? 'Đang tải zone…'
-                  : '-- không gán --'
-            }
-            options={[
-              { value: '', label: '-- không gán --' },
-              ...zones.map((z) => ({
-                value: z.zoneId,
-                label: `#${z.zoneId} · ${z.zoneName}`,
-              })),
-            ]}
-          />
-        </Field>
-      </div>
-
-      <Field label="Robot sở hữu *">
-        <Select
-          value={form.robotId}
-          onChange={(v) => set({ robotId: v })}
-          placeholder={robots.length === 1 ? undefined : "-- chọn robot --"}
-          options={robots.map((r) => ({
-            value: r.robotId,
-            label: `${r.robotName} · ${r.robotCode}`,
-          }))}
-        />
-      </Field>
-
-      {/* Node picker */}
-      <Field label={`Node cho lộ trình (theo thứ tự) *`}>
-        {nodesForMap.length === 0 ? (
-          <p className="rounded border border-dashed border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-3 text-xs text-smb-on-surface-variant">
-            {form.mapId
-              ? 'Bản đồ này chưa có danh sách node. Tải map để hiện node chip picker.'
-              : 'Chọn map trước.'}
-          </p>
-        ) : (
-          <>
-            <div className="rounded border border-smb-outline-variant bg-smb-surface-container-lowest p-2">
-              <div className="mb-1.5 flex items-center justify-between">
-                <p className="text-[11px] text-smb-on-surface-variant">
-                  Click để thêm vào thứ tự
-                </p>
-                <button
-                  type="button"
-                  onClick={autoGenerateNodesForZone}
-                  className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors"
-                >
-                  <Icon name="auto_awesome" className="text-[12px]" />
-                  Tự động thêm Kệ trong Zone
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {nodesForMap.map((n) => {
-                  const info = nodeLabelById.get(Number(n.nodeId))
-                  return (
-                    <button
-                      key={n.nodeId}
-                      type="button"
-                      onClick={() => addNode(n.nodeId)}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-smb-outline-variant bg-smb-surface-container-lowest px-2.5 py-1 text-[11px] font-medium text-smb-on-surface hover:border-smb-primary-container hover:bg-smb-active-bg shadow-sm transition-all active:scale-95"
-                    >
-                      <Icon name="add_location" className="text-[14px] text-smb-primary" />
-                      <span className="max-w-[140px] truncate">{info.label}</span>
-                      <span className="rounded bg-smb-surface-container-highest px-1.5 py-0.5 font-mono text-[9px] text-smb-on-surface-variant">#{n.nodeId}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {form.nodeIds.length > 0 && (
-              <div className="mt-4 rounded-xl border border-smb-outline-variant bg-smb-surface-container-lowest overflow-hidden shadow-sm">
-                <div className="bg-smb-surface-container-low px-4 py-2.5 border-b border-smb-outline-variant flex items-center justify-between">
-                  <p className="text-xs font-semibold text-smb-on-surface">
-                    Thứ tự di chuyển
-                  </p>
-                  <span className="rounded-full bg-smb-primary/10 text-smb-primary px-2 py-0.5 text-[10px] font-bold">
-                    {form.nodeIds.length} điểm
-                  </span>
-                </div>
-                <div className="p-4 pt-5 pb-6">
-                  <div className="relative border-l-2 border-smb-primary-container/30 ml-3 space-y-5">
-                    {form.nodeIds.map((id, idx) => {
-                      const info = nodeLabelById.get(id)
-                      const isLast = idx === form.nodeIds.length - 1
-                      return (
-                        <div key={`${id}-${idx}`} className="relative pl-6 flex items-center justify-between group">
-                          {/* Timeline dot */}
-                          <div className="absolute -left-[9px] flex size-4 items-center justify-center rounded-full bg-smb-surface-container-lowest border-2 border-smb-primary-container ring-4 ring-smb-surface-container-lowest shadow-sm">
-                            <div className="size-1.5 rounded-full bg-smb-primary-container"></div>
-                          </div>
-
-                          <div className="flex items-center gap-3 min-w-0 flex-1 bg-smb-surface-container-lowest group-hover:bg-smb-surface-container-low rounded-lg p-2 -my-2 transition-colors border border-transparent group-hover:border-smb-outline-variant/40">
-                            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-smb-primary/10 text-[11px] font-bold text-smb-primary shadow-sm">
-                              {idx + 1}
-                            </span>
-                            <div className="min-w-0 flex-1 flex flex-wrap items-center gap-2">
-                              <Icon name="location_on" className="text-[18px] text-smb-on-surface-variant shrink-0" />
-                              <span className="font-semibold text-smb-on-surface text-sm truncate max-w-[200px]">
-                                {info?.label ?? `Điểm đến ${id}`}
-                              </span>
-                              <span className="rounded bg-smb-surface-container-highest px-1.5 py-0.5 text-[10px] font-mono text-smb-on-surface-variant shrink-0 shadow-sm border border-smb-outline-variant/30">
-                                #{id}
-                              </span>
-                              {info?.type && !info.label.includes(info.type) && (
-                                <span className="rounded-full bg-smb-surface-container-high px-2 py-0.5 text-[10px] text-smb-on-surface-variant shrink-0 border border-smb-outline-variant/50">
-                                  {info.type}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 ml-2">
-                            <button
-                              type="button"
-                              onClick={() => moveNode(idx, -1)}
-                              disabled={idx === 0}
-                              className="flex size-7 items-center justify-center rounded-lg text-smb-on-surface-variant hover:bg-smb-surface-container-high hover:text-smb-primary disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-                              title="Di chuyển lên"
-                            >
-                              <Icon name="arrow_upward" className="text-[16px]" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => moveNode(idx, 1)}
-                              disabled={isLast}
-                              className="flex size-7 items-center justify-center rounded-lg text-smb-on-surface-variant hover:bg-smb-surface-container-high hover:text-smb-primary disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-                              title="Di chuyển xuống"
-                            >
-                              <Icon name="arrow_downward" className="text-[16px]" />
-                            </button>
-                            <div className="w-px h-4 bg-smb-outline-variant/40 mx-0.5"></div>
-                            <button
-                              type="button"
-                              onClick={() => removeNodeAt(idx)}
-                              className="flex size-7 items-center justify-center rounded-lg text-rose-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 transition-colors"
-                              title="Xóa khỏi lộ trình"
-                            >
-                              <Icon name="delete" className="text-[16px]" />
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </Field>
-
-      {/* Link to Map Editor / Shelf Management */}
-      <div className="flex justify-end -mt-1 mb-3">
-        <button
-          type="button"
-          onClick={() => window.open('/shelf-management', '_blank')}
-          className="inline-flex items-center gap-1 text-[11px] font-bold text-smb-primary hover:text-smb-primary-container transition-colors"
-        >
-          <Icon name="tune" className="text-[14px]" />
-          Thiết lập Kệ & Node
-        </button>
-      </div>
-
-      <Field label="Mô tả (tùy chọn)">
-        <input
-          type="text"
-          value={form.description}
-          onChange={(e) => set({ description: e.target.value })}
-          placeholder="vd. Quét kệ 5-12 mỗi sáng"
-          className="rounded border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface focus:border-smb-primary-container focus:outline-none focus:ring-2 focus:ring-smb-primary-container/20"
-        />
-      </Field>
-
-      {error && (
-        <div className="rounded border border-smb-error bg-smb-error-container/40 px-3 py-2 text-xs text-smb-on-error-container">
-          {error}
-        </div>
-      )}
-
-      <button
-        type="button"
-        onClick={submit}
-        disabled={submitting}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-smb-primary-container px-4 py-2 text-sm font-medium text-smb-on-primary hover:bg-smb-primary-container/90 disabled:opacity-60"
-      >
-        <Icon name="add_road" className="text-[18px]" />
-        {submitting ? 'Đang tạo…' : 'Tạo lộ trình'}
-      </button>
-
-      <details className="text-[11px] text-smb-on-surface-variant">
-        <summary className="cursor-pointer">Xem payload JSON sẽ gửi đi</summary>
-        <pre className="mt-2 overflow-x-auto rounded bg-smb-surface-container-highest p-2 text-[10px] leading-snug text-smb-on-surface">
-{JSON.stringify(
-  {
-    mapId: form.mapId ? Number(form.mapId) : undefined,
-    robotId: form.robotId ? Number(form.robotId) : undefined,
-    routeName: form.routeName.trim() || '<empty>',
-    routeType: form.routeType,
-    description: form.description.trim() || undefined,
-    zoneId: form.zoneId ? Number(form.zoneId) : undefined,
-    nodeIds: form.nodeIds,
-  },
-  null,
-  2
-)}
-        </pre>
-      </details>
-    </div>
-  )
-}
-
-/* --- Shared controls --- */
-
-function Field({ label, children }) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="text-xs font-medium text-smb-on-surface-variant">{label}</span>
-      {children}
-    </label>
-  )
-}
-
-function Select({ value, onChange, options, placeholder, disabled = false }) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      disabled={disabled}
-      className="rounded border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface focus:border-smb-primary-container focus:outline-none focus:ring-2 focus:ring-smb-primary-container/20 disabled:opacity-60"
-    >
-      {placeholder !== undefined && value === '' && (
-        <option value="" disabled>{placeholder}</option>
-      )}
-      {placeholder !== undefined && value !== '' && (
-        <option value="">-- bỏ chọn --</option>
-      )}
-      {options.map((o) => (
-        <option key={String(o.value)} value={String(o.value)}>{o.label}</option>
-      ))}
-    </select>
-  )
-}
 
 export default RobotAssignmentPanel

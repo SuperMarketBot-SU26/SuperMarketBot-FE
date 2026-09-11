@@ -20,10 +20,14 @@ import client from '../../../api/client'
 const ENDPOINT = '/api/v1/routes'
 
 export const getRoutes = async ({ mapId, zoneId, routeType } = {}) => {
-  const res = await client.get(ENDPOINT, {
-    params: { mapId, zoneId, routeType },
-  })
-  return res.data ?? []
+  try {
+    const res = await client.get(ENDPOINT, {
+      params: { mapId, zoneId, routeType },
+    })
+    return res.data ?? []
+  } catch {
+    return []
+  }
 }
 
 export const getRoute = async (routeId) => {

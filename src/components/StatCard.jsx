@@ -14,6 +14,7 @@ export function StatCard({
   color = 'primary',
   onClick,
   className = '',
+  compact = false,
 }) {
   const colorMap = {
     primary: 'text-emerald-700 bg-emerald-500/10 border-emerald-500/20 dark:text-emerald-400 dark:bg-emerald-500/20 dark:border-emerald-500/30',
@@ -37,7 +38,8 @@ export function StatCard({
       role={interactive ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}
       className={`
-        relative overflow-hidden rounded-2xl border border-smb-outline-variant/60 bg-smb-surface-container-lowest p-5
+        relative overflow-hidden rounded-2xl border border-smb-outline-variant/60 bg-smb-surface-container-lowest
+        ${compact ? 'p-3 sm:p-3.5' : 'p-5'}
         shadow-sm transition-all duration-200 hover:shadow-md hover:border-smb-primary/40
         ${interactive ? 'cursor-pointer active:scale-[0.98]' : ''}
         ${className}
@@ -45,21 +47,21 @@ export function StatCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold tracking-wide text-smb-on-surface-variant/80 uppercase">
+          <p className={`${compact ? 'text-[11px]' : 'text-xs'} font-semibold tracking-wide text-smb-on-surface-variant/80 uppercase`}>
             {title}
           </p>
-          <p className="mt-2 text-3xl font-extrabold tracking-tight text-smb-on-surface tabular-nums">
+          <p className={`${compact ? 'mt-1 text-2xl font-bold' : 'mt-2 text-3xl font-extrabold'} tracking-tight text-smb-on-surface tabular-nums`}>
             {value}
           </p>
           {subtitle && (
-            <p className="mt-1 text-xs font-medium text-smb-on-surface-variant/80 truncate">
+            <p className={`${compact ? 'mt-0.5 text-[11px]' : 'mt-1 text-xs'} font-medium text-smb-on-surface-variant/80 truncate`}>
               {subtitle}
             </p>
           )}
           {trend && (
-            <div className={`mt-2.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border ${colorMap[color]}`}>
-              {trend === 'up' && <Icon name="trending_up" className="text-[14px]" />}
-              {trend === 'down' && <Icon name="trending_down" className="text-[14px]" />}
+            <div className={`${compact ? 'mt-1.5 px-2 py-0.5 text-[10px]' : 'mt-2.5 px-2.5 py-0.5 text-[11px]'} inline-flex items-center gap-1.5 rounded-full font-semibold border ${colorMap[color]}`}>
+              {trend === 'up' && <Icon name="trending_up" className={compact ? 'text-[12px]' : 'text-[14px]'} />}
+              {trend === 'down' && <Icon name="trending_down" className={compact ? 'text-[12px]' : 'text-[14px]'} />}
               <span className={trendColorMap[trend]}>{trendValue}</span>
             </div>
           )}
@@ -68,11 +70,11 @@ export function StatCard({
         {icon && (
           <div
             className={`
-              flex size-12 shrink-0 items-center justify-center rounded-xl border ${colorMap[color]}
+              flex ${compact ? 'size-9 rounded-lg' : 'size-12 rounded-xl'} shrink-0 items-center justify-center border ${colorMap[color]}
               shadow-inner transition-transform duration-200
             `}
           >
-            <Icon name={icon} className="text-[24px]" />
+            <Icon name={icon} className={compact ? 'text-[20px]' : 'text-[24px]'} />
           </div>
         )}
       </div>
