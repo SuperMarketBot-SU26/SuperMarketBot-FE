@@ -8,6 +8,7 @@ import { getErrorMessage } from '../../../api/client'
 import { buildImageUrl } from '../../../utils/cloudinary'
 import { uploadResource } from '../api/adResourcesApi'
 import { toast } from 'react-toastify'
+import { getShelvesByFloor } from '../api/targetingApi'
 
 function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
@@ -38,32 +39,59 @@ function normalizeProduct(p) {
       format: 'auto',
     }),
     status: p.status ?? p.Status ?? null,
+    // Shelf info — BE may return shelfId/shelfName directly on ProductDto
+    shelfId: p.shelfId ?? p.ShelfId ?? null,
+    shelfName: p.shelfName ?? p.ShelfName ?? null,
+    slotName: p.slotName ?? p.SlotName ?? null,
   }
+}
+
+// Kiểm tra sản phẩm còn hàng (InStock)
+const isInStock = (p) => {
+  const s = (p.status ?? '').toLowerCase()
+  return s === 'instock' || s === 'in_stock' || s === 'còn hàng' || s === 'available'
 }
 
 export function StepProducts({ state, onChange, hasProducts, onBack, onNext }) {
   const [products, setProducts] = useState([])
+  const [shelfMap, setShelfMap] = useState({}) // { shelfId: shelfName }
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [query, setQuery] = useState('')
 
-  // Load products (hiện tại lấy toàn bộ; BE chưa hỗ trợ filter theo brandId).
+  // Load products + shelves song song
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError(null)
-    getProducts({ pageSize: 200 })
-      .then((data) => {
-        if (cancelled) return
+
+    Promise.allSettled([
+      getProducts({ pageSize: 200 }),
+      getShelvesByFloor(1), // floorId=1 — siêu thị 1 tầng
+    ]).then(([prodRes, shelfRes]) => {
+      if (cancelled) return
+
+      // Build shelf map { shelfId → label }
+      if (shelfRes.status === 'fulfilled') {
+        const map = {}
+        for (const s of (shelfRes.value ?? [])) {
+          if (s.id != null) map[s.id] = s.label ?? s.name
+        }
+        setShelfMap(map)
+      }
+
+      if (prodRes.status === 'fulfilled') {
+        const data = prodRes.value
         const list = Array.isArray(data) ? data : data?.items ?? data?.products ?? []
-        const normalized = list.map(normalizeProduct).filter(Boolean)
+        // Chỉ hiển thị sản phẩm CÒN HÀNG
+        const normalized = list.map(normalizeProduct).filter(Boolean).filter(isInStock)
         setProducts(normalized)
-      })
-      .catch((err) => {
-        if (cancelled) return
-        setError(getErrorMessage(err, 'Không tải được danh sách sản phẩm.'))
-      })
-      .finally(() => { if (!cancelled) setLoading(false) })
+      } else {
+        setError(getErrorMessage(prodRes.reason, 'Không tải được danh sách sản phẩm.'))
+      }
+      setLoading(false)
+    })
+
     return () => { cancelled = true }
   }, [])
 
@@ -121,7 +149,7 @@ export function StepProducts({ state, onChange, hasProducts, onBack, onNext }) {
           <div className="mb-3 flex items-center gap-2">
             <Icon name="inventory_2" className="text-[18px] text-smb-primary-container" />
             <h4 className="text-sm font-semibold text-smb-on-surface">
-              Danh sách sản phẩm ({filtered.length})
+              Còn hàng ({filtered.length})
             </h4>
           </div>
           <Input
@@ -186,6 +214,13 @@ export function StepProducts({ state, onChange, hasProducts, onBack, onNext }) {
                         {p.sku && `SKU ${p.sku} · `}
                         {formatVND(p.price)} đ
                       </p>
+                      {/* Hiển thị kệ hàng: ưu tiên shelfName từ sản phẩm, fallback vào shelfMap */}
+                      {(p.shelfName || (p.shelfId && shelfMap[p.shelfId])) && (
+                        <p className="mt-0.5 flex items-center gap-1 text-[10px] font-medium text-smb-primary-container">
+                          <span className="material-symbols-outlined text-[11px]">inventory_2</span>
+                          {p.shelfName ?? shelfMap[p.shelfId]}
+                        </p>
+                      )}
                     </div>
                   </button>
                 )
@@ -228,6 +263,12 @@ export function StepProducts({ state, onChange, hasProducts, onBack, onNext }) {
                   <div className="flex-1 min-w-0">
                     <p className="truncate text-smb-on-surface">{p.name}</p>
                     <p className="truncate text-xs text-smb-on-surface-variant">{formatVND(p.price)} đ</p>
+                    {(p.shelfName || (p.shelfId && shelfMap[p.shelfId])) && (
+                      <p className="flex items-center gap-1 text-[10px] font-medium text-smb-primary-container">
+                        <span className="material-symbols-outlined text-[11px]">inventory_2</span>
+                        {p.shelfName ?? shelfMap[p.shelfId]}
+                      </p>
+                    )}
                   </div>
                   <button
                     type="button"

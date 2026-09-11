@@ -274,7 +274,7 @@ export function CampaignLogsTab({ campaignId }) {
                 <th className="px-4 py-3 font-semibold whitespace-nowrap">Thời gian</th>
                 <th className="px-4 py-3 font-semibold">Hành động</th>
                 <th className="px-4 py-3 font-semibold">Sản phẩm</th>
-                <th className="px-4 py-3 font-semibold">Khu vực</th>
+                <th className="px-4 py-3 font-semibold">Khu vực / Kệ</th>
                 <th className="px-4 py-3 font-semibold text-right whitespace-nowrap">Số tiền</th>
                 <th className="px-4 py-3 font-semibold">Người thực hiện</th>
               </tr>

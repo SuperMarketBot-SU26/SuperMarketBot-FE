@@ -42,7 +42,7 @@ function Field({ icon, label, value, mono = false }) {
   )
 }
 
-export function AccountDetailPanel({ accountId, onClose, onEdit }) {
+export function AccountDetailPanel({ accountId, onClose, onEdit, canEdit = true }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -139,15 +139,21 @@ export function AccountDetailPanel({ accountId, onClose, onEdit }) {
           </section>
 
           {/* Actions */}
-          {onEdit && (
-            <div className="flex justify-end gap-2 border-t border-smb-outline-variant pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-lg border border-smb-outline-variant px-4 py-2 text-sm font-medium text-smb-on-surface hover:bg-smb-surface-container"
-              >
-                Đóng
-              </button>
+          <div className="flex justify-end gap-2 border-t border-smb-outline-variant pt-4">
+            {!canEdit && (
+              <span className="mr-auto inline-flex items-center gap-1 rounded-full border border-smb-primary-container/40 bg-smb-primary-container/10 px-2.5 py-1 text-[11px] font-medium text-smb-primary-container">
+                <span className="material-symbols-outlined text-[12px]">lock</span>
+                Không thể sửa tài khoản của bạn
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-smb-outline-variant px-4 py-2 text-sm font-medium text-smb-on-surface hover:bg-smb-surface-container"
+            >
+              Đóng
+            </button>
+            {onEdit && canEdit && (
               <button
                 type="button"
                 onClick={() => onEdit(user)}
@@ -156,8 +162,8 @@ export function AccountDetailPanel({ accountId, onClose, onEdit }) {
                 <Icon name="edit" className="text-[16px]" />
                 Chỉnh sửa
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
     </SlideOver>

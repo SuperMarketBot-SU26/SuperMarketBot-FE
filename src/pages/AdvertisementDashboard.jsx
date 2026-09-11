@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import Navbar from '../components/Navbar'
 import { FilterChip, SearchBar } from '../components/FilterBar'
-import { CampaignList, DashboardWidgets } from '../features/advertisement'
+import { CampaignList, DashboardWidgets, AllCampaignLogsWidget } from '../features/advertisement'
 import { downloadCampaignTemplate, importCampaignsExcel, exportCampaignsExcel } from '../features/advertisement/api/adCampaignApi'
 import { ImportHistoryModal } from '../components/ImportHistoryModal'
 import { Button } from '../components/ui/Button'
@@ -221,6 +221,8 @@ export function AdvertisementDashboard() {
               status={statusFilter}
             />
           </div>
+
+          <AllCampaignLogsWidget />
         </main>
       </div>
 

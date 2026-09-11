@@ -10,6 +10,7 @@ import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
 import { AdminStats } from '../features/account/components/AdminStats'
 import { AccountDetailPanel } from '../features/account/components/AccountDetailPanel'
+import { useAuth } from '../features/auth/useAuth'
 import {
   getUsers,
   createUser,
@@ -72,6 +73,9 @@ export function AccountManagement() {
   const [detailId, setDetailId] = useState(null)
   // Sub-tab: 'all' = tất cả, 'admin-only' = chỉ admin
   const [adminTab, setAdminTab] = useState('all')
+
+  // Tài khoản đang đăng nhập
+  const { user: currentUser } = useAuth()
 
   const fetchUsers = useCallback(async () => {
     setLoading(true)
@@ -301,26 +305,43 @@ export function AccountManagement() {
       key: 'actions',
       label: '',
       align: 'center',
-      render: (_, row) => (
-        <div onClick={(e) => e.stopPropagation()}>
-          <TableActions
-            actions={[
-              {
-                label: 'Xem Chi Tiết',
-                icon: 'visibility',
-                onClick: () => setDetailId(row.accountId),
-              },
-              { label: 'Sửa', icon: 'edit', onClick: () => openEdit(row) },
-              {
-                label: 'Xóa',
-                icon: 'delete',
-                danger: true,
-                onClick: () => setDeletingUser(row),
-              },
-            ]}
-          />
-        </div>
-      ),
+      render: (_, row) => {
+        // Admin không được quản lý chính mình
+        const isSelf = currentUser && (
+          row.accountId === currentUser.id ||
+          row.accountId === currentUser.accountId
+        )
+        if (isSelf) {
+          return (
+            <div className="flex justify-center">
+              <span className="inline-flex items-center gap-1 rounded-full border border-smb-primary-container/40 bg-smb-primary-container/10 px-2.5 py-0.5 text-[11px] font-medium text-smb-primary-container">
+                <span className="material-symbols-outlined text-[12px]">person</span>
+                Tài khoản của bạn
+              </span>
+            </div>
+          )
+        }
+        return (
+          <div onClick={(e) => e.stopPropagation()}>
+            <TableActions
+              actions={[
+                {
+                  label: 'Xem Chi Tiết',
+                  icon: 'visibility',
+                  onClick: () => setDetailId(row.accountId),
+                },
+                { label: 'Sửa', icon: 'edit', onClick: () => openEdit(row) },
+                {
+                  label: 'Xóa',
+                  icon: 'delete',
+                  danger: true,
+                  onClick: () => setDeletingUser(row),
+                },
+              ]}
+            />
+          </div>
+        )
+      },
     },
   ]
 
@@ -624,6 +645,11 @@ export function AccountManagement() {
         accountId={detailId}
         onClose={() => setDetailId(null)}
         onEdit={(user) => { setDetailId(null); openEdit(user) }}
+        canEdit={
+          !detailId ||
+          !currentUser ||
+          (detailId !== currentUser.id && detailId !== currentUser.accountId)
+        }
       />
     </div>
   )

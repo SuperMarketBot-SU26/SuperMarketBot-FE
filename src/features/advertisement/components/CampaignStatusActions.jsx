@@ -83,36 +83,19 @@ export function CampaignStatusActions({ status, completionStatus, onActivate, on
 
             {/* Pause — shown for Active */}
             {isActive && (
-              <>
-                <Button
-                  variant="info"
-                  icon="task_alt"
-                  size="sm"
-                  disabled={loading || isEnded}
-                  onClick={() => setConfirmAction({
-                    type: 'complete',
-                    message: isEnded
-                      ? 'Chiến dịch đã kết thúc, không thể đánh dấu hoàn thành.'
-                      : 'Bạn có chắc muốn đánh dấu chiến dịch này là hoàn thành?',
-                    handler: isEnded ? () => {} : onComplete,
-                  })}
-                >
-                  Hoàn Thành
-                </Button>
-                <Button
-                  variant="warning"
-                  icon="pause"
-                  size="sm"
-                  disabled={loading}
-                  onClick={() => setConfirmAction({
-                    type: 'pause',
-                    message: 'Bạn có chắc muốn tạm dừng chiến dịch này?',
-                    handler: onPause,
-                  })}
-                >
-                  Tạm Dừng
-                </Button>
-              </>
+              <Button
+                variant="warning"
+                icon="pause"
+                size="sm"
+                disabled={loading}
+                onClick={() => setConfirmAction({
+                  type: 'pause',
+                  message: 'Bạn có chắc muốn tạm dừng chiến dịch này?',
+                  handler: onPause,
+                })}
+              >
+                Tạm Dừng
+              </Button>
             )}
 
             {/* Resume (activate after pause) — shown for Paused */}

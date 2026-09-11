@@ -146,6 +146,9 @@ export const assignCampaignSponsoredProducts = (campaignId, productIds) =>
 export const getCampaignLogs = (campaignId, pageNumber = 1, pageSize = 20) =>
   client.get(`${ENDPOINT}/${campaignId}/logs`, { params: { pageNumber, pageSize } }).then((res) => res.data)
 
+export const getAllCampaignLogs = (params = {}) =>
+  client.get(`${ENDPOINT}/all-logs`, { params }).then((res) => res.data)
+
 // ── Public tracking (impression + click) ────────────────────────────────────
 // POST /api/v1/ad-campaigns/{id}/impression
 //   body: { memberId?: number|null, zoneId?: number|null, productId?: number|null }

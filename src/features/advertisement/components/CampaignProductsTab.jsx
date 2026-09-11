@@ -3,6 +3,13 @@ import { getProducts } from '../../product/api/productApi'
 import { getCampaignSponsoredProducts, assignCampaignSponsoredProducts } from '../api/adCampaignApi'
 import { getErrorMessage } from '../../../api/client'
 import { buildImageUrl } from '../../../utils/cloudinary'
+import { getShelvesByFloor } from '../api/targetingApi'
+
+// Kiểm tra sản phẩm còn hàng
+const isInStock = (p) => {
+  const s = (p.status ?? p.Status ?? '').toLowerCase()
+  return s === 'instock' || s === 'in_stock' || s === 'còn hàng' || s === 'available'
+}
 
 function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
@@ -161,6 +168,7 @@ export function CampaignProductsTab({ products, sponsoredProductCount, canEdit =
 function AddProductsModal({ campaignId, assignedIds, onClose, onSaved }) {
   const [loading, setLoading] = useState(true)
   const [all, setAll] = useState([])
+  const [shelfMap, setShelfMap] = useState({}) // { shelfId: shelfName }
   const [query, setQuery] = useState('')
   const [picked, setPicked] = useState(assignedIds)
   const [submitting, setSubmitting] = useState(false)
@@ -169,14 +177,29 @@ function AddProductsModal({ campaignId, assignedIds, onClose, onSaved }) {
   React.useEffect(() => {
     let cancelled = false
     setLoading(true)
-    getProducts({ pageSize: 200 })
-      .then((data) => {
-        if (cancelled) return
+    Promise.allSettled([
+      getProducts({ pageSize: 200 }),
+      getShelvesByFloor(1),
+    ]).then(([prodRes, shelfRes]) => {
+      if (cancelled) return
+      // Build shelf map
+      if (shelfRes.status === 'fulfilled') {
+        const map = {}
+        for (const s of (shelfRes.value ?? [])) {
+          if (s.id != null) map[s.id] = s.label ?? s.name
+        }
+        setShelfMap(map)
+      }
+      if (prodRes.status === 'fulfilled') {
+        const data = prodRes.value
         const list = Array.isArray(data) ? data : data?.items ?? data?.products ?? []
-        setAll(list)
-      })
-      .catch((e) => { if (!cancelled) setErr(getErrorMessage(e, 'Không tải được danh sách sản phẩm.')) })
-      .finally(() => { if (!cancelled) setLoading(false) })
+        // Chỉ sản phẩm còn hàng
+        setAll(list.filter(isInStock))
+      } else {
+        setErr(getErrorMessage(prodRes.reason, 'Không tải được danh sách sản phẩm.'))
+      }
+      setLoading(false)
+    })
     return () => { cancelled = true }
   }, [])
 
@@ -278,6 +301,13 @@ function AddProductsModal({ campaignId, assignedIds, onClose, onSaved }) {
                       {p.sku && `SKU ${p.sku}`}
                       {p.unitPrice != null && ` · ${Number(p.unitPrice).toLocaleString('vi-VN')}₫`}
                     </p>
+                    {/* Kệ hàng */}
+                    {(p.shelfName || p.ShelfName || (p.shelfId && shelfMap[p.shelfId]) || (p.ShelfId && shelfMap[p.ShelfId])) && (
+                      <p className="flex items-center gap-0.5 text-[10px] font-medium text-smb-primary-container">
+                        <span className="material-symbols-outlined text-[11px]">inventory_2</span>
+                        {p.shelfName ?? p.ShelfName ?? shelfMap[p.shelfId ?? p.ShelfId]}
+                      </p>
+                    )}
                   </div>
                 </button>
               )
