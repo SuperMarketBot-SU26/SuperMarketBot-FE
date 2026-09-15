@@ -44,7 +44,9 @@ export function FleetStatsHeader({ robots = [], compact = true }) {
         r.status !== 'Power_Off' &&
         r.status !== 'Offline'
     ).length
-    const online = total - powerOff
+    const online = robots.filter(
+      (r) => ['Idle', 'Online', 'Moving', 'Interacting', 'Offline_Charging', 'Charging'].includes(r.status)
+    ).length
     const avgBattery = total
       ? Math.round(robots.reduce((sum, r) => sum + (r.batteryPct || 0), 0) / total)
       : 0

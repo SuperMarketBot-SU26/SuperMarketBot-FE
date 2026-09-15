@@ -139,16 +139,8 @@ function parseVNDate(s) {
   const str = String(s).trim()
   if (!str) return null
   const hasTZ = /[Zz]$|[+\-]\d{2}:?\d{2}$/.test(str)
-  if (hasTZ) {
-    const d = new Date(str)
-    return Number.isNaN(d.getTime()) ? null : d
-  }
-  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?/)
-  if (!m) {
-    const d = new Date(str)
-    return Number.isNaN(d.getTime()) ? null : d
-  }
-  const d = new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}+07:00`)
+  // Backend AdCampaignLog lưu timestamp theo UTC. Nếu chuỗi ISO chưa có múi giờ, bổ sung 'Z'
+  const d = new Date(hasTZ ? str : `${str}Z`)
   return Number.isNaN(d.getTime()) ? null : d
 }
 

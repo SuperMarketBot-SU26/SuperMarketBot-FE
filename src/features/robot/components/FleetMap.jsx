@@ -18,7 +18,7 @@ export default function FleetMap({
   const [viewMode, setViewMode] = useState('map') // 'patrol' | 'map' | 'linear'
   const [actionLoading, setActionLoading] = useState(false)
 
-  const activeRobotCode = selectedRobotCode || robots?.[0]?.robotCode || 'RB001'
+  const activeRobotCode = selectedRobotCode || robots?.[0]?.robotCode || 'RB0001'
   const selectedRobot = robots?.find((r) => r.robotCode === activeRobotCode)
   const pose = poses?.[activeRobotCode]
 

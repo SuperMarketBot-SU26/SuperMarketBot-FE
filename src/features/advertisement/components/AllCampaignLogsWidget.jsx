@@ -93,8 +93,14 @@ export function AllCampaignLogsWidget() {
   const formatDateTime = (dateStr) => {
     if (!dateStr) return '—'
     try {
-      const d = new Date(dateStr)
+      const str = String(dateStr).trim()
+      // Nếu chuỗi ISO chưa có hậu tố múi giờ (Z hoặc offset +/-HH:mm),
+      // Backend lưu timestamp theo UTC nên bổ sung 'Z' để Date hiểu đúng UTC và convert sang giờ địa phương
+      const hasTz = /[Zz]$|[+\-]\d{2}:?\d{2}$/.test(str)
+      const d = new Date(hasTz ? str : `${str}Z`)
+      if (Number.isNaN(d.getTime())) return dateStr
       return d.toLocaleString('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',

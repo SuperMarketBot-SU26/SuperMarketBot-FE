@@ -21,6 +21,7 @@ import AccountManagement from './pages/AccountManagement'
 import Register from './pages/Register'
 import RobotMonitoring from './pages/RobotMonitoring'
 import ShelfManagement from './pages/ShelfManagement'
+import ShelfPatrolManagement from './pages/ShelfPatrolManagement'
 import RosMapToolPage from './pages/RosMapToolPage'
 
 import { AuthProvider } from './features/auth/AuthContext'
@@ -198,6 +199,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ShelfManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/patrol-management"
+              element={
+                <ProtectedRoute>
+                  <ShelfPatrolManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/shelf-patrol"
+              element={
+                <ProtectedRoute>
+                  <ShelfPatrolManagement />
                 </ProtectedRoute>
               }
             />

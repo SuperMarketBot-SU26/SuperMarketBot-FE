@@ -19,7 +19,7 @@ export function RobotMonitoring() {
   const { map, routes, loading: mapLoading, refresh: refreshRoutes } = useMapAndRoutes({ floorId: 1 })
 
   const [selectedRobotCode, setSelectedRobotCode] = useState(null)
-  const activeRobotCode = selectedRobotCode || robots?.[0]?.robotCode || 'RB001'
+  const activeRobotCode = selectedRobotCode || robots?.[0]?.robotCode || 'RB0001'
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
 
   const { missionState: fetchedMissionState } = useActiveMission(activeRobotCode, 3000)

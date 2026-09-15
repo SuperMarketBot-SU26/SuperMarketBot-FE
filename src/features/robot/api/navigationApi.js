@@ -109,6 +109,18 @@ export const getActiveCampaigns = async () => {
   return data?.items ?? data ?? []
 }
 
+export const estimateAdDuration = async ({ floorId = 1, shelfIds = [], adMode = 'shelf', durationMinutes = null }) => {
+  const params = { floorId, adMode }
+  if (shelfIds && shelfIds.length > 0) {
+    params.shelfIds = shelfIds.join(',')
+  }
+  if (durationMinutes) {
+    params.durationMinutes = durationMinutes
+  }
+  const res = await client.get('/api/v1/navigation/estimate-ad-duration', { params })
+  return res.data
+}
+
 /* ── Point-to-point navigate ─────────────────────────────────────────────── */
 
 /**

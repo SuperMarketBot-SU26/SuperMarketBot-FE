@@ -13,6 +13,7 @@ const navItems = [
   { icon: 'category', label: 'Quản Lý Loại Sản Phẩm', path: '/product-types' },
   { icon: 'label', label: 'Quản Lý Health Tag', path: '/health-tags' },
   { icon: 'shelves', label: 'Quản Lý Kệ Hàng', path: '/shelf-management' },
+  { icon: 'shield_with_heart', label: 'Quản Lý Tuần Tra', path: '/patrol-management' },
 ]
 
 function Icon({ name, className = '' }) {

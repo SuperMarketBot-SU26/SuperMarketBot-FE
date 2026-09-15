@@ -222,7 +222,7 @@ export default function SupermarketInteractiveMap({
   waypoints = [],
   currentIndex = -1,
   robotPose = null,
-  robotCode = 'RB001',
+  robotCode = 'RB0001',
   missionStatus = 'IDLE',
   flowType = 'ad',
   onSelectShelf = null,
