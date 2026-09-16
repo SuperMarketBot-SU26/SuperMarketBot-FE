@@ -50,6 +50,235 @@ export function RobotAssignmentPanel({
       (activeRobotCode === 'RB0001' && r.robotCode === 'RB001')
   )
 
+  // ─── Quản lý Kết Nối Robot (Agent Server & Rosbridge WebSocket) Dùng Chung ───
+  const [rosWsUrl, setRosWsUrl] = useState(() => {
+    return localStorage.getItem('globalSetting_rosWsUrl') || 'ws://snake.local:9090'
+  })
+  const [wsConnected, setWsConnected] = useState(false)
+  const [wsConnecting, setWsConnecting] = useState(false)
+  const [showWsConfig, setShowWsConfig] = useState(false)
+  const [agentStatus, setAgentStatus] = useState('checking') // 'checking' | 'running' | 'starting' | 'stopped' | 'unreachable'
+  const [agentMode, setAgentMode] = useState(null)
+  const [bootLoading, setBootLoading] = useState(null) // 'slam' | 'amcl' | 'stop' | 'save' | null
+
+  // Trích xuất Agent Server API URL từ WebSocket URL
+  const getAgentApiUrl = useCallback((urlStr) => {
+    try {
+      const url = new URL((urlStr || 'ws://snake.local:9090').replace('ws://', 'http://'))
+      return `http://${url.hostname}:5000/api/robot`
+    } catch {
+      return 'http://192.168.0.100:5000/api/robot'
+    }
+  }, [])
+
+  // Định kỳ kiểm tra trạng thái Agent Server trên Robot (ngay cả khi ở Tab Nhiệm Vụ)
+  const checkAgentStatus = useCallback(async () => {
+    try {
+      const apiUrl = getAgentApiUrl(rosWsUrl)
+      const res = await fetch(`${apiUrl}/status`, { signal: AbortSignal.timeout(3000) })
+      const data = await res.json()
+      if (data.status === 'running') {
+        setAgentStatus('running')
+        setAgentMode(data.mode && data.mode !== 'unknown' ? data.mode : null)
+      } else if (data.status === 'starting') {
+        setAgentStatus('starting')
+      } else {
+        setAgentStatus('stopped')
+        setAgentMode(null)
+      }
+    } catch {
+      setAgentStatus('unreachable')
+    }
+  }, [getAgentApiUrl, rosWsUrl])
+
+  useEffect(() => {
+    checkAgentStatus()
+    const timer = setInterval(checkAgentStatus, 4000)
+    return () => clearInterval(timer)
+  }, [checkAgentStatus])
+
+  // Khởi động ROS 2 OS (SLAM hoặc AMCL)
+  const handleStartOS = async (mode) => {
+    setBootLoading(mode)
+    const apiUrl = getAgentApiUrl(rosWsUrl)
+    try {
+      if (mode === 'amcl') {
+        try {
+          const baseUrl = window.SMB_ENV?.BE_URL !== undefined ? window.SMB_ENV.BE_URL : 'http://localhost:5000'
+          const token = localStorage.getItem('accessToken')
+          const headers = { 'ngrok-skip-browser-warning': 'true' }
+          if (token) headers['Authorization'] = 'Bearer ' + token
+
+          const activeMapRes = await fetch(`${baseUrl}/api/v1/maps/active?floorId=1`, { headers })
+          if (activeMapRes.ok) {
+            const activeMapData = await activeMapRes.json()
+            if (activeMapData?.floorplanImageUrl) {
+              const yamlStr = `image: active_map.pgm\nresolution: ${activeMapData.resolution || 0.05}\norigin: [${activeMapData.originX || 0.0}, ${activeMapData.originY || 0.0}, ${activeMapData.originYaw || 0.0}]\nnegate: 0\noccupied_thresh: 0.65\nfree_thresh: 0.196\n`
+              const yamlB64 = btoa(unescape(encodeURIComponent(yamlStr)))
+
+              let imgUrl = activeMapData.floorplanImageUrl
+              if (imgUrl.startsWith('/')) imgUrl = baseUrl + imgUrl
+
+              const pgmB64 = await new Promise((resolve, reject) => {
+                const img = new Image()
+                img.crossOrigin = 'Anonymous'
+                img.onload = () => {
+                  const canvas = document.createElement('canvas')
+                  canvas.width = img.width
+                  canvas.height = img.height
+                  const ctx = canvas.getContext('2d')
+                  ctx.drawImage(img, 0, 0)
+                  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+                  const header = `P5\n${canvas.width} ${canvas.height}\n255\n`
+                  const headerBytes = new TextEncoder().encode(header)
+                  const pixelBytes = new Uint8Array(canvas.width * canvas.height)
+                  for (let i = 0; i < pixelBytes.length; i++) {
+                    const r = imgData.data[i * 4]
+                    const g = imgData.data[i * 4 + 1]
+                    const b = imgData.data[i * 4 + 2]
+                    pixelBytes[i] = Math.round(0.299 * r + 0.587 * g + 0.114 * b)
+                  }
+                  const pgmBuffer = new Uint8Array(headerBytes.length + pixelBytes.length)
+                  pgmBuffer.set(headerBytes, 0)
+                  pgmBuffer.set(pixelBytes, headerBytes.length)
+                  let binaryString = ''
+                  const chunkSize = 8192
+                  for (let i = 0; i < pgmBuffer.length; i += chunkSize) {
+                    binaryString += String.fromCharCode.apply(null, pgmBuffer.subarray(i, i + chunkSize))
+                  }
+                  resolve(btoa(binaryString))
+                }
+                img.onerror = () => reject(new Error('Failed to load map image'))
+                fetch(imgUrl)
+                  .then(r => r.blob())
+                  .then(b => { img.src = URL.createObjectURL(b) })
+                  .catch(() => { img.src = imgUrl })
+              })
+
+              await fetch(`${apiUrl}/upload_map`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ yaml_b64: yamlB64, pgm_b64: pgmB64 })
+              })
+            }
+          }
+        } catch (syncErr) {
+          console.warn('Map sync failed, proceeding with robot default map:', syncErr)
+        }
+      }
+
+      const res = await fetch(`${apiUrl}/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode })
+      })
+      const data = await res.json()
+      if (data.error) {
+        toast.error(`Khởi động thất bại: ${data.error}`)
+      } else {
+        toast.success(`Đã kích hoạt chế độ: ${mode === 'amcl' ? 'Dẫn Đường Tự Hành (AMCL)' : 'Quét Bản Đồ Mới (SLAM)'}`)
+        setTimeout(checkAgentStatus, 2000)
+      }
+    } catch (e) {
+      toast.error(`Không thể kết nối đến Agent Server: ${e.message}`)
+    } finally {
+      setBootLoading(null)
+    }
+  }
+
+  // Dừng ROS 2 OS
+  const handleStopOS = async () => {
+    if (!window.confirm('Bạn có chắc chắn muốn DỪNG HOẠT ĐỘNG hệ thống ROS 2 trên Robot?')) return
+    setBootLoading('stop')
+    const apiUrl = getAgentApiUrl(rosWsUrl)
+    try {
+      await fetch(`${apiUrl}/stop`, { method: 'POST' })
+      toast.warn('Đã gửi lệnh Dừng Hoạt Động tới Robot.')
+      setTimeout(checkAgentStatus, 1500)
+    } catch (e) {
+      toast.error(`Lỗi khi dừng ROS 2: ${e.message}`)
+    } finally {
+      setBootLoading(null)
+    }
+  }
+
+  // Lưu bản đồ SLAM
+  const handleSaveMap = async () => {
+    setBootLoading('save')
+    const apiUrl = getAgentApiUrl(rosWsUrl)
+    try {
+      const res = await fetch(`${apiUrl}/save_map`, { method: 'POST' })
+      const data = await res.json()
+      if (data.error) {
+        toast.error(`Lỗi lưu bản đồ: ${data.error}`)
+      } else {
+        if (data.yaml_b64 && data.pgm_b64) {
+          const aYaml = document.createElement('a')
+          aYaml.href = 'data:text/yaml;base64,' + data.yaml_b64
+          aYaml.download = 'active_map.yaml'
+          aYaml.click()
+          const aPgm = document.createElement('a')
+          aPgm.href = 'data:image/x-portable-graymap;base64,' + data.pgm_b64
+          aPgm.download = 'active_map.pgm'
+          aPgm.click()
+        }
+        toast.success(`Đã lưu bản đồ thành công: ${data.message || 'Bản đồ đã cập nhật'}`)
+      }
+    } catch (e) {
+      toast.error(`Không thể kết nối với Agent Server để lưu bản đồ: ${e.message}`)
+    } finally {
+      setBootLoading(null)
+    }
+  }
+
+  // Quản lý WebSocket Rosbridge
+  const handleToggleWs = () => {
+    if (wsConnected) {
+      if (window._rosInstance) {
+        window._rosInstance.close()
+        window._rosInstance = null
+      }
+      setWsConnected(false)
+      toast.info('Đã ngắt kết nối cổng WebSocket.')
+      return
+    }
+
+    setWsConnecting(true)
+    localStorage.setItem('globalSetting_rosWsUrl', rosWsUrl)
+    try {
+      const ws = new WebSocket(rosWsUrl)
+      ws.onopen = () => {
+        setWsConnected(true)
+        setWsConnecting(false)
+        window._rosInstance = ws
+        try {
+          ws.send(JSON.stringify({
+            op: 'advertise',
+            topic: '/cmd_vel',
+            type: 'geometry_msgs/msg/Twist'
+          }))
+        } catch {}
+        toast.success(`Đã kết nối thành công tới ${rosWsUrl}`)
+      }
+      ws.onerror = () => {
+        setWsConnected(false)
+        setWsConnecting(false)
+        window._rosInstance = null
+        toast.error(`Không thể kết nối tới ${rosWsUrl}`)
+      }
+      ws.onclose = () => {
+        setWsConnected(false)
+        setWsConnecting(false)
+        window._rosInstance = null
+      }
+    } catch (e) {
+      setWsConnected(false)
+      setWsConnecting(false)
+      window._rosInstance = null
+      toast.error(`Lỗi WebSocket: ${e.message}`)
+    }
+  }
+
   return (
     <div className="flex h-full flex-col rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest">
       {/* Shared Robot Selector — nằm trên Tabs, dùng chung */}
@@ -65,11 +294,17 @@ export function RobotAssignmentPanel({
           {robots.length === 0 ? (
             <option value="">Chưa có robot (Nhấn F5 để tải lại)</option>
           ) : (
-            robots.map((r) => (
-              <option key={r.robotCode} value={r.robotCode}>
-                {r.robotName || r.robotCode} · {r.status} · {r.batteryPct ?? '?'}%
-              </option>
-            ))
+            robots.map((r) => {
+              const isCurrent = r.robotCode === activeRobotCode
+              const effectiveStatus = (isCurrent && agentStatus === 'running')
+                ? (agentMode === 'amcl' ? 'Online · Dẫn Đường' : 'Online · Quét Map')
+                : r.status
+              return (
+                <option key={r.robotCode} value={r.robotCode}>
+                  {r.robotName || r.robotCode} · {effectiveStatus} · {r.batteryPct ?? '?'}%
+                </option>
+              )
+            })
           )}
         </select>
       </div>
@@ -85,6 +320,11 @@ export function RobotAssignmentPanel({
             selectedRobotCode={activeRobotCode}
             onSelectRobot={onSelectRobot}
             onMissionDispatched={onMissionDispatched}
+            agentStatus={agentStatus}
+            agentMode={agentMode}
+            bootLoading={bootLoading}
+            onStartOS={handleStartOS}
+            wsConnected={wsConnected}
           />
         ) : (
           <RobotsTab
@@ -95,6 +335,24 @@ export function RobotAssignmentPanel({
             onSelectRobot={onSelectRobot}
             onMissionDispatched={onMissionDispatched}
             map={map}
+            rosWsUrl={rosWsUrl}
+            setRosWsUrl={setRosWsUrl}
+            wsConnected={wsConnected}
+            setWsConnected={setWsConnected}
+            wsConnecting={wsConnecting}
+            setWsConnecting={setWsConnecting}
+            showWsConfig={showWsConfig}
+            setShowWsConfig={setShowWsConfig}
+            agentStatus={agentStatus}
+            setAgentStatus={setAgentStatus}
+            agentMode={agentMode}
+            setAgentMode={setAgentMode}
+            bootLoading={bootLoading}
+            setBootLoading={setBootLoading}
+            handleStartOS={handleStartOS}
+            handleStopOS={handleStopOS}
+            handleSaveMap={handleSaveMap}
+            handleToggleWs={handleToggleWs}
           />
         )}
       </div>
@@ -214,17 +472,29 @@ function WaypointList({ waypoints }) {
   )
 }
 
-function AutonomousTab({ robots = [], routes = [], map, selectedRobotCode, onSelectRobot, onMissionDispatched }) {
+function AutonomousTab({
+  robots = [],
+  routes = [],
+  map,
+  selectedRobotCode,
+  onSelectRobot,
+  onMissionDispatched,
+  agentStatus,
+  agentMode,
+  bootLoading,
+  onStartOS,
+  wsConnected,
+}) {
   const selectedRobot = selectedRobotCode || ''
 
   const selectedRobotObj = useMemo(() => {
     return robots.find((r) => r.robotCode === selectedRobot || (selectedRobot === 'RB0001' && r.robotCode === 'RB001') || (selectedRobot === 'RB001' && r.robotCode === 'RB0001'))
   }, [robots, selectedRobot])
 
-  const isRobotOffline = !selectedRobotObj || selectedRobotObj.status === 'Offline' || selectedRobotObj.status === 'Power_Off'
+  // Robot được coi là online nếu Agent Server đang chạy hoặc WebSocket đã kết nối hoặc backend báo Online
+  const isAgentActive = agentStatus === 'running' || wsConnected
+  const isRobotOffline = !isAgentActive && (!selectedRobotObj || selectedRobotObj.status === 'Offline' || selectedRobotObj.status === 'Power_Off')
 
-  const [selectedPatrolRoute, setSelectedPatrolRoute] = useState('')
-  const [patrolMode, setPatrolMode] = useState('route') // 'route' | 'shelf'
   const [shelves, setShelves] = useState([])
   const [selectedShelfIds, setSelectedShelfIds] = useState([])
   const [patrolDwell, setPatrolDwell] = useState(3.0) // thời gian lia camera tại mỗi kệ (giây)
@@ -235,10 +505,12 @@ function AutonomousTab({ robots = [], routes = [], map, selectedRobotCode, onSel
       setShelves(list)
       const valid = list.filter(s => s.nodeId != null)
       setSelectedAdShelfIds(valid.map(s => s.shelfId))
+      setSelectedShelfIds(valid.map(s => s.shelfId))
     }).catch(() => {})
   }, [])
 
   const validShelves = useMemo(() => shelves.filter(s => s.nodeId != null), [shelves])
+
 
   const [zones, setZones] = useState([])
   useEffect(() => {
@@ -431,19 +703,6 @@ function AutonomousTab({ robots = [], routes = [], map, selectedRobotCode, onSel
     }
   }
 
-  const selectedRobotId = robots.find((robot) => robot.robotCode === selectedRobot)?.robotId
-
-  const patrolRoutes = useMemo(() => {
-    const matched = routes.filter((route) =>
-      (!route.robotId || route.robotId === selectedRobotId) &&
-      (route.routeType === 'patrol' || route.routeType === 'custom')
-    )
-    return matched.length > 0 ? matched : routes
-  }, [routes, selectedRobotId])
-
-  const activePatrolRoute = patrolRoutes.some((route) => String(route.robotRouteId) === selectedPatrolRoute)
-    ? selectedPatrolRoute
-    : patrolRoutes[0] ? String(patrolRoutes[0].robotRouteId) : ''
 
   const handleDispatch = async (flowType, extra = {}) => {
     setDispatching(true)
@@ -455,7 +714,7 @@ function AutonomousTab({ robots = [], routes = [], map, selectedRobotCode, onSel
 
     // 1. Kiểm tra trạng thái kết nối của robot
     if (isRobotOffline) {
-      const err = `Robot ${selectedRobot || ''} hiện đang Ngoại Tuyến (Chưa kết nối)! Vui lòng bật app trên robot và đảm bảo kết nối trước khi phát lệnh.`
+      const err = `Robot ${selectedRobot || ''} hiện chưa kích hoạt dẫn đường! Vui lòng bấm [Kích Hoạt Dẫn Đường] trước khi phát lệnh.`
       toast.error(err, { autoClose: 5000 })
       if (flowType === 'ad')      setAdMsg({ type: 'error', text: `❌ ${err}` })
       if (flowType === 'patrol')  setPatrolMsg({ type: 'error', text: `❌ ${err}` })
@@ -479,8 +738,14 @@ function AutonomousTab({ robots = [], routes = [], map, selectedRobotCode, onSel
 
       if (check) {
         setReadiness(check)
-        if (!check.ready) {
-          const errDetail = check.errors?.join(' • ') || 'Robot chưa sẵn sàng nhận lệnh. Vui lòng kiểm tra kết nối thiết bị!'
+        // Khi robot vận hành qua ROS 2 / Agent Server, bỏ qua các lỗi liên quan đến tablet offline
+        const relevantErrors = (check.errors || []).filter(e => 
+          !e.includes('Android Robot chưa online') && 
+          !e.includes('Trình phát quảng cáo Android Robot') && 
+          !e.includes('Camera Android Robot')
+        )
+        if (!check.ready && (!isAgentActive ? check.errors?.length > 0 : relevantErrors.length > 0)) {
+          const errDetail = (isAgentActive ? relevantErrors : check.errors)?.join(' • ') || 'Robot chưa sẵn sàng nhận lệnh.'
           toast.error(errDetail, { autoClose: 5000 })
           throw new Error(errDetail)
         }
@@ -510,24 +775,56 @@ function AutonomousTab({ robots = [], routes = [], map, selectedRobotCode, onSel
 
   return (
     <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 text-xs">
-      {/* Robot Offline Alert Banner */}
+      {/* Robot Active Status Banner — HIỆN KHI AGENT SERVER ĐANG CHẠY */}
+      {isAgentActive && (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-emerald-950 dark:text-emerald-200 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-xs">
+                <Icon name="smart_toy" className="text-[18px]" />
+              </span>
+              <div>
+                <span className="font-extrabold text-xs text-emerald-900 dark:text-emerald-300 block uppercase tracking-wide">
+                  Hệ Thống Robot: Đang Hoạt Động [{agentMode === 'amcl' ? 'Dẫn Đường' : 'Quét Map'}]
+                </span>
+                <p className="text-[11px] font-semibold text-emerald-800/90 dark:text-emerald-400/90 mt-0.5">
+                  Robot đã sẵn sàng tiếp nhận nhiệm vụ Tuần tra hoặc Quảng cáo.
+                </p>
+              </div>
+            </div>
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-white/80 dark:bg-emerald-950/80 px-2.5 py-1 rounded-full border border-emerald-500/20 shadow-2xs shrink-0">
+              <span className="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              SẴN SÀNG
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Robot Offline Alert Banner — CHỈ HIỆN KHI CHƯA KÍCH HOẠT DẪN ĐƯỜNG */}
       {isRobotOffline && (
-        <div className="rounded-xl border-2 border-rose-400 bg-rose-50 p-3.5 text-rose-950 shadow-xs">
+        <div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-3.5 text-amber-950 shadow-xs">
           <div className="flex items-start gap-2.5">
-            <span className="flex size-7 items-center justify-center rounded-lg bg-rose-600 text-white shadow-xs shrink-0 mt-0.5">
+            <span className="flex size-7 items-center justify-center rounded-lg bg-amber-600 text-white shadow-xs shrink-0 mt-0.5">
               <Icon name="link_off" className="text-[18px]" />
             </span>
-            <div>
-              <span className="font-extrabold text-xs text-rose-900 block uppercase tracking-wide">
-                Robot {selectedRobot} Chưa Kết Nối (Ngoại Tuyến)
+            <div className="flex-1">
+              <span className="font-extrabold text-xs text-amber-900 block uppercase tracking-wide">
+                Robot {selectedRobot} Chưa Bật Chế Độ Dẫn Đường
               </span>
-              <p className="text-[11px] font-semibold text-rose-800/90 mt-1 leading-relaxed">
-                Thiết bị chưa online hoặc chưa gửi tín hiệu heartbeat. Để phát lệnh quảng cáo hoặc tuần tra, bạn cần:
+              <p className="text-[11px] font-semibold text-amber-800/90 mt-1 leading-relaxed">
+                Hệ thống tự hành ROS 2 trên Robot chưa chạy. Hãy bấm nút dưới đây để kích hoạt trước khi phát lệnh:
               </p>
-              <ul className="mt-1 list-disc list-inside text-[11px] font-medium text-rose-900 space-y-0.5 pl-1">
-                <li>Bật ứng dụng <strong>SmartMarketBot Robot</strong> trên tablet.</li>
-                <li>Đảm bảo robot kết nối cùng mạng Wi-Fi và có kết nối Backend.</li>
-              </ul>
+              <div className="mt-2.5 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onStartOS && onStartOS('amcl')}
+                  disabled={bootLoading !== null}
+                  className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 py-2 px-3 text-xs font-bold text-white shadow-xs transition-all active:scale-95 disabled:opacity-50"
+                >
+                  <span>🧭</span>
+                  <span>{bootLoading === 'amcl' ? 'Đang kích hoạt...' : 'Kích Hoạt Dẫn Đường Ngay'}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1026,168 +1323,271 @@ function AutonomousTab({ robots = [], routes = [], map, selectedRobotCode, onSel
             <span className="rounded-full bg-blue-200 px-2.5 py-1 text-[11px] font-bold text-blue-950 border border-blue-300">AI Vision</span>
           </div>
 
-          {/* Patrol Mode Segmented Buttons */}
-          <div className="mb-3 grid grid-cols-2 gap-1.5 rounded-xl bg-blue-200/70 p-1 border border-blue-300">
-            <button
-              type="button"
-              onClick={() => setPatrolMode('route')}
-              className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all ${
-                patrolMode === 'route'
-                  ? 'bg-white text-blue-950 shadow-md'
-                  : 'text-blue-900 hover:text-blue-950'
-              }`}
-            >
-              <Icon name="route" className="text-[15px]" />
-              Theo Route
-            </button>
-            <button
-              type="button"
-              onClick={() => setPatrolMode('shelf')}
-              className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all ${
-                patrolMode === 'shelf'
-                  ? 'bg-white text-blue-950 shadow-md'
-                  : 'text-blue-900 hover:text-blue-950'
-              }`}
-            >
-              <Icon name="format_list_bulleted" className="text-[15px]" />
-              Chọn Kệ
-            </button>
+          {/* Sweep / Dwell Duration Selector */}
+          <div className="mb-3 flex items-center justify-between rounded-xl bg-blue-500/10 px-3 py-2 border border-blue-500/20">
+            <span className="text-[11px] font-semibold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+              <Icon name="timer" className="text-[14px] text-blue-600" />
+              Thời gian lia camera tại mỗi kệ:
+            </span>
+            <div className="flex items-center gap-1">
+              {[2.0, 2.5, 3.0].map((dur) => (
+                <button
+                  key={dur}
+                  type="button"
+                  onClick={() => setPatrolDwell(dur)}
+                  className={`rounded-md px-2.5 py-1 text-[10px] font-bold transition-all ${
+                    patrolDwell === dur
+                      ? 'bg-blue-600 text-white shadow-sm scale-105'
+                      : 'bg-white/70 text-blue-800 hover:bg-white dark:bg-blue-950 dark:text-blue-300'
+                  }`}
+                >
+                  {dur.toFixed(1)}s
+                </button>
+              ))}
+            </div>
           </div>
 
-          {patrolMode === 'route' ? (
-            <>
-              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-blue-700/70">
-                Lộ trình tuần tra đã cấu hình
+          {/* Header: Label & Quick Preset Filter */}
+          <div className="mb-2">
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="text-xs font-black uppercase tracking-wider text-blue-950 flex items-center gap-1.5">
+                <Icon name="storefront" className="text-[16px] text-blue-700" />
+                Khu vực & Kệ Tuần Tra (Đã chọn: {selectedShelfIds.length}/{validShelves.length})
               </label>
-              <select
-                value={activePatrolRoute}
-                onChange={(e) => setSelectedPatrolRoute(e.target.value)}
-                className="mb-3 w-full rounded-xl border border-blue-500/40 bg-smb-surface-container-lowest px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-blue-500"
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedShelfIds.length === validShelves.length) setSelectedShelfIds([])
+                  else setSelectedShelfIds(validShelves.map(s => s.shelfId))
+                }}
+                className="text-xs font-extrabold text-blue-700 hover:text-blue-900 hover:underline"
               >
-                <option value="">— Chọn route tuần tra —</option>
-                {patrolRoutes.map((route) => (
-                  <option key={route.robotRouteId} value={route.robotRouteId}>
-                    {route.routeName} · {route.waypointCount} kệ
-                  </option>
-                ))}
-              </select>
+                {selectedShelfIds.length === validShelves.length ? 'Bỏ chọn hết' : 'Chọn tất cả 6 kệ'}
+              </button>
+            </div>
 
-              <div className="mb-3 flex gap-2">
-                <button
-                  disabled={dispatching || !activePatrolRoute}
-                  onClick={() => handleDispatch('patrol', {
-                    robotRouteId: Number(activePatrolRoute),
-                    floorId: map?.floorId || 1,
-                    dwellTimeSeconds: Number(patrolDwell) || 3
-                  })}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 py-3 text-xs font-extrabold text-white shadow-md transition-all hover:from-blue-700 hover:to-indigo-700 active:scale-95 disabled:opacity-50 disabled:scale-100"
-                >
-                  {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="search" className="text-[16px]" />}
-                  Phát Lệnh Tuần Tra Theo Route
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Sweep / Dwell Duration Selector */}
-              <div className="mb-2.5 flex items-center justify-between rounded-xl bg-blue-500/10 px-3 py-2 border border-blue-500/20">
-                <span className="text-[11px] font-semibold text-blue-900 dark:text-blue-200">Thời gian lia camera tại kệ:</span>
-                <div className="flex items-center gap-1">
-                  {[2.0, 2.5, 3.0].map((dur) => (
-                    <button
-                      key={dur}
-                      type="button"
-                      onClick={() => setPatrolDwell(dur)}
-                      className={`rounded-md px-2.5 py-1 text-[10px] font-bold transition-all ${
-                        patrolDwell === dur
-                          ? 'bg-blue-600 text-white shadow-sm scale-105'
-                          : 'bg-white/70 text-blue-800 hover:bg-white dark:bg-blue-950 dark:text-blue-300'
-                      }`}
-                    >
-                      {dur.toFixed(1)}s
-                    </button>
-                  ))}
-                </div>
-              </div>
+            {/* Quick Presets Pills */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+              <button
+                type="button"
+                onClick={() => setSelectedShelfIds(validShelves.map(s => s.shelfId))}
+                className={`rounded-lg px-2 py-0.5 text-[11px] font-bold transition-all border ${
+                  selectedShelfIds.length === validShelves.length && validShelves.length > 0
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                    : 'bg-white text-neutral-700 border-neutral-300 hover:bg-blue-50 hover:border-blue-300'
+                }`}
+              >
+                Toàn bộ siêu thị
+              </button>
 
-              <div className="mb-1.5 flex items-center justify-between">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-blue-700/70">
-                  Danh sách kệ (Đã chọn: {selectedShelfIds.length}/{validShelves.length} kệ · {selectedNodeIds.length} WP)
-                </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (selectedShelfIds.length === validShelves.length) {
-                      setSelectedShelfIds([])
-                    } else {
-                      setSelectedShelfIds(validShelves.map(s => s.shelfId))
-                    }
-                  }}
-                  className="text-[10px] font-bold text-blue-600 hover:text-blue-800 hover:underline"
+              {zonesWithShelves.map((z) => {
+                const memberIds = z.shelves.map((s) => s.shelfId)
+                const countInZone = memberIds.filter((id) => selectedShelfIds.includes(id)).length
+                const isAllInZone = memberIds.length > 0 && countInZone === memberIds.length
+                const isPartial = countInZone > 0 && countInZone < memberIds.length
+
+                return (
+                  <button
+                    key={`patrol-quick-zone-${z.zoneId}`}
+                    type="button"
+                    onClick={() => {
+                      if (isAllInZone) {
+                        setSelectedShelfIds((prev) => prev.filter((id) => !memberIds.includes(id)))
+                      } else {
+                        setSelectedShelfIds((prev) => [...new Set([...prev, ...memberIds])])
+                      }
+                    }}
+                    className={`flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] font-bold transition-all border ${
+                      isAllInZone
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                        : isPartial
+                          ? 'bg-blue-100 text-blue-950 border-blue-400 font-extrabold'
+                          : 'bg-white text-neutral-700 border-neutral-300 hover:bg-neutral-50'
+                    }`}
+                  >
+                    <Icon name={z.icon} className="text-[13px]" />
+                    <span>Khu {z.zoneId} (Kệ {memberIds.join('-')})</span>
+                    {countInZone > 0 && (
+                      <span className={`ml-0.5 rounded px-1 text-[9px] font-black ${
+                        isAllInZone ? 'bg-blue-800 text-white' : 'bg-blue-300 text-blue-950'
+                      }`}>
+                        {countInZone}/{memberIds.length}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Grouped Zone Cards for Patrol */}
+          <div className="mb-3 space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+            {zonesWithShelves.map((z) => {
+              const memberIds = z.shelves.map((s) => s.shelfId)
+              const selectedInZone = memberIds.filter((id) => selectedShelfIds.includes(id))
+              const allSelected = memberIds.length > 0 && selectedInZone.length === memberIds.length
+              const someSelected = selectedInZone.length > 0 && !allSelected
+
+              const toggleZone = () => {
+                if (allSelected) {
+                  setSelectedShelfIds((prev) => prev.filter((id) => !memberIds.includes(id)))
+                } else {
+                  setSelectedShelfIds((prev) => [...new Set([...prev, ...memberIds])])
+                }
+              }
+
+              const selectOnlyThisZone = (e) => {
+                e.stopPropagation()
+                setSelectedShelfIds(memberIds)
+              }
+
+              return (
+                <div
+                  key={`patrol-zone-card-${z.zoneId}`}
+                  className={`rounded-xl border-2 transition-all overflow-hidden ${
+                    allSelected
+                      ? 'border-blue-500 bg-blue-50/60 shadow-xs'
+                      : someSelected
+                        ? 'border-indigo-400 bg-indigo-50/40 shadow-2xs'
+                        : 'border-neutral-200 bg-white hover:border-neutral-300'
+                  }`}
                 >
-                  {selectedShelfIds.length === validShelves.length ? 'Bỏ chọn' : 'Chọn tất cả'}
-                </button>
-              </div>
-              <div className="mb-3 max-h-[300px] overflow-y-auto rounded-xl border border-blue-500/20 bg-smb-surface-container-lowest p-1.5 space-y-1">
-                {validShelves.map((shelf) => {
-                  const isSelected = selectedShelfIds.includes(shelf.shelfId)
-                  return (
-                    <label
-                      key={shelf.shelfId}
-                      className={`flex cursor-pointer items-center gap-2 rounded-lg p-2 transition-colors hover:bg-blue-50/50 ${
-                        isSelected ? 'bg-blue-100/60 dark:bg-blue-900/40 border border-blue-400/40' : 'border border-transparent'
-                      }`}
-                    >
+                  {/* Zone Header with Master Checkbox */}
+                  <div
+                    onClick={toggleZone}
+                    className="flex cursor-pointer items-center justify-between gap-2 border-b border-neutral-200/80 bg-neutral-50/90 px-3 py-2 hover:bg-neutral-100/90 transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <input
                         type="checkbox"
-                        className="rounded accent-blue-600"
-                        checked={isSelected}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedShelfIds(prev => [...prev, shelf.shelfId])
-                          } else {
-                            setSelectedShelfIds(prev => prev.filter(id => id !== shelf.shelfId))
-                          }
+                        checked={allSelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = someSelected
                         }}
+                        onChange={toggleZone}
+                        onClick={(e) => e.stopPropagation()}
+                        className="size-4 rounded accent-blue-600 cursor-pointer shrink-0"
                       />
-                      <Icon name="shelves" className="text-[16px] text-blue-600/70" />
-                      <div className="flex-1 text-xs">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-smb-on-surface">{shelf.shelfName}</span>
-                          <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-bold text-blue-600">
-                            WP #{shelf.nodeId}
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-smb-on-surface-variant">
-                          Kệ #{shelf.shelfId}{shelf.aisleName ? ` · Dãy: ${shelf.aisleName}` : ''}
-                        </div>
+                      <span className={`flex size-6 items-center justify-center rounded-md text-white shrink-0 ${
+                        z.zoneId === 1 ? 'bg-amber-600' : z.zoneId === 2 ? 'bg-emerald-600' : 'bg-purple-600'
+                      }`}>
+                        <Icon name={z.icon} className="text-[15px]" />
+                      </span>
+                      <div className="min-w-0">
+                        <span className="font-extrabold text-xs text-neutral-900 block truncate">
+                          {z.label}: {z.zoneName}
+                        </span>
+                        {z.zoneDesc && (
+                          <p className="text-[10px] text-neutral-500 truncate">{z.zoneDesc}</p>
+                        )}
                       </div>
-                    </label>
-                  )
-                })}
-                {validShelves.length === 0 && (
-                  <div className="p-3 text-center text-xs text-smb-on-surface-variant">
-                    Không có kệ nào được gán tọa độ (nodeId).
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-black border ${
+                        allSelected
+                          ? 'bg-blue-600 text-white border-blue-700'
+                          : someSelected
+                            ? 'bg-indigo-100 text-indigo-900 border-indigo-300'
+                            : 'bg-neutral-100 text-neutral-500 border-neutral-200'
+                      }`}>
+                        {selectedInZone.length}/{memberIds.length} kệ
+                      </span>
+                      <button
+                        type="button"
+                        onClick={selectOnlyThisZone}
+                        className="rounded px-1.5 py-0.5 text-[10px] font-bold text-blue-700 hover:bg-blue-100/60 transition-colors"
+                        title="Chỉ chọn các kệ trong khu này"
+                      >
+                        Chỉ khu này
+                      </button>
+                    </div>
                   </div>
-                )}
+
+                  {/* Shelves in Zone */}
+                  <div className="p-2 space-y-1.5 bg-white/80">
+                    {z.shelves.map((shelf) => {
+                      const isChecked = selectedShelfIds.includes(shelf.shelfId)
+                      return (
+                        <label
+                          key={`patrol-shelf-${shelf.shelfId}`}
+                          className={`flex cursor-pointer items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-xs transition-all ${
+                            isChecked
+                              ? 'border-blue-400 bg-blue-50/80 font-bold text-neutral-900 shadow-2xs'
+                              : 'border-neutral-200/80 bg-white text-neutral-600 hover:border-neutral-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                if (isChecked) {
+                                  setSelectedShelfIds((prev) => prev.filter((id) => id !== shelf.shelfId))
+                                } else {
+                                  setSelectedShelfIds((prev) => [...prev, shelf.shelfId])
+                                }
+                              }}
+                              className="size-3.5 rounded accent-blue-600 cursor-pointer shrink-0"
+                            />
+                            <Icon name="shelves" className={`text-[16px] shrink-0 ${isChecked ? 'text-blue-600' : 'text-neutral-400'}`} />
+                            <div className="min-w-0 truncate">
+                              <span className="truncate">{shelf.shelfName}</span>
+                              {shelf.aisleCode && (
+                                <span className="ml-1 text-[10px] font-normal text-neutral-500">
+                                  ({shelf.aisleCode})
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0 font-mono text-[9px]">
+                            <span className="rounded bg-neutral-100 px-1 py-0.2 text-neutral-500">
+                              Node #{shelf.nodeId ?? '?'}
+                            </span>
+                            <span className="rounded bg-blue-500/10 px-1 py-0.2 font-bold text-blue-600">
+                              WP #{shelf.shelfId}
+                            </span>
+                          </div>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Info banner */}
+          <div className="mb-3 rounded-xl border-2 border-blue-200 bg-blue-50/70 p-3 text-xs text-blue-950 shadow-xs">
+            <div className="flex items-start gap-2">
+              <Icon name="info" className="mt-0.5 text-[18px] text-blue-700 shrink-0" />
+              <div className="space-y-1">
+                <p className="leading-relaxed font-semibold">
+                  Robot sẽ lần lượt di chuyển tới các kệ đã chọn, dừng lại lia camera {patrolDwell}s để <strong className="font-extrabold text-blue-900">Gemini AI phân tích mật độ hàng hóa & phát hiện ô trống OOS</strong>.
+                </p>
+                <p className="text-[11px] text-blue-900 font-medium">
+                  💡 Khi phát hiện hết hàng hoặc cần bổ sung, hệ thống sẽ tự động tạo nhiệm vụ cho nhân viên trong tab Quản Lý Tuần Tra.
+                </p>
               </div>
-              <div className="mb-3 flex gap-2">
-                <button
-                  disabled={dispatching || selectedShelfIds.length === 0}
-                  onClick={() => handleDispatch('patrol', {
-                    nodeIds: selectedNodeIds,
-                    shelfIds: selectedShelfIds,
-                    floorId: map?.floorId || 1,
-                    dwellTimeSeconds: Number(patrolDwell) || 3
-                  })}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 py-3 text-xs font-extrabold text-white shadow-md transition-all hover:from-blue-700 hover:to-indigo-700 active:scale-95 disabled:opacity-50 disabled:scale-100"
-                >
-                  {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="search" className="text-[16px]" />}
-                  Tuần Tra {selectedShelfIds.length} Kệ Đã Chọn
-                </button>
-              </div>
-            </>
-          )}
+            </div>
+          </div>
+
+          {/* Dispatch Button */}
+          <div className="mb-3 flex gap-2">
+            <button
+              disabled={dispatching || selectedShelfIds.length === 0}
+              onClick={() => handleDispatch('patrol', {
+                nodeIds: selectedNodeIds,
+                shelfIds: selectedShelfIds,
+                floorId: map?.floorId || 1,
+                dwellTimeSeconds: Number(patrolDwell) || 3
+              })}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 py-3 text-xs font-extrabold text-white shadow-md transition-all hover:from-blue-700 hover:to-indigo-700 active:scale-95 disabled:opacity-50 disabled:scale-100"
+            >
+              {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="search" className="text-[16px]" />}
+              Bắt Đầu Tuần Tra ({selectedShelfIds.length} kệ đã chọn)
+            </button>
+          </div>
 
           <StatusBadge msg={patrolMsg} />
           <WaypointList waypoints={patrolWaypoints} />
@@ -1408,7 +1808,33 @@ function RobotDetailModal({ robotCode, onClose }) {
 /*  Tab 1 — Robot list                                                  */
 /* -------------------------------------------------------------------- */
 
-function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot, onMissionDispatched, map }) {
+function RobotsTab({
+  robots = [],
+  poses = {},
+  selectedRobotCode,
+  selectedRobotObj: propRobotObj,
+  onSelectRobot,
+  onMissionDispatched,
+  map,
+  rosWsUrl,
+  setRosWsUrl,
+  wsConnected,
+  setWsConnected,
+  wsConnecting,
+  setWsConnecting,
+  showWsConfig,
+  setShowWsConfig,
+  agentStatus,
+  setAgentStatus,
+  agentMode,
+  setAgentMode,
+  bootLoading,
+  setBootLoading,
+  handleStartOS,
+  handleStopOS,
+  handleSaveMap,
+  handleToggleWs,
+}) {
   const [detailRobotCode, setDetailRobotCode] = useState(null)
   const [ctrlLoading, setCtrlLoading] = useState(false)
   const [ctrlMsg, setCtrlMsg] = useState(null)
@@ -1419,22 +1845,13 @@ function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot, 
 
   // Quản lý kết nối WebSocket trực tiếp đến ESP32 (:81) chuẩn từ WebManager
   const [espIp, setEspIp] = useState(() => {
-    return localStorage.getItem('smb_robot_ip') || selectedRobotCode || '192.168.4.1'
+    const saved = localStorage.getItem('smb_robot_ip')
+    if (saved && saved.includes('.')) return saved
+    return '192.168.4.1'
   })
   const [espWsConnected, setEspWsConnected] = useState(false)
   const [espWsConnecting, setEspWsConnecting] = useState(false)
   const espWsRef = useRef(null)
-
-  // ─── Quản lý Kết Nối Robot (Agent Server & Rosbridge WebSocket) ───────────
-  const [rosWsUrl, setRosWsUrl] = useState(() => {
-    return localStorage.getItem('globalSetting_rosWsUrl') || 'ws://snake.local:9090'
-  })
-  const [wsConnected, setWsConnected] = useState(false)
-  const [wsConnecting, setWsConnecting] = useState(false)
-  const [showWsConfig, setShowWsConfig] = useState(false)
-  const [agentStatus, setAgentStatus] = useState('checking') // 'checking' | 'running' | 'starting' | 'stopped' | 'unreachable'
-  const [agentMode, setAgentMode] = useState(null)
-  const [bootLoading, setBootLoading] = useState(null) // 'slam' | 'amcl' | 'stop' | 'save' | null
 
   // Phân giải Node ID cho Trạm Sạc (Dock) và Vị Trí Gốc (Cashier / Thu Ngân) từ active map
   const dockNodeId = map?.nodes?.find(n => n.nodeRole === 'dock' || n.nodeType === 'dock' || n.nodeId === 8)?.nodeId || 8
@@ -1449,7 +1866,7 @@ function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot, 
 
   // Đồng bộ IP từ backend khi robot có IP mới
   useEffect(() => {
-    if (selectedRobotObj?.ipAddress && selectedRobotObj.ipAddress !== '0.0.0.0' && selectedRobotObj.ipAddress.trim() !== '') {
+    if (selectedRobotObj?.ipAddress && selectedRobotObj.ipAddress !== '0.0.0.0' && selectedRobotObj.ipAddress.includes('.')) {
       setEspIp(selectedRobotObj.ipAddress)
       localStorage.setItem('smb_robot_ip', selectedRobotObj.ipAddress)
     }
@@ -1486,7 +1903,7 @@ function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot, 
         espWsRef.current = null
         setEspWsConnected(false)
         setEspWsConnecting(false)
-        toast.warn(`Không kết nối được ws://${espIp}:81 (Tự động chuyển tiếp qua Tablet Cloud Relay)`)
+        toast.warn(`Không kết nối được ws://${espIp}:81 (Tự động chuyển tiếp qua ROS 2 / Cloud Relay)`)
       }
     } catch (e) {
       setEspWsConnecting(false)
@@ -1495,62 +1912,114 @@ function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot, 
     }
   }, [espIp, espWsConnected])
 
-  // ─── Điều Khiển Lái Tay Trực Tiếp (3 Tầng Dự Phòng: WS 81 -> ROS 2 9090 -> Cloud Relay qua Tablet) ───
+  // Tự động kết nối WebSocket cổng 81 của ESP32 nếu có IP hợp lệ và chưa kết nối
+  useEffect(() => {
+    if (!espIp || !espIp.includes('.') || espIp === '0.0.0.0' || espWsConnected || espWsConnecting || espWsRef.current) return
+    try {
+      const ws = new WebSocket(`ws://${espIp}:81`)
+      let isOpened = false
+      ws.onopen = () => {
+        isOpened = true
+        espWsRef.current = ws
+        setEspWsConnected(true)
+        setEspWsConnecting(false)
+      }
+      ws.onerror = () => {
+        if (!isOpened) {
+          espWsRef.current = null
+          setEspWsConnected(false)
+          setEspWsConnecting(false)
+        }
+      }
+      ws.onclose = () => {
+        espWsRef.current = null
+        setEspWsConnected(false)
+        setEspWsConnecting(false)
+      }
+    } catch {}
+  }, [espIp, espWsConnected, espWsConnecting])
+
+  // ─── Điều Khiển Lái Tay Trực Tiếp (Đa Kênh: WS 81 + ROS 2 :9090 /cmd_vel + Cloud Relay) ───
+  const [controlType, setControlType] = useState('joystick') // 'joystick' | 'dpad'
+  const joystickZoneRef = useRef(null)
+  const [knobPos, setKnobPos] = useState({ x: 0, y: 0 })
+  const [joyCoords, setJoyCoords] = useState({ x: 0, y: 0 })
+  const joyDragRef = useRef(false)
+  const lastJxRef = useRef(0)
+  const lastJyRef = useRef(0)
+  const lastJoySendRef = useRef(0)
+  const joyIntervalRef = useRef(null)
+
   const moveIntervalRef = useRef(null)
   const isMovingRef = useRef(false)
   const teleopSpeedRef = useRef(70)
   const teleopTurnSpeedRef = useRef(70)
   teleopSpeedRef.current = teleopSpeed
   teleopTurnSpeedRef.current = teleopTurnSpeed
-
   const activeKeysRef = useRef(new Set())
 
+  // Bộ quản lý timeout dừng để triệt tiêu hoàn toàn hiện tượng dực dực do ghost stopping
+  const stopTimeoutsRef = useRef([])
+  const clearStopTimeouts = useCallback(() => {
+    stopTimeoutsRef.current.forEach(t => clearTimeout(t))
+    stopTimeoutsRef.current = []
+  }, [])
+
+  // Gửi lệnh điều khiển đa kênh:
+  // 1. Nếu WebSocket ESP32 :81 mở -> Gửi { t: 'joy', x, y, s: 0 } (< 5ms)
+  // 2. Nếu ROS 2 :9090 (Rosbridge) mở -> Gửi geometry_msgs/msg/Twist tới /cmd_vel chuẩn REP-103
+  // 3. Nếu cả 2 chưa mở -> Dự phòng gửi qua Cloud Relay (Tablet)
   const sendRawCommand = useCallback((x, y, strafe = 0) => {
     if (!selectedRobot) return
-    // Hệ vi sai 2WD + Caster luôn cố định strafe = 0
-    const payloadObj = { t: 'joy', x, y, s: 0 }
 
-    // Tầng 3 (Ưu tiên độ trễ thấp nhất): Gửi trực tiếp WebSocket cổng 81 của ESP32 nếu đang kết nối (< 5ms)
+    let sent = false
+
+    // Kênh 1: Direct ESP32 WebSocket Cổng 81
     if (espWsRef.current && espWsRef.current.readyState === WebSocket.OPEN) {
       try {
-        espWsRef.current.send(JSON.stringify(payloadObj))
-        return
+        espWsRef.current.send(JSON.stringify({ t: 'joy', x, y, s: strafe }))
+        sent = true
       } catch (err) {
-        console.warn('ESP32 WS direct send error, fallback:', err)
+        console.warn('ESP32 WS direct send error:', err)
       }
     }
 
-    // Tầng 2: Gửi ROS 2 Rosbridge /cmd_vel (Twist message) nếu đang kết nối cổng 9090 (Pi 5)
+    // Kênh 2: Rosbridge WebSocket Cổng 9090 (/cmd_vel trên Raspberry Pi / Micro-ROS)
     if (window._rosInstance && window._rosInstance.readyState === WebSocket.OPEN) {
       try {
-        // Linear velocity x: tiến (+) / lùi (-), max ~0.35 m/s
-        const linearX = (y / 100.0) * 0.35
-        // Angular velocity z: rẽ trái (+) / rẽ phải (-), max ~0.8 rad/s (ROS: counter-clockwise là dương)
-        const angularZ = (-x / 100.0) * 0.8
-        const twistPayload = {
+        const maxLin = 0.20 * (teleopSpeedRef.current / 100)
+        const maxAng = 2.00 * (teleopTurnSpeedRef.current / 100)
+        // Chuẩn ROS 2 REP-103: rẽ trái CCW là angZ dương (+), rẽ phải CW là angZ âm (-)
+        const linX = Number(((y / 100) * maxLin).toFixed(4))
+        const angZ = Number((-(x / 100) * maxAng).toFixed(4))
+
+        const rosCmd = {
           op: 'publish',
           topic: '/cmd_vel',
+          type: 'geometry_msgs/msg/Twist',
           msg: {
-            linear: { x: linearX, y: 0.0, z: 0.0 },
-            angular: { x: 0.0, y: 0.0, z: angularZ }
+            linear: { x: linX, y: 0.0, z: 0.0 },
+            angular: { x: 0.0, y: 0.0, z: angZ }
           }
         }
-        window._rosInstance.send(JSON.stringify(twistPayload))
-        return
+        window._rosInstance.send(JSON.stringify(rosCmd))
+        sent = true
       } catch (err) {
-        console.warn('ROS 2 cmd_vel send error, fallback to Cloud Relay:', err)
+        console.warn('ROS 2 cmd_vel send error:', err)
       }
     }
 
-    // Tầng 1 (Toàn cầu qua Cloud Relay): Backend SignalR RobotHub -> Android Tablet -> ESP32 cổng 81
-    const payloadStr = JSON.stringify(payloadObj)
-    publishRobotCommand({
-      robotCode: selectedRobot,
-      command: 'MANUAL_TELEOP',
-      payload: payloadStr,
-      commandType: 'MANUAL_TELEOP',
-      payloadJson: payloadStr,
-    }).catch(() => {})
+    // Kênh 3: Dự phòng qua Cloud Relay
+    if (!sent) {
+      const payloadStr = JSON.stringify({ t: 'joy', x, y, s: strafe })
+      publishRobotCommand({
+        robotCode: selectedRobot,
+        command: 'MANUAL_TELEOP',
+        payload: payloadStr,
+        commandType: 'MANUAL_TELEOP',
+        payloadJson: payloadStr,
+      }).catch(() => {})
+    }
   }, [selectedRobot])
 
   const sendAuxCommand = useCallback((type, extra = {}) => {
@@ -1559,7 +2028,6 @@ function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot, 
     if (espWsRef.current && espWsRef.current.readyState === WebSocket.OPEN) {
       try {
         espWsRef.current.send(JSON.stringify(payloadObj))
-        toast.success(`Đã gửi lệnh ${type} trực tiếp tới ESP32 (:81)`)
         return
       } catch {}
     }
@@ -1570,31 +2038,158 @@ function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot, 
       payload: payloadStr,
       commandType: 'MANUAL_TELEOP',
       payloadJson: payloadStr,
-    }).then(() => {
-      toast.success(`Đã gửi lệnh ${type} qua Cloud Relay (Tablet)`)
     }).catch(() => {})
   }, [selectedRobot])
 
+  // Cập nhật Slider Tốc Độ Chạy Thẳng (gửi { t: 'spd', v })
+  const handleSpeedChange = useCallback((val) => {
+    const num = Number(val)
+    setTeleopSpeed(num)
+    teleopSpeedRef.current = num
+    sendAuxCommand('spd', { v: num })
+  }, [sendAuxCommand])
+
+  // Cập nhật Slider Lực Xoay Hướng (gửi { t: 'spdRotate', v })
+  const handleTurnSpeedChange = useCallback((val) => {
+    const num = Number(val)
+    setTeleopTurnSpeed(num)
+    teleopTurnSpeedRef.current = num
+    sendAuxCommand('spdRotate', { v: num })
+  }, [sendAuxCommand])
+
+  // Tự động kích hoạt MODE_MANUAL (mode: 0) và đồng bộ tốc độ khi chọn robot
+  useEffect(() => {
+    if (!selectedRobot) return
+    sendAuxCommand('mode', { m: 0 })
+    sendAuxCommand('spd', { v: teleopSpeedRef.current })
+    sendAuxCommand('spdRotate', { v: teleopTurnSpeedRef.current })
+  }, [selectedRobot, sendAuxCommand])
+
+  // ─── Logic Joystick Cần Tròn 360° (Thuần mượt mà, triệt tiêu jitter) ───
+  const handleJoyMove = useCallback((clientX, clientY) => {
+    if (!joystickZoneRef.current) return
+    clearStopTimeouts()
+    const r = joystickZoneRef.current.getBoundingClientRect()
+    const R = Math.max(24, Math.min(r.width, r.height) / 2 - 12)
+    let ox = clientX - r.left - r.width / 2
+    let oy = clientY - r.top - r.height / 2
+    const dist = Math.sqrt(ox * ox + oy * oy)
+    if (dist > R) {
+      ox = (ox * R) / dist
+      oy = (oy * R) / dist
+    }
+    const jx = Math.round((ox / R) * 100)
+    const jy = Math.round((-oy / R) * 100) // Kéo lên là tiến (+), kéo xuống là lùi (-)
+    lastJxRef.current = jx
+    lastJyRef.current = jy
+    setKnobPos({ x: ox, y: oy })
+    setJoyCoords({ x: jx, y: jy })
+
+    const now = Date.now()
+    if (now - lastJoySendRef.current >= 80) {
+      lastJoySendRef.current = now
+      sendRawCommand(jx, jy, 0)
+    }
+  }, [clearStopTimeouts, sendRawCommand])
+
+  const handleJoyStart = useCallback((clientX, clientY) => {
+    joyDragRef.current = true
+    clearStopTimeouts()
+    // Đảm bảo robot ở mode 0 (MODE_MANUAL)
+    sendAuxCommand('mode', { m: 0 })
+
+    if (joyIntervalRef.current) clearInterval(joyIntervalRef.current)
+    joyIntervalRef.current = setInterval(() => {
+      if (joyDragRef.current) {
+        sendRawCommand(lastJxRef.current, lastJyRef.current, 0)
+      }
+    }, 100)
+
+    handleJoyMove(clientX, clientY)
+  }, [clearStopTimeouts, sendAuxCommand, handleJoyMove, sendRawCommand])
+
+  const handleJoyEnd = useCallback(() => {
+    if (!joyDragRef.current) return
+    joyDragRef.current = false
+    if (joyIntervalRef.current) {
+      clearInterval(joyIntervalRef.current)
+      joyIntervalRef.current = null
+    }
+    lastJxRef.current = 0
+    lastJyRef.current = 0
+    setKnobPos({ x: 0, y: 0 })
+    setJoyCoords({ x: 0, y: 0 })
+
+    clearStopTimeouts()
+    sendRawCommand(0, 0, 0)
+    const t = setTimeout(() => {
+      if (!joyDragRef.current && !isMovingRef.current) {
+        sendRawCommand(0, 0, 0)
+      }
+    }, 80)
+    stopTimeoutsRef.current.push(t)
+  }, [clearStopTimeouts, sendRawCommand])
+
+  // Lắng nghe sự kiện di chuyển & nhả chuột/touch toàn window cho Joystick
+  useEffect(() => {
+    const onMouseMove = (e) => {
+      if (joyDragRef.current) handleJoyMove(e.clientX, e.clientY)
+    }
+    const onMouseUp = () => {
+      if (joyDragRef.current) handleJoyEnd()
+    }
+    const onTouchMove = (e) => {
+      if (joyDragRef.current && e.touches[0]) {
+        e.preventDefault()
+        handleJoyMove(e.touches[0].clientX, e.touches[0].clientY)
+      }
+    }
+    const onTouchEnd = () => {
+      if (joyDragRef.current) handleJoyEnd()
+    }
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    window.addEventListener('touchmove', onTouchMove, { passive: false })
+    window.addEventListener('touchend', onTouchEnd)
+    window.addEventListener('touchcancel', onTouchEnd)
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('touchend', onTouchEnd)
+      window.removeEventListener('touchcancel', onTouchEnd)
+    }
+  }, [handleJoyMove, handleJoyEnd])
+
+  // ─── Logic D-Pad Nút Bấm & Bàn Phím ───
   const startManualDrive = useCallback((direction, x, y) => {
     if (!selectedRobot) return
+    clearStopTimeouts()
     setActiveKey(direction)
     isMovingRef.current = true
+
+    // Đảm bảo robot ở mode 0 (MODE_MANUAL)
+    sendAuxCommand('mode', { m: 0 })
 
     if (moveIntervalRef.current) {
       clearInterval(moveIntervalRef.current)
     }
 
-    // Gửi lệnh đầu tiên ngay lập tức
+    // Gửi ngay lập tức
     sendRawCommand(x, y, 0)
 
-    // Lặp gửi lại mỗi 120ms để nuôi Watchdog (>500ms) trên firmware ESP32
+    // Lặp gửi lại mỗi 100ms (10Hz chuẩn không nghẽn mạng)
     moveIntervalRef.current = setInterval(() => {
-      sendRawCommand(x, y, 0)
-    }, 120)
-  }, [selectedRobot, sendRawCommand])
+      if (isMovingRef.current) {
+        sendRawCommand(x, y, 0)
+      }
+    }, 100)
+  }, [selectedRobot, clearStopTimeouts, sendAuxCommand, sendRawCommand])
 
   const stopManualDrive = useCallback(() => {
-    if (!selectedRobot && !isMovingRef.current) return
+    if (!selectedRobot) return
     setActiveKey(null)
     isMovingRef.current = false
     activeKeysRef.current.clear()
@@ -1604,30 +2199,78 @@ function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot, 
       moveIntervalRef.current = null
     }
 
-    // Dừng motor ngay lập tức
+    clearStopTimeouts()
+
+    // Gửi lệnh dừng dứt khoát ngay lập tức
     sendRawCommand(0, 0, 0)
-    setTimeout(() => {
-      sendRawCommand(0, 0, 0)
-    }, 70)
-  }, [selectedRobot, sendRawCommand])
 
-  // Hàm chuyển đổi hướng di chuyển thành vector (x, y) cho hệ vi sai 2WD + Caster
+    // Xác nhận dừng lần 2 sau 80ms nếu robot vẫn đang dừng
+    const t = setTimeout(() => {
+      if (!isMovingRef.current && !joyDragRef.current) {
+        sendRawCommand(0, 0, 0)
+      }
+    }, 80)
+    stopTimeoutsRef.current.push(t)
+  }, [selectedRobot, clearStopTimeouts, sendRawCommand])
+
+  // Hàm xoay snap 90 độ hỗ trợ cả ESP32 lẫn ROS 2
+  const handleSnapRotate = useCallback((deg) => {
+    if (!selectedRobot) return
+    if (espWsRef.current && espWsRef.current.readyState === WebSocket.OPEN) {
+      sendAuxCommand('snap90', { deg })
+      return
+    }
+    if (window._rosInstance && window._rosInstance.readyState === WebSocket.OPEN) {
+      const angZ = deg > 0 ? -1.5 : 1.5
+      const durationMs = 1050
+      const rosTurn = {
+        op: 'publish',
+        topic: '/cmd_vel',
+        type: 'geometry_msgs/msg/Twist',
+        msg: {
+          linear: { x: 0.0, y: 0.0, z: 0.0 },
+          angular: { x: 0.0, y: 0.0, z: angZ }
+        }
+      }
+      window._rosInstance.send(JSON.stringify(rosTurn))
+      const intv = setInterval(() => {
+        if (window._rosInstance && window._rosInstance.readyState === WebSocket.OPEN) {
+          window._rosInstance.send(JSON.stringify(rosTurn))
+        }
+      }, 100)
+      setTimeout(() => {
+        clearInterval(intv)
+        if (window._rosInstance && window._rosInstance.readyState === WebSocket.OPEN) {
+          window._rosInstance.send(JSON.stringify({
+            op: 'publish',
+            topic: '/cmd_vel',
+            type: 'geometry_msgs/msg/Twist',
+            msg: {
+              linear: { x: 0.0, y: 0.0, z: 0.0 },
+              angular: { x: 0.0, y: 0.0, z: 0.0 }
+            }
+          }))
+        }
+      }, durationMs)
+      return
+    }
+    sendAuxCommand('snap90', { deg })
+  }, [selectedRobot, sendAuxCommand])
+
+  // Hàm chuyển đổi hướng D-Pad thành vector chuẩn -100..100
   const handleDriveDir = useCallback((dir) => {
-    const spd = teleopSpeedRef.current || 70
-    const rot = teleopTurnSpeedRef.current || 70
     let x = 0, y = 0
-
     switch (dir) {
-      case 'forward':   y = spd; break;
-      case 'backward':  y = -spd; break;
-      case 'turnLeft':  x = -rot; break;
-      case 'turnRight': x = rot; break;
-      default: break;
+      case 'forward':   y = 100; break
+      case 'backward':  y = -100; break
+      case 'turnLeft':  x = -100; break
+      case 'turnRight': x = 100; break
+      default: break
     }
     startManualDrive(dir, x, y)
   }, [startManualDrive])
 
-  // Lắng nghe bàn phím (W, A, S, D, Mũi tên, Space) hỗ trợ cả lái thẳng lẫn ôm cua mượt mà
+  // Lắng nghe bàn phím (W, A, S, D, Mũi tên, Space)
   useEffect(() => {
     const updateKeyboardDrive = () => {
       const keys = activeKeysRef.current
@@ -1636,18 +2279,19 @@ function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot, 
         return
       }
 
-      const spd = teleopSpeedRef.current || 70
-      const rot = teleopTurnSpeedRef.current || 70
       let y = 0, x = 0
-
-      if (keys.has('w') || keys.has('arrowup')) y += spd
-      if (keys.has('s') || keys.has('arrowdown')) y -= spd
-      if (keys.has('a') || keys.has('arrowleft')) x -= rot
-      if (keys.has('d') || keys.has('arrowright')) x += rot
+      if (keys.has('w') || keys.has('arrowup')) y += 100
+      if (keys.has('s') || keys.has('arrowdown')) y -= 100
+      if (keys.has('a') || keys.has('arrowleft')) x -= 100
+      if (keys.has('d') || keys.has('arrowright')) x += 100
 
       if (x === 0 && y === 0) {
         stopManualDrive()
       } else {
+        if (x !== 0 && y !== 0) {
+          x = Math.round(x * 0.7)
+          y = Math.round(y * 0.7)
+        }
         let dirLabel = 'combo'
         if (y > 0 && x === 0) dirLabel = 'forward'
         else if (y < 0 && x === 0) dirLabel = 'backward'
@@ -1769,214 +2413,7 @@ function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot, 
     }
   }
 
-  // Trích xuất Agent Server API URL từ WebSocket URL
-  const getAgentApiUrl = (urlStr) => {
-    try {
-      const url = new URL((urlStr || 'ws://snake.local:9090').replace('ws://', 'http://'))
-      return `http://${url.hostname}:5000/api/robot`
-    } catch {
-      return 'http://192.168.0.100:5000/api/robot'
-    }
-  }
 
-  // Định kỳ kiểm tra trạng thái Agent Server trên Robot
-  const checkAgentStatus = async () => {
-    try {
-      const apiUrl = getAgentApiUrl(rosWsUrl)
-      const res = await fetch(`${apiUrl}/status`, { signal: AbortSignal.timeout(3000) })
-      const data = await res.json()
-      if (data.status === 'running') {
-        setAgentStatus('running')
-        setAgentMode(data.mode && data.mode !== 'unknown' ? data.mode : null)
-      } else if (data.status === 'starting') {
-        setAgentStatus('starting')
-      } else {
-        setAgentStatus('stopped')
-        setAgentMode(null)
-      }
-    } catch {
-      setAgentStatus('unreachable')
-    }
-  }
-
-  useEffect(() => {
-    checkAgentStatus()
-    const timer = setInterval(checkAgentStatus, 4000)
-    return () => clearInterval(timer)
-  }, [rosWsUrl])
-
-  // Khởi động ROS 2 OS (SLAM hoặc AMCL)
-  const handleStartOS = async (mode) => {
-    setBootLoading(mode)
-    const apiUrl = getAgentApiUrl(rosWsUrl)
-    try {
-      if (mode === 'amcl') {
-        // Đồng bộ Active Map nếu có
-        try {
-          const baseUrl = window.SMB_ENV?.BE_URL !== undefined ? window.SMB_ENV.BE_URL : 'http://localhost:5000'
-          const token = localStorage.getItem('accessToken')
-          const headers = { 'ngrok-skip-browser-warning': 'true' }
-          if (token) headers['Authorization'] = 'Bearer ' + token
-
-          const activeMapRes = await fetch(`${baseUrl}/api/v1/maps/active?floorId=1`, { headers })
-          if (activeMapRes.ok) {
-            const activeMapData = await activeMapRes.json()
-            if (activeMapData?.floorplanImageUrl) {
-              const yamlStr = `image: active_map.pgm\nresolution: ${activeMapData.resolution || 0.05}\norigin: [${activeMapData.originX || 0.0}, ${activeMapData.originY || 0.0}, ${activeMapData.originYaw || 0.0}]\nnegate: 0\noccupied_thresh: 0.65\nfree_thresh: 0.196\n`
-              const yamlB64 = btoa(unescape(encodeURIComponent(yamlStr)))
-
-              let imgUrl = activeMapData.floorplanImageUrl
-              if (imgUrl.startsWith('/')) imgUrl = baseUrl + imgUrl
-
-              const pgmB64 = await new Promise((resolve, reject) => {
-                const img = new Image()
-                img.crossOrigin = 'Anonymous'
-                img.onload = () => {
-                  const canvas = document.createElement('canvas')
-                  canvas.width = img.width
-                  canvas.height = img.height
-                  const ctx = canvas.getContext('2d')
-                  ctx.drawImage(img, 0, 0)
-                  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-                  const header = `P5\n${canvas.width} ${canvas.height}\n255\n`
-                  const headerBytes = new TextEncoder().encode(header)
-                  const pixelBytes = new Uint8Array(canvas.width * canvas.height)
-                  for (let i = 0; i < pixelBytes.length; i++) {
-                    const r = imgData.data[i * 4]
-                    const g = imgData.data[i * 4 + 1]
-                    const b = imgData.data[i * 4 + 2]
-                    pixelBytes[i] = Math.round(0.299 * r + 0.587 * g + 0.114 * b)
-                  }
-                  const pgmBuffer = new Uint8Array(headerBytes.length + pixelBytes.length)
-                  pgmBuffer.set(headerBytes, 0)
-                  pgmBuffer.set(pixelBytes, headerBytes.length)
-                  let binaryString = ''
-                  const chunkSize = 8192
-                  for (let i = 0; i < pgmBuffer.length; i += chunkSize) {
-                    binaryString += String.fromCharCode.apply(null, pgmBuffer.subarray(i, i + chunkSize))
-                  }
-                  resolve(btoa(binaryString))
-                }
-                img.onerror = () => reject(new Error('Failed to load map image'))
-                fetch(imgUrl)
-                  .then(r => r.blob())
-                  .then(b => { img.src = URL.createObjectURL(b) })
-                  .catch(() => { img.src = imgUrl })
-              })
-
-              await fetch(`${apiUrl}/upload_map`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ yaml_b64: yamlB64, pgm_b64: pgmB64 })
-              })
-            }
-          }
-        } catch (syncErr) {
-          console.warn('Map sync failed, proceeding with robot default map:', syncErr)
-        }
-      }
-
-      const res = await fetch(`${apiUrl}/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode })
-      })
-      const data = await res.json()
-      if (data.error) {
-        toast.error(`Khởi động thất bại: ${data.error}`)
-      } else {
-        toast.success(`Đã kích hoạt chế độ: ${mode === 'amcl' ? 'Dẫn Đường Tự Hành (AMCL)' : 'Quét Bản Đồ Mới (SLAM)'}`)
-        setTimeout(checkAgentStatus, 2000)
-      }
-    } catch (e) {
-      toast.error(`Không thể kết nối đến Agent Server: ${e.message}`)
-    } finally {
-      setBootLoading(null)
-    }
-  }
-
-  // Dừng ROS 2 OS
-  const handleStopOS = async () => {
-    if (!window.confirm('Bạn có chắc chắn muốn DỪNG HOẠT ĐỘNG hệ thống ROS 2 trên Robot?')) return
-    setBootLoading('stop')
-    const apiUrl = getAgentApiUrl(rosWsUrl)
-    try {
-      await fetch(`${apiUrl}/stop`, { method: 'POST' })
-      toast.warn('Đã gửi lệnh Dừng Hoạt Động tới Robot.')
-      setTimeout(checkAgentStatus, 1500)
-    } catch (e) {
-      toast.error(`Lỗi khi dừng ROS 2: ${e.message}`)
-    } finally {
-      setBootLoading(null)
-    }
-  }
-
-  // Lưu bản đồ SLAM
-  const handleSaveMap = async () => {
-    setBootLoading('save')
-    const apiUrl = getAgentApiUrl(rosWsUrl)
-    try {
-      const res = await fetch(`${apiUrl}/save_map`, { method: 'POST' })
-      const data = await res.json()
-      if (data.error) {
-        toast.error(`Lỗi lưu bản đồ: ${data.error}`)
-      } else {
-        if (data.yaml_b64 && data.pgm_b64) {
-          const aYaml = document.createElement('a')
-          aYaml.href = 'data:text/yaml;base64,' + data.yaml_b64
-          aYaml.download = 'active_map.yaml'
-          aYaml.click()
-          const aPgm = document.createElement('a')
-          aPgm.href = 'data:image/x-portable-graymap;base64,' + data.pgm_b64
-          aPgm.download = 'active_map.pgm'
-          aPgm.click()
-        }
-        toast.success(`Đã lưu bản đồ thành công: ${data.message || 'Bản đồ đã cập nhật'}`)
-      }
-    } catch (e) {
-      toast.error(`Không thể kết nối với Agent Server để lưu bản đồ: ${e.message}`)
-    } finally {
-      setBootLoading(null)
-    }
-  }
-
-  // Quản lý WebSocket Rosbridge
-  const handleToggleWs = () => {
-    if (wsConnected) {
-      if (window._rosInstance) {
-        window._rosInstance.close()
-        window._rosInstance = null
-      }
-      setWsConnected(false)
-      toast.info('Đã ngắt kết nối cổng WebSocket.')
-      return
-    }
-
-    setWsConnecting(true)
-    localStorage.setItem('globalSetting_rosWsUrl', rosWsUrl)
-    try {
-      const ws = new WebSocket(rosWsUrl)
-      ws.onopen = () => {
-        setWsConnected(true)
-        setWsConnecting(false)
-        window._rosInstance = ws
-        toast.success(`Đã kết nối thành công tới ${rosWsUrl}`)
-      }
-      ws.onerror = () => {
-        setWsConnected(false)
-        setWsConnecting(false)
-        toast.error(`Không thể kết nối tới ${rosWsUrl}`)
-      }
-      ws.onclose = () => {
-        setWsConnected(false)
-        setWsConnecting(false)
-      }
-    } catch (e) {
-      setWsConnected(false)
-      setWsConnecting(false)
-      toast.error(`Lỗi WebSocket: ${e.message}`)
-    }
-  }
 
   return (
     <>
@@ -2319,7 +2756,7 @@ function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot, 
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-[11px] font-semibold text-smb-on-surface flex items-center gap-1">
                     <Icon name="speed" className="text-[14px] text-indigo-500" />
-                    Tốc độ chạy thẳng:
+                    Tốc độ chạy thẳng (spd):
                   </span>
                   <span className="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
                     {teleopSpeed}%
@@ -2331,7 +2768,7 @@ function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot, 
                   max="100"
                   step="5"
                   value={teleopSpeed}
-                  onChange={(e) => setTeleopSpeed(Number(e.target.value))}
+                  onChange={(e) => handleSpeedChange(e.target.value)}
                   className="w-full h-1.5 bg-smb-outline-variant/60 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                 />
               </div>
@@ -2341,7 +2778,7 @@ function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot, 
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-[11px] font-semibold text-smb-on-surface flex items-center gap-1">
                     <Icon name="sync" className="text-[14px] text-teal-500" />
-                    Lực xoay hướng (Vi sai):
+                    Lực xoay hướng (spdRotate):
                   </span>
                   <span className="text-[11px] font-mono font-bold text-teal-600 dark:text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded border border-teal-500/20">
                     {teleopTurnSpeed}%
@@ -2353,149 +2790,225 @@ function RobotsTab({ robots = [], poses = {}, selectedRobotCode, onSelectRobot, 
                   max="100"
                   step="5"
                   value={teleopTurnSpeed}
-                  onChange={(e) => setTeleopTurnSpeed(Number(e.target.value))}
+                  onChange={(e) => handleTurnSpeedChange(e.target.value)}
                   className="w-full h-1.5 bg-smb-outline-variant/60 rounded-lg appearance-none cursor-pointer accent-teal-600"
                 />
               </div>
             </div>
 
-            {/* ── Bảng D-Pad Điều Khiển Vi Sai 2WD + Caster (Chữ Thập) ── */}
-            <div className="flex flex-col items-center justify-center pt-1 pb-1">
-              <div className="grid grid-cols-3 gap-2 w-full max-w-[260px]">
-                {/* Hàng 1: [Trống] - [Tiến (W)] - [Trống] */}
-                <div />
-                <button
-                  type="button"
-                  disabled={!selectedRobot}
-                  onMouseDown={() => handleDriveDir('forward')}
-                  onMouseUp={stopManualDrive}
-                  onMouseLeave={stopManualDrive}
-                  onTouchStart={(e) => { e.preventDefault(); handleDriveDir('forward') }}
-                  onTouchEnd={stopManualDrive}
-                  onTouchCancel={stopManualDrive}
-                  className={`flex h-13 flex-col items-center justify-center rounded-2xl transition-all shadow-sm active:scale-90 ${
-                    activeKey === 'forward'
-                      ? 'bg-indigo-600 text-white ring-2 ring-indigo-400'
-                      : 'bg-smb-surface-container-lowest text-smb-on-surface hover:bg-indigo-500/15 hover:text-indigo-600 border border-smb-outline-variant'
-                  }`}
-                  title="Tiến lên (Phím W hoặc Mũi tên Lên)"
-                >
-                  <Icon name="arrow_upward" className="text-[22px]" />
-                  <span className="text-[9px] font-bold">Tiến (W)</span>
-                </button>
-                <div />
+            {/* ── Chuyển đổi giữa [Cần Joystick 360°] và [Phím D-Pad Chữ Thập] ── */}
+            <div className="flex items-center justify-center gap-1 bg-smb-surface-container-lowest p-1 rounded-xl border border-smb-outline-variant/40">
+              <button
+                type="button"
+                onClick={() => setControlType('joystick')}
+                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  controlType === 'joystick'
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'text-smb-on-surface-variant hover:text-smb-on-surface'
+                }`}
+              >
+                <Icon name="radio_button_checked" className="text-[15px]" />
+                Cần Joystick 360°
+              </button>
+              <button
+                type="button"
+                onClick={() => setControlType('dpad')}
+                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  controlType === 'dpad'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-smb-on-surface-variant hover:text-smb-on-surface'
+                }`}
+              >
+                <Icon name="gamepad" className="text-[15px]" />
+                Phím D-Pad
+              </button>
+            </div>
 
-                {/* Hàng 2: [Rẽ Trái (A)] - [DỪNG (Space)] - [Rẽ Phải (D)] */}
-                <button
-                  type="button"
-                  disabled={!selectedRobot}
-                  onMouseDown={() => handleDriveDir('turnLeft')}
-                  onMouseUp={stopManualDrive}
-                  onMouseLeave={stopManualDrive}
-                  onTouchStart={(e) => { e.preventDefault(); handleDriveDir('turnLeft') }}
-                  onTouchEnd={stopManualDrive}
-                  onTouchCancel={stopManualDrive}
-                  className={`flex h-13 flex-col items-center justify-center rounded-2xl transition-all shadow-sm active:scale-90 ${
-                    activeKey === 'turnLeft'
-                      ? 'bg-teal-600 text-white ring-2 ring-teal-400'
-                      : 'bg-smb-surface-container-lowest text-smb-on-surface hover:bg-teal-500/15 hover:text-teal-600 border border-smb-outline-variant'
-                  }`}
-                  title="Rẽ Trái (Phím A hoặc Mũi tên Trái)"
+            {/* ── GIAO DIỆN 1: CẦN JOYSTICK TRÒN 360° (CHUẨN 192.168.4.1) ── */}
+            {controlType === 'joystick' ? (
+              <div className="flex flex-col items-center justify-center py-2 select-none">
+                <div
+                  ref={joystickZoneRef}
+                  onMouseDown={(e) => handleJoyStart(e.clientX, e.clientY)}
+                  onTouchStart={(e) => {
+                    if (e.touches[0]) handleJoyStart(e.touches[0].clientX, e.touches[0].clientY)
+                  }}
+                  className="relative size-44 rounded-full border-2 border-teal-500/40 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 shadow-inner flex items-center justify-center cursor-crosshair touch-none"
+                  style={{
+                    boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.8), 0 0 20px rgba(45,212,191,0.1)'
+                  }}
                 >
-                  <Icon name="arrow_back" className="text-[22px]" />
-                  <span className="text-[9px] font-bold">Trái (A)</span>
-                </button>
+                  {/* Trục tâm và radar tròn */}
+                  <div className="absolute inset-x-0 top-1/2 h-px bg-teal-500/20 -translate-y-1/2 pointer-events-none" />
+                  <div className="absolute inset-y-0 left-1/2 w-px bg-teal-500/20 -translate-x-1/2 pointer-events-none" />
+                  <div className="absolute size-24 rounded-full border border-teal-500/20 pointer-events-none" />
+                  <div className="absolute size-10 rounded-full border border-teal-500/30 pointer-events-none" />
 
-                <button
-                  type="button"
-                  disabled={!selectedRobot}
-                  onClick={stopManualDrive}
-                  className="flex h-13 flex-col items-center justify-center rounded-2xl bg-rose-600/15 text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-500/30 transition-all font-bold shadow-sm active:scale-90"
-                  title="Dừng khẩn cấp (Phím Space)"
-                >
-                  <Icon name="stop" className="text-[20px]" />
-                  <span className="text-[10px] font-black tracking-wider">DỪNG</span>
-                </button>
+                  {/* Núm Joystick kéo thả 360° */}
+                  <div
+                    style={{
+                      transform: `translate(${knobPos.x}px, ${knobPos.y}px)`,
+                      transition: joyDragRef.current ? 'none' : 'transform 0.12s ease-out'
+                    }}
+                    className="size-13 rounded-full bg-gradient-to-br from-teal-400 to-cyan-500 shadow-lg shadow-teal-500/50 border-2 border-white pointer-events-none flex items-center justify-center"
+                  >
+                    <div className="size-3.5 rounded-full bg-white/80 shadow-xs" />
+                  </div>
+                </div>
 
-                <button
-                  type="button"
-                  disabled={!selectedRobot}
-                  onMouseDown={() => handleDriveDir('turnRight')}
-                  onMouseUp={stopManualDrive}
-                  onMouseLeave={stopManualDrive}
-                  onTouchStart={(e) => { e.preventDefault(); handleDriveDir('turnRight') }}
-                  onTouchEnd={stopManualDrive}
-                  onTouchCancel={stopManualDrive}
-                  className={`flex h-13 flex-col items-center justify-center rounded-2xl transition-all shadow-sm active:scale-90 ${
-                    activeKey === 'turnRight'
-                      ? 'bg-teal-600 text-white ring-2 ring-teal-400'
-                      : 'bg-smb-surface-container-lowest text-smb-on-surface hover:bg-teal-500/15 hover:text-teal-600 border border-smb-outline-variant'
-                  }`}
-                  title="Rẽ Phải (Phím D hoặc Mũi tên Phải)"
-                >
-                  <Icon name="arrow_forward" className="text-[22px]" />
-                  <span className="text-[9px] font-bold">Phải (D)</span>
-                </button>
-
-                {/* Hàng 3: [Trống] - [Lùi (S)] - [Trống] */}
-                <div />
-                <button
-                  type="button"
-                  disabled={!selectedRobot}
-                  onMouseDown={() => handleDriveDir('backward')}
-                  onMouseUp={stopManualDrive}
-                  onMouseLeave={stopManualDrive}
-                  onTouchStart={(e) => { e.preventDefault(); handleDriveDir('backward') }}
-                  onTouchEnd={stopManualDrive}
-                  onTouchCancel={stopManualDrive}
-                  className={`flex h-13 flex-col items-center justify-center rounded-2xl transition-all shadow-sm active:scale-90 ${
-                    activeKey === 'backward'
-                      ? 'bg-indigo-600 text-white ring-2 ring-indigo-400'
-                      : 'bg-smb-surface-container-lowest text-smb-on-surface hover:bg-indigo-500/15 hover:text-indigo-600 border border-smb-outline-variant'
-                  }`}
-                  title="Lùi lại (Phím S hoặc Mũi tên Xuống)"
-                >
-                  <Icon name="arrow_downward" className="text-[22px]" />
-                  <span className="text-[9px] font-bold">Lùi (S)</span>
-                </button>
-                <div />
+                {/* Tọa độ X/Y thời gian thực và nút Stop khẩn */}
+                <div className="flex items-center gap-3 mt-2.5 font-mono text-[11px] text-smb-on-surface-variant font-bold">
+                  <span className={joyCoords.x !== 0 ? 'text-teal-400' : ''}>X: {joyCoords.x}%</span>
+                  <span className="text-white/20">|</span>
+                  <span className={joyCoords.y !== 0 ? 'text-indigo-400' : ''}>Y: {joyCoords.y}%</span>
+                  <button
+                    type="button"
+                    onClick={handleJoyEnd}
+                    className="px-2.5 py-0.5 rounded-md text-[10px] bg-rose-500/15 text-rose-500 hover:bg-rose-500 hover:text-white font-bold ml-1 transition-all"
+                  >
+                    Dừng
+                  </button>
+                </div>
               </div>
+            ) : (
+              /* ── GIAO DIỆN 2: BẢNG PHÍM D-PAD CHỮ THẬP ── */
+              <div className="flex flex-col items-center justify-center pt-1 pb-1">
+                <div className="grid grid-cols-3 gap-2 w-full max-w-[260px]">
+                  {/* Hàng 1: [Trống] - [Tiến (W)] - [Trống] */}
+                  <div />
+                  <button
+                    type="button"
+                    disabled={!selectedRobot}
+                    onMouseDown={() => handleDriveDir('forward')}
+                    onMouseUp={stopManualDrive}
+                    onMouseLeave={stopManualDrive}
+                    onTouchStart={(e) => { e.preventDefault(); handleDriveDir('forward') }}
+                    onTouchEnd={stopManualDrive}
+                    onTouchCancel={stopManualDrive}
+                    className={`flex h-13 flex-col items-center justify-center rounded-2xl transition-all shadow-sm active:scale-90 ${
+                      activeKey === 'forward'
+                        ? 'bg-indigo-600 text-white ring-2 ring-indigo-400'
+                        : 'bg-smb-surface-container-lowest text-smb-on-surface hover:bg-indigo-500/15 hover:text-indigo-600 border border-smb-outline-variant'
+                    }`}
+                    title="Tiến lên (Phím W hoặc Mũi tên Lên)"
+                  >
+                    <Icon name="arrow_upward" className="text-[22px] pointer-events-none select-none" />
+                    <span className="text-[9px] font-bold pointer-events-none select-none">Tiến (W)</span>
+                  </button>
+                  <div />
 
-              {/* Cụm Tiện Ích: Quay 90° & Reset Odom (Rất hiệu quả trên hệ vi sai 2 bánh) */}
-              <div className="grid grid-cols-3 gap-1.5 w-full max-w-[260px] pt-3 mt-1 border-t border-smb-outline-variant/40">
-                <button
-                  type="button"
-                  disabled={!selectedRobot}
-                  onClick={() => sendAuxCommand('snap90', { deg: -90 })}
-                  className="py-1.5 px-1 text-[10px] font-semibold rounded-lg bg-smb-surface-container-high hover:bg-smb-surface-container-highest text-smb-on-surface-variant border border-smb-outline-variant/60 text-center transition-all active:scale-95"
-                  title="Xoay vi sai -90 độ"
-                >
-                  ↺ -90°
-                </button>
-                <button
-                  type="button"
-                  disabled={!selectedRobot}
-                  onClick={() => sendAuxCommand('snap90', { deg: 90 })}
-                  className="py-1.5 px-1 text-[10px] font-semibold rounded-lg bg-smb-surface-container-high hover:bg-smb-surface-container-highest text-smb-on-surface-variant border border-smb-outline-variant/60 text-center transition-all active:scale-95"
-                  title="Xoay vi sai +90 độ"
-                >
-                  ↻ +90°
-                </button>
-                <button
-                  type="button"
-                  disabled={!selectedRobot}
-                  onClick={() => sendAuxCommand('odomReset')}
-                  className="py-1.5 px-1 text-[10px] font-semibold rounded-lg bg-smb-surface-container-high hover:bg-smb-surface-container-highest text-smb-on-surface-variant border border-smb-outline-variant/60 text-center transition-all active:scale-95"
-                  title="Đặt lại Odometer về 0"
-                >
-                  🎯 Reset Odom
-                </button>
+                  {/* Hàng 2: [Rẽ Trái (A)] - [DỪNG (Space)] - [Rẽ Phải (D)] */}
+                  <button
+                    type="button"
+                    disabled={!selectedRobot}
+                    onMouseDown={() => handleDriveDir('turnLeft')}
+                    onMouseUp={stopManualDrive}
+                    onMouseLeave={stopManualDrive}
+                    onTouchStart={(e) => { e.preventDefault(); handleDriveDir('turnLeft') }}
+                    onTouchEnd={stopManualDrive}
+                    onTouchCancel={stopManualDrive}
+                    className={`flex h-13 flex-col items-center justify-center rounded-2xl transition-all shadow-sm active:scale-90 ${
+                      activeKey === 'turnLeft'
+                        ? 'bg-teal-600 text-white ring-2 ring-teal-400'
+                        : 'bg-smb-surface-container-lowest text-smb-on-surface hover:bg-teal-500/15 hover:text-teal-600 border border-smb-outline-variant'
+                    }`}
+                    title="Rẽ Trái (Phím A hoặc Mũi tên Trái)"
+                  >
+                    <Icon name="arrow_back" className="text-[22px] pointer-events-none select-none" />
+                    <span className="text-[9px] font-bold pointer-events-none select-none">Trái (A)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={!selectedRobot}
+                    onClick={stopManualDrive}
+                    className="flex h-13 flex-col items-center justify-center rounded-2xl bg-rose-600/15 text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-500/30 transition-all font-bold shadow-sm active:scale-90"
+                    title="Dừng khẩn cấp (Phím Space)"
+                  >
+                    <Icon name="stop" className="text-[20px] pointer-events-none select-none" />
+                    <span className="text-[10px] font-black tracking-wider pointer-events-none select-none">DỪNG</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={!selectedRobot}
+                    onMouseDown={() => handleDriveDir('turnRight')}
+                    onMouseUp={stopManualDrive}
+                    onMouseLeave={stopManualDrive}
+                    onTouchStart={(e) => { e.preventDefault(); handleDriveDir('turnRight') }}
+                    onTouchEnd={stopManualDrive}
+                    onTouchCancel={stopManualDrive}
+                    className={`flex h-13 flex-col items-center justify-center rounded-2xl transition-all shadow-sm active:scale-90 ${
+                      activeKey === 'turnRight'
+                        ? 'bg-teal-600 text-white ring-2 ring-teal-400'
+                        : 'bg-smb-surface-container-lowest text-smb-on-surface hover:bg-teal-500/15 hover:text-teal-600 border border-smb-outline-variant'
+                    }`}
+                    title="Rẽ Phải (Phím D hoặc Mũi tên Phải)"
+                  >
+                    <Icon name="arrow_forward" className="text-[22px] pointer-events-none select-none" />
+                    <span className="text-[9px] font-bold pointer-events-none select-none">Phải (D)</span>
+                  </button>
+
+                  {/* Hàng 3: [Trống] - [Lùi (S)] - [Trống] */}
+                  <div />
+                  <button
+                    type="button"
+                    disabled={!selectedRobot}
+                    onMouseDown={() => handleDriveDir('backward')}
+                    onMouseUp={stopManualDrive}
+                    onMouseLeave={stopManualDrive}
+                    onTouchStart={(e) => { e.preventDefault(); handleDriveDir('backward') }}
+                    onTouchEnd={stopManualDrive}
+                    onTouchCancel={stopManualDrive}
+                    className={`flex h-13 flex-col items-center justify-center rounded-2xl transition-all shadow-sm active:scale-90 ${
+                      activeKey === 'backward'
+                        ? 'bg-indigo-600 text-white ring-2 ring-indigo-400'
+                        : 'bg-smb-surface-container-lowest text-smb-on-surface hover:bg-indigo-500/15 hover:text-indigo-600 border border-smb-outline-variant'
+                    }`}
+                    title="Lùi lại (Phím S hoặc Mũi tên Xuống)"
+                  >
+                    <Icon name="arrow_downward" className="text-[22px] pointer-events-none select-none" />
+                    <span className="text-[9px] font-bold pointer-events-none select-none">Lùi (S)</span>
+                  </button>
+                  <div />
+                </div>
               </div>
+            )}
+
+            {/* Cụm Tiện Ích: Quay 90° & Reset Odom & EStop */}
+            <div className="grid grid-cols-3 gap-1.5 w-full pt-2 border-t border-smb-outline-variant/40">
+              <button
+                type="button"
+                disabled={!selectedRobot}
+                onClick={() => handleSnapRotate(-90)}
+                className="py-1.5 px-1 text-[10px] font-semibold rounded-lg bg-smb-surface-container-high hover:bg-smb-surface-container-highest text-smb-on-surface-variant border border-smb-outline-variant/60 text-center transition-all active:scale-95"
+                title="Xoay vi sai -90 độ"
+              >
+                ↺ -90°
+              </button>
+              <button
+                type="button"
+                disabled={!selectedRobot}
+                onClick={() => handleSnapRotate(90)}
+                className="py-1.5 px-1 text-[10px] font-semibold rounded-lg bg-smb-surface-container-high hover:bg-smb-surface-container-highest text-smb-on-surface-variant border border-smb-outline-variant/60 text-center transition-all active:scale-95"
+                title="Xoay vi sai +90 độ"
+              >
+                ↻ +90°
+              </button>
+              <button
+                type="button"
+                disabled={!selectedRobot}
+                onClick={() => sendAuxCommand('odomReset')}
+                className="py-1.5 px-1 text-[10px] font-semibold rounded-lg bg-smb-surface-container-high hover:bg-smb-surface-container-highest text-smb-on-surface-variant border border-smb-outline-variant/60 text-center transition-all active:scale-95"
+                title="Đặt lại Odometer về 0"
+              >
+                🎯 Reset Odom
+              </button>
             </div>
 
             {/* Mẹo phím tắt */}
             <div className="rounded-lg bg-smb-surface-container-lowest/80 p-2 text-center text-[10px] text-smb-on-surface-variant leading-relaxed border border-smb-outline-variant/40">
-              💡 <b>Phím tắt:</b> <b>W/S</b> (Tiến/Lùi), <b>A/D</b> (Rẽ Trái/Phải), <b>Space</b> (Dừng xe). Giữ tổ hợp <b>W+A</b> hoặc <b>W+D</b> để ôm cua mượt mà.
+              💡 <b>Phím tắt:</b> <b>W/S</b> (Tiến/Lùi), <b>A/D</b> (Rẽ Trái/Phải), <b>Space</b> (Dừng xe). Hoặc kéo <b>Cần Joystick</b> để lái tự do 360°.
             </div>
           </div>
       </div>

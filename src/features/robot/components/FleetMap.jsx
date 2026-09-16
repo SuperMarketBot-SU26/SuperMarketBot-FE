@@ -130,21 +130,21 @@ export default function FleetMap({
   }
 
   return (
-    <div className="relative h-full w-full flex flex-col bg-[#070b14] text-white smb-fade-in overflow-hidden">
+    <div className="relative h-full w-full flex flex-col bg-slate-50 text-slate-800 smb-fade-in overflow-hidden">
       {/* ── 1. HEADER BAR ────────────────────────────────────── */}
       <div className="absolute top-3 left-3 right-3 z-20 flex items-center justify-between pointer-events-none">
         {/* Left: Flow Type & Robot Telemetry Info */}
         <div className="flex items-center gap-2 pointer-events-auto">
           <div
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full font-bold text-xs tracking-wider border ${flowTypeLabel.border} ${flowTypeLabel.bg} ${flowTypeLabel.textCol} shadow-lg backdrop-blur-md`}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full font-bold text-xs tracking-wider border ${flowTypeLabel.border} ${flowTypeLabel.bg} ${flowTypeLabel.textCol} shadow-xs backdrop-blur-md`}
           >
             <span className={`size-2 rounded-full ${flowTypeLabel.color} ${isMissionActive ? 'animate-ping' : ''}`} />
             <span>{flowTypeLabel.text}</span>
           </div>
 
-          <div className="flex items-center gap-2 text-xs font-mono text-gray-300 bg-gray-900/80 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-gray-800 shadow-md">
-            <span className="font-semibold text-emerald-400">{activeRobotCode}</span>
-            <span className="text-gray-600">|</span>
+          <div className="flex items-center gap-2 text-xs font-mono text-slate-700 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-slate-200 shadow-xs">
+            <span className="font-extrabold text-emerald-600">{activeRobotCode}</span>
+            <span className="text-slate-300">|</span>
             <span>
               {pose && typeof pose.xCoord === 'number'
                 ? `(${pose.xCoord.toFixed(2)}m, ${pose.yCoord.toFixed(2)}m)`
@@ -152,8 +152,8 @@ export default function FleetMap({
             </span>
             {selectedRobot?.batteryPct != null && (
               <>
-                <span className="text-gray-600">|</span>
-                <span className={selectedRobot.batteryPct > 50 ? 'text-emerald-400' : 'text-amber-400'}>
+                <span className="text-slate-300">|</span>
+                <span className={selectedRobot.batteryPct > 50 ? 'text-emerald-600 font-bold' : 'text-amber-600 font-bold'}>
                   🔋 {selectedRobot.batteryPct}%
                 </span>
               </>
@@ -164,13 +164,13 @@ export default function FleetMap({
         {/* Right: Switch View & Direct Link to ROS Map Tool */}
         <div className="flex items-center gap-2 pointer-events-auto">
           {/* Toggle Giám sát Tuần Tra / Giám sát Quảng Cáo / Danh sách chặng */}
-          <div className="flex items-center bg-gray-900/85 backdrop-blur-md p-1 rounded-xl border border-gray-800 shadow-md">
+          <div className="flex items-center bg-white/95 backdrop-blur-md p-1 rounded-xl border border-slate-200 shadow-xs gap-1">
             <button
               onClick={() => setViewMode('patrol')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 viewMode === 'patrol'
-                  ? 'bg-blue-600 text-white shadow-sm font-semibold'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
               title="Màn hình giám sát Camera AI & Tuần tra quét kệ hàng"
             >
@@ -179,10 +179,10 @@ export default function FleetMap({
             </button>
             <button
               onClick={() => setViewMode('map')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 viewMode === 'map'
-                  ? 'bg-emerald-600 text-white shadow-sm font-semibold'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
               title="Bản đồ 2D siêu thị & Giám sát di chuyển quảng cáo"
             >
@@ -191,10 +191,10 @@ export default function FleetMap({
             </button>
             <button
               onClick={() => setViewMode('linear')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 viewMode === 'linear'
-                  ? 'bg-emerald-600 text-white shadow-sm font-semibold'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
               title="Danh sách các chặng dừng trong lộ trình"
             >
@@ -206,10 +206,10 @@ export default function FleetMap({
       </div>
 
       {/* ── 2. BODY CONTENT: GIÁM SÁT TUẦN TRA (AI MONITOR), BẢN ĐỒ 2D, HOẶC DANH SÁCH CHẶNG ────── */}
-      <div className="flex-1 w-full h-full relative overflow-hidden">
+      <div className="flex-1 w-full h-full relative overflow-hidden bg-slate-50">
         {/* View 1: Giám Sát Tuần Tra (AI Camera & Shelf Sweep Monitor) */}
         <div
-          className={`w-full h-full relative bg-[#0f172a] ${
+          className={`w-full h-full relative bg-slate-50 ${
             viewMode === 'patrol' ? 'block' : 'hidden'
           }`}
           style={{
@@ -218,8 +218,8 @@ export default function FleetMap({
           }}
         >
           <iframe
-            src="/ros-ai-monitor.html"
-            className="w-full h-full border-0"
+            src="/ros-ai-monitor.html?v=light_theme_v2"
+            className="w-full h-full border-0 bg-slate-50"
             title="Hệ thống Giám sát AI Kệ hàng"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           />

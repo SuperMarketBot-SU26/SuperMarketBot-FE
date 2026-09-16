@@ -2,19 +2,45 @@ import React from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../features/auth/useAuth'
 
-const navItems = [
-  { icon: 'smart_toy', label: 'Giám Sát Robot', path: '/robots' },
-  { icon: 'map', label: 'Bản Đồ & Định Vị Robot', path: '/ros-map' },
-  { icon: 'manage_accounts', label: 'Quản Lý Tài Khoản', path: '/accounts' },
-  { icon: 'campaign', label: 'Chiến Dịch Quảng Cáo', path: '/' },
-  { icon: 'sell', label: 'Gói Quảng Cáo', path: '/ad-packages' },
-  { icon: 'storefront', label: 'Quản Lý Nhãn Hàng', path: '/brand-dashboard' },
-  { icon: 'inventory_2', label: 'Quản Lý Sản Phẩm', path: '/products' },
-  { icon: 'category', label: 'Quản Lý Loại Sản Phẩm', path: '/product-types' },
-  { icon: 'label', label: 'Quản Lý Health Tag', path: '/health-tags' },
-  { icon: 'shelves', label: 'Quản Lý Kệ Hàng', path: '/shelf-management' },
-  { icon: 'shield_with_heart', label: 'Quản Lý Tuần Tra', path: '/patrol-management' },
+export const navGroups = [
+  {
+    title: 'Quản Lý Robot & Thiết Bị',
+    emoji: '🤖',
+    items: [
+      { icon: 'smart_toy', label: 'Giám Sát Robot', path: '/robots' },
+      { icon: 'map', label: 'Bản Đồ & Định Vị Robot', path: '/ros-map' },
+      { icon: 'shield_with_heart', label: 'Quản Lý Tuần Tra', path: '/patrol-management' },
+    ],
+  },
+  {
+    title: 'Marketing & Khuyến Mãi',
+    emoji: '📢',
+    items: [
+      { icon: 'campaign', label: 'Chiến Dịch Quảng Cáo', path: '/' },
+      { icon: 'sell', label: 'Gói Quảng Cáo', path: '/ad-packages' },
+    ],
+  },
+  {
+    title: 'Hàng Hóa & Cửa Hàng',
+    emoji: '📦',
+    items: [
+      { icon: 'storefront', label: 'Quản Lý Nhãn Hàng', path: '/brand-dashboard' },
+      { icon: 'inventory_2', label: 'Quản Lý Sản Phẩm', path: '/products' },
+      { icon: 'category', label: 'Quản Lý Loại Sản Phẩm', path: '/product-types' },
+      { icon: 'label', label: 'Quản Lý Health Tag', path: '/health-tags' },
+      { icon: 'shelves', label: 'Quản Lý Kệ Hàng', path: '/shelf-management' },
+    ],
+  },
+  {
+    title: 'Hệ Thống & Người Dùng',
+    emoji: '⚙️',
+    items: [
+      { icon: 'manage_accounts', label: 'Quản Lý Tài Khoản', path: '/accounts' },
+    ],
+  },
 ]
+
+export const navItems = navGroups.flatMap((g) => g.items)
 
 function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
@@ -27,7 +53,7 @@ function initialsFromName(name) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-export function Sidebar({ activeItem = 'Giám Sát Robot', onOpenCommandPalette }) {
+export function Sidebar({ activeItem, onOpenCommandPalette }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, logout } = useAuth()
@@ -38,13 +64,16 @@ export function Sidebar({ activeItem = 'Giám Sát Robot', onOpenCommandPalette 
   }
 
   const isActive = (item) => {
+    if (activeItem && activeItem === item.label) {
+      return true
+    }
     if (item.path) {
       if (item.path === '/' && (location.pathname === '/' || location.pathname === '/advertisement')) {
         return true
       }
       return location.pathname.startsWith(item.path) && item.path !== '/'
     }
-    return activeItem === item.label
+    return false
   }
 
   const handleLogout = async () => {
@@ -91,43 +120,54 @@ export function Sidebar({ activeItem = 'Giám Sát Robot', onOpenCommandPalette 
         </button>
       </div>
 
-      {/* Navigation List */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <ul className="space-y-1">
-          {navItems.map((item) => {
-            const active = isActive(item)
-            return (
-              <li key={item.label}>
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    handleNav(item)
-                  }}
-                  className={`group relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all duration-150 ${
-                    active
-                      ? 'bg-smb-primary/10 text-smb-primary shadow-xs dark:bg-emerald-500/15 dark:text-emerald-400'
-                      : 'text-smb-on-surface-variant hover:bg-smb-surface-container-low hover:text-smb-on-surface'
-                  }`}
-                >
-                  {active && (
-                    <span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-smb-primary shadow-sm shadow-emerald-500/50" />
-                  )}
-                  <Icon
-                    name={item.icon}
-                    className={`text-[20px] transition-colors duration-150 ${
-                      active ? 'text-smb-primary dark:text-emerald-400' : 'text-smb-outline group-hover:text-smb-on-surface'
-                    }`}
-                  />
-                  <span>{item.label}</span>
-                  {item.label === 'Giám Sát Robot' && (
-                    <span className="ml-auto flex size-2 rounded-full bg-emerald-500 smb-live-pulse" />
-                  )}
-                </a>
-              </li>
-            )
-          })}
-        </ul>
+      {/* Navigation Groups */}
+      <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
+        {navGroups.map((group, groupIdx) => (
+          <div key={group.title} className={groupIdx > 0 ? 'pt-2 border-t border-smb-outline-variant/40' : ''}>
+            {/* Group Header */}
+            <div className="px-2 pb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-smb-on-surface-variant/60 select-none">
+              <span className="text-xs leading-none">{group.emoji}</span>
+              <span className="truncate">{group.title}</span>
+            </div>
+
+            {/* Group Items */}
+            <ul className="space-y-0.5">
+              {group.items.map((item) => {
+                const active = isActive(item)
+                return (
+                  <li key={item.label}>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        handleNav(item)
+                      }}
+                      className={`group relative flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all duration-150 ${
+                        active
+                          ? 'bg-smb-primary/10 text-smb-primary shadow-xs dark:bg-emerald-500/15 dark:text-emerald-400'
+                          : 'text-smb-on-surface-variant hover:bg-smb-surface-container-low hover:text-smb-on-surface'
+                      }`}
+                    >
+                      {active && (
+                        <span className="absolute inset-y-1.5 left-0 w-1 rounded-r-full bg-smb-primary shadow-sm shadow-emerald-500/50" />
+                      )}
+                      <Icon
+                        name={item.icon}
+                        className={`text-[19px] transition-colors duration-150 ${
+                          active ? 'text-smb-primary dark:text-emerald-400' : 'text-smb-outline group-hover:text-smb-on-surface'
+                        }`}
+                      />
+                      <span className="truncate">{item.label}</span>
+                      {item.label === 'Giám Sát Robot' && (
+                        <span className="ml-auto flex size-2 rounded-full bg-emerald-500 smb-live-pulse" />
+                      )}
+                    </a>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        ))}
       </nav>
 
       {/* User Profile Footer */}

@@ -27,13 +27,17 @@ export function CommandPalette({ isOpen, onClose }) {
   if (!isOpen) return null
 
   const navigationItems = [
-    { label: 'Giám Sát Robot Theo Thời Gian Thực', path: '/robot-monitoring', icon: 'smart_toy', category: 'Điều Hành' },
-    { label: 'Quản Lý Chiến Dịch Quảng Cáo', path: '/advertisement', icon: 'campaign', category: 'Quảng Cáo' },
-    { label: 'Tạo Chiến Dịch Mới', path: '/advertisement/create', icon: 'add_circle', category: 'Quảng Cáo' },
-    { label: 'Quản Lý Gói Quảng Cáo', path: '/ad-packages', icon: 'inventory_2', category: 'Quảng Cáo' },
-    { label: 'Quản Lý Thương Hiệu Đối Tác', path: '/brand-dashboard', icon: 'storefront', category: 'Đối Tác' },
-    { label: 'Quản Lý Sản Phẩm Siêu Thị', path: '/products', icon: 'shopping_bag', category: 'Kho Hàng' },
-    { label: 'Quản Lý Tài Khoản Hệ Thống', path: '/accounts', icon: 'manage_accounts', category: 'Hệ Thống' },
+    { label: 'Giám Sát Robot Theo Thời Gian Thực', path: '/robots', icon: 'smart_toy', category: 'Quản Lý Robot & Thiết Bị' },
+    { label: 'Bản Đồ & Định Vị Robot', path: '/ros-map', icon: 'map', category: 'Quản Lý Robot & Thiết Bị' },
+    { label: 'Quản Lý Tuần Tra Kệ Hàng', path: '/patrol-management', icon: 'shield_with_heart', category: 'Quản Lý Robot & Thiết Bị' },
+    { label: 'Chiến Dịch Quảng Cáo', path: '/', icon: 'campaign', category: 'Marketing & Khuyến Mãi' },
+    { label: 'Gói Quảng Cáo', path: '/ad-packages', icon: 'sell', category: 'Marketing & Khuyến Mãi' },
+    { label: 'Quản Lý Nhãn Hàng', path: '/brand-dashboard', icon: 'storefront', category: 'Hàng Hóa & Cửa Hàng' },
+    { label: 'Quản Lý Sản Phẩm Siêu Thị', path: '/products', icon: 'inventory_2', category: 'Hàng Hóa & Cửa Hàng' },
+    { label: 'Quản Lý Loại Sản Phẩm', path: '/product-types', icon: 'category', category: 'Hàng Hóa & Cửa Hàng' },
+    { label: 'Quản Lý Health Tag', path: '/health-tags', icon: 'label', category: 'Hàng Hóa & Cửa Hàng' },
+    { label: 'Quản Lý Kệ Hàng', path: '/shelf-management', icon: 'shelves', category: 'Hàng Hóa & Cửa Hàng' },
+    { label: 'Quản Lý Tài Khoản Hệ Thống', path: '/accounts', icon: 'manage_accounts', category: 'Hệ Thống & Người Dùng' },
   ]
 
   const filteredItems = navigationItems.filter(

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { toast } from 'react-toastify'
+import Sidebar from '../components/Sidebar'
+import Navbar from '../components/Navbar'
 import {
   getRecentScans,
   getShelfDensities,
@@ -268,9 +270,18 @@ export default function ShelfPatrolManagement() {
   }, [scans, scanFilterShelf, scanFilterStatus])
 
   return (
-    <div className="min-h-screen bg-smb-surface-container-lowest/40 p-4 md:p-6 lg:p-8 space-y-6">
-      {/* ── Header ── */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-smb-outline-variant/60 pb-5">
+    <div className="min-h-screen bg-smb-surface">
+      <Sidebar activeItem="Quản Lý Tuần Tra" />
+
+      <div className="pl-[264px]">
+        <Navbar
+          title="Quản Lý Tuần Tra"
+          subtitle="Hệ thống giám sát, điều phối tuần tra và quét AI kệ hàng"
+        />
+
+        <main className="p-4 md:p-6 lg:p-8 space-y-6">
+          {/* ── Header ── */}
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-smb-outline-variant/60 pb-5">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs font-semibold text-teal-600 dark:text-teal-400 uppercase tracking-wider">
             <Icon name="shield_with_heart" className="text-sm" />
@@ -899,6 +910,8 @@ export default function ShelfPatrolManagement() {
           </div>
         </div>
       )}
+        </main>
+      </div>
 
       {/* ── Modal Phóng To Ảnh Chụp Cloudinary ── */}
       {previewImage && (

@@ -29,11 +29,11 @@ export function RosMapToolPage() {
           {/* Top Quick Bar */}
           <div className="flex items-center justify-between pb-2">
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs font-semibold">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold shadow-2xs">
                 <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
                 Bản Đồ Số Hóa & Tọa Độ Điểm Dừng
               </span>
-              <span className="text-xs text-gray-500 hidden sm:inline">
+              <span className="text-xs text-smb-on-surface-variant hidden sm:inline">
                 Theo dõi và hiệu chỉnh không gian di chuyển của Robot
               </span>
             </div>
@@ -41,7 +41,7 @@ export function RosMapToolPage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={handleRefresh}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 text-xs font-medium transition-colors shadow-sm"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold transition-all shadow-2xs active:scale-95"
                 title="Tải lại công cụ ROS Map"
               >
                 <span className="material-symbols-outlined text-[16px]">refresh</span>
@@ -51,7 +51,7 @@ export function RosMapToolPage() {
                 href="/ros-map-tool.html?edit=true"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 hover:text-indigo-300 border border-indigo-500/30 text-xs font-medium transition-colors shadow-sm"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600 text-xs font-semibold transition-all shadow-2xs active:scale-95"
                 title="Mở toàn màn hình trong tab mới"
               >
                 <span className="material-symbols-outlined text-[16px]">open_in_new</span>
@@ -61,7 +61,7 @@ export function RosMapToolPage() {
           </div>
 
           {/* Embedded ROS Map Tool Iframe */}
-          <div className="flex-1 rounded-xl border border-gray-800 bg-[#020617] overflow-hidden shadow-2xl relative">
+          <div className="flex-1 rounded-2xl border border-smb-outline-variant/60 bg-white overflow-hidden shadow-xs relative">
             <iframe
               key={iframeKey}
               src="/ros-map-tool.html?edit=true"

@@ -9,133 +9,164 @@
         <style>
 
         :root {
-            --bg-base: #020617;
-            --bg-surface: #0f172a;
-            --bg-elevated: #1e293b;
-            --bg-hover: #334155;
-            --border-subtle: #334155;
-            --border-strong: #475569;
+            --bg-base: #f8fafc;
+            --bg-surface: #ffffff;
+            --bg-elevated: #ffffff;
+            --bg-hover: #f1f5f9;
+            --border-subtle: #e2e8f0;
+            --border-strong: #cbd5e1;
             
-            --text-primary: #f8fafc;
-            --text-secondary: #cbd5e1;
-            --text-muted: #94a3b8;
+            --text-primary: #0f172a;
+            --text-secondary: #334155;
+            --text-muted: #64748b;
             
-            --accent-primary: #3b82f6;
-            --accent-primary-hover: #2563eb;
-            --accent-success: #10b981;
-            --accent-success-hover: #059669;
+            --accent-primary: #16a34a;
+            --accent-primary-hover: #15803d;
+            --accent-success: #16a34a;
+            --accent-success-hover: #15803d;
             --accent-danger: #ef4444;
             --accent-danger-hover: #dc2626;
             --accent-warning: #f59e0b;
             --accent-warning-hover: #d97706;
-            --accent-purple: #a855f7;
-            --accent-purple-hover: #9333ea;
+            --accent-purple: #8b5cf6;
+            --accent-purple-hover: #7c3aed;
         }
 
         * { box-sizing: border-box; }
         body {
             margin: 0;
             padding: 0;
-            font-family: 'Inter', sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background-color: var(--bg-base);
             color: var(--text-primary);
             height: 100vh;
             display: flex;
             overflow: hidden;
             user-select: none;
-            font-size: 14px;
+            font-size: 13px;
         }
 
         h1, h2, h3, h4 { margin: 0; }
         .text-sm { font-size: 12px; }
-        .text-base { font-size: 14px; }
-        .text-lg { font-size: 16px; }
+        .text-base { font-size: 13px; }
+        .text-lg { font-size: 15px; }
         
         .font-medium { font-weight: 500; }
         .font-semibold { font-weight: 600; }
+        .font-bold { font-weight: 700; }
         .font-mono { font-family: 'Consolas', 'Monaco', monospace; }
 
         .text-muted { color: var(--text-muted); }
         .text-secondary { color: var(--text-secondary); }
-        .text-primary { color: var(--accent-primary); }
-        .text-success { color: var(--accent-success); }
-        .text-danger { color: var(--accent-danger); }
-        .text-warning { color: var(--accent-warning); }
-        .text-purple { color: var(--accent-purple); }
+        .text-primary { color: #166534; }
+        .text-success { color: #16a34a; }
+        .text-danger { color: #e11d48; }
+        .text-warning { color: #d97706; }
+        .text-purple { color: #7c3aed; }
 
         .sidebar, .right-sidebar {
-            width: 380px;
-            background: rgba(15, 23, 42, 0.85);
-            backdrop-filter: blur(12px);
-            padding: 20px;
+            width: 360px;
+            background: #ffffff;
+            padding: 16px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 14px;
             z-index: 10;
             overflow-y: auto;
         }
-        .sidebar { border-right: 1px solid var(--border-subtle); box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3); }
-        .right-sidebar { border-left: 1px solid var(--border-subtle); box-shadow: -4px 0 24px rgba(0, 0, 0, 0.3); }
+        .sidebar {
+            border-right: 1px solid var(--border-subtle);
+            box-shadow: 2px 0 12px rgba(0, 0, 0, 0.03);
+        }
+        .right-sidebar {
+            border-left: 1px solid var(--border-subtle);
+            box-shadow: -2px 0 12px rgba(0, 0, 0, 0.03);
+        }
+
+        .sidebar::-webkit-scrollbar, .right-sidebar::-webkit-scrollbar, .log-content::-webkit-scrollbar {
+            width: 5px;
+        }
+        .sidebar::-webkit-scrollbar-track, .right-sidebar::-webkit-scrollbar-track, .log-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .sidebar::-webkit-scrollbar-thumb, .right-sidebar::-webkit-scrollbar-thumb, .log-content::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .sidebar::-webkit-scrollbar-thumb:hover, .right-sidebar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
 
         .header {
-            font-size: 20px;
-            font-weight: 600;
-            color: var(--text-primary);
+            font-size: 16px;
+            font-weight: 700;
+            color: #111c16;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            padding-bottom: 4px;
         }
-        .header-title { display: flex; align-items: center; gap: 12px; }
+        .header-title { display: flex; align-items: center; gap: 8px; }
         .header-icon {
-            width: 12px; height: 12px;
-            background: var(--accent-success);
+            width: 10px; height: 10px;
+            background: #16a34a;
             border-radius: 50%;
-            box-shadow: 0 0 12px var(--accent-success);
+            box-shadow: 0 0 10px rgba(22, 163, 74, 0.5);
             animation: pulse 2s infinite;
         }
 
         .global-status {
-            font-size: 12px;
+            font-size: 11px;
             padding: 4px 10px;
-            border-radius: 12px;
-            background: rgba(239, 68, 68, 0.2);
-            color: var(--accent-danger);
-            border: 1px solid rgba(239, 68, 68, 0.4);
-            font-weight: 500;
+            border-radius: 9999px;
+            background: #fff1f2;
+            color: #e11d48;
+            border: 1px solid #fecdd3;
+            font-weight: 700;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
+            letter-spacing: 0.02em;
         }
         .global-status.connected {
-            background: rgba(16, 185, 129, 0.2);
-            color: var(--accent-success);
-            border-color: rgba(16, 185, 129, 0.4);
+            background: #ecfdf5;
+            color: #15803d;
+            border-color: #a7f3d0;
         }
 
         .card {
-            background: var(--bg-elevated);
+            background: #ffffff;
             border: 1px solid var(--border-subtle);
-            border-radius: 8px;
-            padding: 16px;
+            border-radius: 12px;
+            padding: 14px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+            transition: border-color 0.2s;
+        }
+        .card:hover {
+            border-color: #cbd5e1;
         }
         .card-title {
-            font-size: 12px;
+            font-size: 11px;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-muted);
-            font-weight: 600;
+            letter-spacing: 0.06em;
+            color: #166534;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
         
         .data-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 14px;
+            font-size: 12px;
+            color: var(--text-secondary);
         }
-        .data-value {
+        .data-value, .value {
             font-family: 'Consolas', 'Monaco', monospace;
             font-weight: 600;
             color: var(--text-primary);
@@ -143,165 +174,269 @@
 
         .input-group {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             align-items: center;
         }
 
         input[type="text"], input[type="number"], select {
             width: 100%;
-            background: var(--bg-surface);
+            background: #f8fafc;
             border: 1px solid var(--border-strong);
             color: var(--text-primary);
-            padding: 8px 12px;
-            border-radius: 6px;
+            padding: 8px 10px;
+            border-radius: 8px;
             font-family: inherit;
-            font-size: 14px;
+            font-size: 12px;
             outline: none;
-            transition: border-color 0.2s;
+            transition: all 0.2s;
         }
-        input[type="text"]:focus, input[type="number"]:focus, select:focus { border-color: var(--accent-primary); }
+        input[type="text"]:focus, input[type="number"]:focus, select:focus {
+            background: #ffffff;
+            border-color: #16a34a;
+            box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+        }
 
         .btn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
-            padding: 8px 10px;
-            border-radius: 6px;
-            font-weight: 500;
-            font-size: 13px;
+            gap: 5px;
+            padding: 8px 8px;
+            border-radius: 9px;
+            font-weight: 600;
+            font-size: 11.5px;
             cursor: pointer;
-            border: none;
-            transition: all 0.2s;
-            color: white;
+            border: 1px solid transparent;
+            transition: all 0.15s ease;
             white-space: nowrap;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
         }
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px -1px rgba(0, 0, 0, 0.08);
+        }
+        .btn:active {
+            transform: translateY(0);
+            scale: 0.98;
+        }
+
         .btn-flex { flex: 1; }
         .btn-full { width: 100%; }
 
-        .btn-primary { background: var(--accent-primary); }
-        .btn-primary:hover { background: var(--accent-primary-hover); }
-        .btn-success { background: var(--accent-success); color: #020617; font-weight: 600;}
-        .btn-success:hover { background: var(--accent-success-hover); }
-        .btn-danger { background: var(--accent-danger); }
-        .btn-danger:hover { background: var(--accent-danger-hover); }
-        .btn-warning { background: var(--accent-warning); color: var(--bg-base); font-weight: 600; }
-        .btn-warning:hover { background: var(--accent-warning-hover); }
-        .btn-purple { background: var(--accent-purple); }
-        .btn-purple:hover { background: var(--accent-purple-hover); }
-        .btn-secondary { background: var(--bg-hover); color: var(--text-primary); border: 1px solid var(--border-strong); }
-        .btn-secondary:hover { background: var(--border-strong); }
-        .btn-icon { padding: 8px; width: 36px; }
+        .btn-primary { background: #16a34a; color: #ffffff; }
+        .btn-primary:hover { background: #15803d; }
+        
+        .btn-success { background: #059669; color: #ffffff; }
+        .btn-success:hover { background: #047857; }
+
+        .btn-secondary { background: #ffffff; color: #334155; border: 1px solid var(--border-strong); }
+        .btn-secondary:hover { background: #f8fafc; border-color: #94a3b8; color: #0f172a; }
+
+        .btn-danger { background: #e11d48; color: #ffffff; }
+        .btn-danger:hover { background: #be123c; }
+
+        .btn-warning { background: #d97706; color: #ffffff; }
+        .btn-warning:hover { background: #b45309; }
+
+        .btn-purple { background: #7c3aed; color: #ffffff; }
+        .btn-purple:hover { background: #6d28d9; }
 
         .mode-switcher {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 8px;
+            gap: 6px;
         }
         .mode-label {
-            background: var(--bg-surface);
+            background: #f8fafc;
             border: 1px solid var(--border-subtle);
             padding: 8px 4px;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 11px;
+            font-weight: 600;
             text-align: center;
-            transition: all 0.2s;
+            transition: all 0.18s;
             color: var(--text-secondary);
+        }
+        .mode-label:hover {
+            background: #f1f5f9;
+            border-color: var(--border-strong);
         }
         .mode-label input { display: none; }
         .mode-label:has(input:checked) {
-            background: var(--bg-hover);
-            border-color: var(--accent-primary);
-            color: var(--text-primary);
-            font-weight: 600;
+            background: #ecfdf5;
+            border-color: #16a34a;
+            color: #166534;
+            font-weight: 700;
+            box-shadow: 0 1px 3px rgba(22, 163, 74, 0.15);
         }
-        .mode-label.mode-draw:has(input:checked) { border-color: var(--accent-danger); background: rgba(239,68,68,0.2); }
-        .mode-label.mode-initial:has(input:checked) { border-color: var(--accent-success); background: rgba(16,185,129,0.2); }
-        .mode-label.mode-goal:has(input:checked) { border-color: var(--accent-warning); background: rgba(245,158,11,0.2); }
+        .mode-label.mode-draw:has(input:checked) { border-color: #f43f5e; background: #fff1f2; color: #be123c; }
+        .mode-label.mode-initial:has(input:checked) { border-color: #10b981; background: #ecfdf5; color: #047857; }
+        .mode-label.mode-goal:has(input:checked) { border-color: #f59e0b; background: #fffbeb; color: #b45309; }
 
         .checkbox-label {
             display: flex;
             align-items: center;
             gap: 8px;
-            font-size: 14px;
+            font-size: 13px;
             color: var(--text-secondary);
             cursor: pointer;
         }
-        .checkbox-label input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent-primary); }
+        .checkbox-label input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: #16a34a; }
 
         .map-container {
             flex: 1;
             position: relative;
-            background: radial-gradient(circle at center, var(--bg-surface) 0%, var(--bg-base) 100%);
+            background-color: #0b1120;
+            background-image: 
+                radial-gradient(rgba(255, 255, 255, 0.12) 1.2px, transparent 1.2px),
+                linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 24px 24px, 120px 120px, 120px 120px;
             overflow: hidden;
             cursor: grab;
+            transition: background 0.25s ease;
         }
         .map-container.draw-mode { cursor: crosshair; }
         .map-container:active:not(.draw-mode) { cursor: grabbing; }
 
-        canvas {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid var(--border-subtle);
-            border-radius: 4px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        .map-container.light-theme {
+            background-color: #e2e8f0;
+            background-image: 
+                radial-gradient(#94a3b8 1.2px, transparent 1.2px),
+                linear-gradient(to right, rgba(148, 163, 184, 0.25) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(148, 163, 184, 0.25) 1px, transparent 1px);
+            background-size: 24px 24px, 120px 120px, 120px 120px;
+        }
+
+        #mapCanvas {
+            background: #ffffff;
+            border: 2px solid #38bdf8;
+            border-radius: 6px;
+            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.45);
             transform-origin: top left;
             position: absolute;
             top: 0; left: 0;
+            image-rendering: pixelated;
+        }
+
+        .map-container.light-theme #mapCanvas {
+            border: 2px solid #166534;
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.18);
+        }
+
+        #uiCanvas {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            transform-origin: top left;
+            position: absolute;
+            top: 0; left: 0;
+            pointer-events: none;
+        }
+
+        .map-hud-toolbar {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            z-index: 40;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(8px);
+            padding: 4px 6px;
+            border-radius: 10px;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        .map-hud-btn {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            color: #334155;
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            user-select: none;
+        }
+        .map-hud-btn:hover {
+            background: #f0fdf4;
+            color: #166534;
+            border-color: #86efac;
+            transform: translateY(-1px);
+        }
+        .map-hud-btn:active {
+            transform: translateY(0);
         }
 
         @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+            0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.4); }
+            70% { box-shadow: 0 0 0 8px rgba(22, 163, 74, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
         }
 
         .toast {
             position: fixed; bottom: -100px; left: calc(50% + 170px); transform: translateX(-50%);
-            background: rgba(16, 185, 129, 0.9); color: white; padding: 12px 24px; border-radius: 30px;
-            font-weight: 500; box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+            background: #15803d; color: white; padding: 10px 22px; border-radius: 9999px;
+            font-weight: 600; font-size: 13px; box-shadow: 0 10px 25px rgba(22, 163, 74, 0.25);
             transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 100; pointer-events: none;
         }
         .toast.show { bottom: 30px; }
 
         .log-panel {
             position: absolute; bottom: -250px; left: 0; right: 0; height: 250px;
-            background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(8px);
-            border-top: 1px solid var(--border-subtle); border-left: 1px solid var(--border-subtle); border-right: 1px solid var(--border-subtle);
-            border-radius: 8px 8px 0 0; transition: bottom 0.3s ease; display: flex; flex-direction: column; z-index: 50;
+            background: #ffffff; border-top: 1px solid var(--border-strong);
+            box-shadow: 0 -10px 25px -5px rgba(0, 0, 0, 0.08);
+            transition: bottom 0.3s ease; display: flex; flex-direction: column; z-index: 50;
         }
         .log-panel.open { bottom: 0; }
         .log-header {
-            padding: 8px 16px; background: rgba(255, 255, 255, 0.05); border-bottom: 1px solid var(--border-subtle);
-            display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-radius: 8px 8px 0 0; user-select: none;
+            padding: 8px 16px; background: #f8fafc; border-bottom: 1px solid var(--border-subtle);
+            display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;
+            color: #0f172a; font-weight: 600;
         }
-        .panel-controls { position: absolute; top: -38px; right: 24px; display: flex; gap: 12px; }
-        .log-toggle-btn { background: rgba(15, 23, 42, 0.95); border: 1px solid var(--border-subtle); border-bottom: none; color: var(--text-muted); padding: 8px 20px; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 6px; }
-        .shutdown-btn { background: var(--accent-danger); border: 1px solid var(--border-subtle); border-bottom: none; color: #fff; padding: 8px 20px; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 6px; font-weight: bold; transition: background 0.2s; }
-        .shutdown-btn:hover { background: var(--accent-danger-hover); }
-        .settings-btn { background: var(--bg-hover); border: 1px solid var(--border-subtle); border-bottom: none; color: #fff; padding: 8px 16px; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
-        .settings-btn:hover { background: var(--border-strong); }
+        .panel-controls { position: absolute; top: -36px; right: 24px; display: flex; gap: 10px; }
+        .log-toggle-btn {
+            background: #ffffff; border: 1px solid var(--border-strong); border-bottom: none;
+            color: #334155; padding: 8px 18px; border-radius: 8px 8px 0 0; cursor: pointer;
+            font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;
+            box-shadow: 0 -2px 6px rgba(0,0,0,0.03);
+        }
+        .log-toggle-btn:hover { background: #f8fafc; color: #16a34a; }
+        .shutdown-btn {
+            background: #fff1f2; border: 1px solid #fecdd3; border-bottom: none;
+            color: #be123c; padding: 8px 18px; border-radius: 8px 8px 0 0; cursor: pointer;
+            font-size: 12px; display: flex; align-items: center; gap: 6px; font-weight: 700;
+            box-shadow: 0 -2px 6px rgba(0,0,0,0.03); transition: all 0.2s;
+        }
+        .shutdown-btn:hover { background: #ffe4e6; color: #9f1239; }
         
-        .log-content { flex: 1; overflow-y: auto; padding: 12px; font-family: 'Consolas', 'Monaco', monospace; font-size: 12px; color: var(--text-secondary); }
+        .log-content { flex: 1; overflow-y: auto; padding: 12px; font-family: 'Consolas', 'Monaco', monospace; font-size: 12px; color: #334155; background: #f8fafc; }
         .log-line { margin-bottom: 4px; word-wrap: break-word; }
-        .log-debug { color: var(--text-muted); }
-        .log-info { color: var(--text-primary); }
-        .log-warn { color: var(--accent-warning); }
-        .log-error { color: var(--accent-danger); font-weight: bold; }
-        .log-fatal { color: #b91c1c; font-weight: bold; text-decoration: underline; }
+        .log-debug { color: #64748b; }
+        .log-info { color: #0f172a; }
+        .log-warn { color: #b45309; }
+        .log-error { color: #be123c; font-weight: bold; }
+        .log-fatal { color: #991b1b; font-weight: bold; text-decoration: underline; }
 
         .imgui-collapsible { background: transparent; margin-bottom: 2px; }
         .imgui-collapsible > .summary {
-            background: var(--bg-hover); padding: 6px 8px; font-size: 14px; font-weight: 500; cursor: pointer;
-            display: flex; align-items: center; color: var(--text-secondary); user-select: none; transition: background 0.2s; border-radius: 4px;
+            background: #f1f5f9; padding: 8px 10px; font-size: 12px; font-weight: 700; cursor: pointer;
+            display: flex; align-items: center; color: #334155; user-select: none; transition: background 0.2s; border-radius: 8px;
         }
-        .imgui-collapsible > .summary:hover { background: var(--border-strong); }
+        .imgui-collapsible > .summary:hover { background: #e2e8f0; color: #0f172a; }
         .imgui-collapsible > .summary::before {
-            content: '▶'; font-size: 10px; margin-right: 8px; color: var(--text-muted); display: inline-block; transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            content: '▶'; font-size: 9px; margin-right: 8px; color: #64748b; display: inline-block; transition: transform 0.25s ease;
         }
-        .imgui-collapsible.open > .summary::before { transform: rotate(90deg); }
-        .imgui-collapsible > .details-content { display: flex; flex-direction: column; gap: 16px; max-height: 0; opacity: 0; overflow: hidden; padding: 0; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, padding 0.4s ease; }
-        .imgui-collapsible.open > .details-content { max-height: 2500px; opacity: 1; padding: 12px 0 0 0; }
+        .imgui-collapsible.open > .summary::before { transform: rotate(90deg); color: #16a34a; }
+        .imgui-collapsible > .details-content { display: flex; flex-direction: column; gap: 12px; max-height: 0; opacity: 0; overflow: hidden; padding: 0; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, padding 0.4s ease; }
+        .imgui-collapsible.open > .details-content { max-height: 2500px; opacity: 1; padding: 10px 0 0 0; }
 
     </style>
 
@@ -331,20 +466,20 @@
             </div>
 
             <div style="display: flex; gap: 8px; flex-direction: column; margin-bottom: 12px;">
-                <div class="input-group" style="display: flex; gap: 6px;">
-                    <button id="btn-agent-start-slam" onclick="startRobotOS('slam')" class="btn btn-primary btn-flex" style="background-color: #2563eb;" title="Bắt đầu chạy quét và vẽ bản đồ siêu thị mới">🗺️ Quét Bản Đồ Mới</button>
-                    <button id="btn-agent-start-amcl" onclick="startRobotOS('amcl')" class="btn btn-primary btn-flex" style="background-color: #059669;" title="Kích hoạt chế độ tự hành dẫn đường">🧭 Dẫn Đường Tự Hành</button>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                    <button id="btn-agent-start-slam" onclick="startRobotOS('slam')" class="btn btn-primary" style="background-color: #0d9488; padding: 8px 4px; font-size: 11.5px; letter-spacing: -0.2px;" title="Bắt đầu chạy quét và vẽ bản đồ siêu thị mới">🗺️ Quét Bản Đồ Mới</button>
+                    <button id="btn-agent-start-amcl" onclick="startRobotOS('amcl')" class="btn btn-primary" style="background-color: #16a34a; padding: 8px 4px; font-size: 11.5px; letter-spacing: -0.2px;" title="Kích hoạt chế độ tự hành dẫn đường">🧭 Dẫn Đường Tự Hành</button>
                 </div>
-                <div class="input-group" style="display: flex; gap: 6px;">
-                    <button id="btn-agent-stop" onclick="stopRobotOS()" class="btn btn-secondary btn-flex" title="Tạm dừng mọi tiến trình di chuyển">🛑 Dừng Hoạt Động</button>
-                    <button id="btn-agent-save" onclick="saveRobotMap()" class="btn btn-success btn-flex" title="Lưu lại bản đồ vừa quét">💾 Lưu Bản Đồ</button>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                    <button id="btn-agent-stop" onclick="stopRobotOS()" class="btn btn-secondary" style="padding: 8px 4px; font-size: 11.5px; letter-spacing: -0.2px;" title="Tạm dừng mọi tiến trình di chuyển">🛑 Dừng Hoạt Động</button>
+                    <button id="btn-agent-save" onclick="saveRobotMap()" class="btn btn-success" style="padding: 8px 4px; font-size: 11.5px; letter-spacing: -0.2px;" title="Lưu lại bản đồ vừa quét">💾 Lưu Bản Đồ</button>
                 </div>
             </div>
 
-            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px; font-weight: 500;">Địa chỉ kết nối Robot:</div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px; font-weight: 600;">Địa chỉ kết nối Robot:</div>
             <div class="input-group">
                 <input type="text" id="ros-ws-url" value="ws://snake.local:9090" placeholder="ws://snake.local:9090">
-                <button id="btn-ros-connect" onclick="connectROS()" style="background: #10b981;">Kết Nối</button>
+                <button id="btn-ros-connect" onclick="connectROS()" class="btn btn-primary" style="background: #16a34a; font-weight: 600; padding: 0 16px;">Kết Nối</button>
             </div>
             <div class="data-row" style="margin-top: 8px;">
                 <span>Hệ thống Robot:</span><span class="value" id="val-agent-status"
@@ -362,29 +497,29 @@
                 Tải bản đồ chuẩn từ hệ thống máy chủ hoặc hiệu chỉnh tường ngăn.
             </div>
             <button onclick="fetchActiveMapFromBE()"
-                style="width: 100%; background: #0284c7; margin-bottom: 8px; color: #ffffff; font-weight: 600; padding: 9px;" class="btn">📥 Tải Bản Đồ Chuẩn Từ Máy Chủ</button>
+                style="width: 100%; background: #166534; margin-bottom: 8px; color: #ffffff; font-weight: 600; padding: 9px;" class="btn">📥 Tải Bản Đồ Chuẩn Từ Máy Chủ</button>
             <div class="text-sm text-muted" style="margin-bottom: 4px;">
                 Bản đồ sẽ được tự động đồng bộ xuống robot để định vị.
             </div>
 
             <div id="amcl-upload-section"
-                style="display: none; margin-top: 12px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 12px;">
-                <div style="font-size: 12px; color: #f59e0b; margin-bottom: 8px;">Tải Tệp Bản Đồ Lên Robot</div>
+                style="display: none; margin-top: 12px; border-top: 1px dashed var(--border-subtle); padding-top: 12px;">
+                <div style="font-size: 12px; color: #d97706; margin-bottom: 8px; font-weight: 600;">Tải Tệp Bản Đồ Lên Robot</div>
                 <input type="file" id="amclMapFiles" multiple accept=".pgm,.yaml" />
                 <button onclick="uploadMapToRobot()" class="btn btn-warning btn-full">Tải Lên Robot</button>
             </div>
 
-            <div id="map-edit-section" style="margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px;">
+            <div id="map-edit-section" style="margin-top: 10px; border-top: 1px dashed var(--border-subtle); padding-top: 10px;">
                 <button id="btn-edit-map" onclick="toggleMapEditMode()" class="btn btn-purple btn-full" style="margin-bottom: 8px;">✏️ Chỉnh Sửa Vật Cản Bản Đồ</button>
                 <div id="edit-tools" style="display: none; flex-direction: column; gap: 6px;">
                     <div style="display: flex; gap: 6px;">
                         <button onclick="setBrush('draw')" id="btn-draw" class="btn btn-secondary btn-flex">🧱 Vẽ Tường / Cản</button>
                         <button onclick="setBrush('erase')" id="btn-erase" class="btn btn-secondary btn-flex">🧹 Xóa (Đường Trống)</button>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #cbd5e1; background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 6px;">
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #475569; background: #f1f5f9; border: 1px solid var(--border-subtle); padding: 4px 8px; border-radius: 6px;">
                         <span>Độ dày nét:</span>
                         <input type="range" id="brush-size" min="1" max="20" value="5" style="flex: 1;" oninput="document.getElementById('brush-val').innerText = this.value + 'px'">
-                        <span id="brush-val" style="min-width: 35px; font-weight: 600;">5px</span>
+                        <span id="brush-val" style="min-width: 35px; font-weight: 600; color: #0f172a;">5px</span>
                     </div>
                     <div style="display: flex; gap: 6px; margin-top: 4px;">
                         <button onclick="saveEditedMap()" class="btn btn-success btn-flex">💾 Cập Nhật Robot</button>
@@ -412,7 +547,7 @@
                 </label>
             </div>
 
-            <div style="font-size: 13px; color: #f8fafc; margin-bottom: 12px; line-height: 1.5; background: rgba(15, 23, 42, 0.6); padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+            <div style="font-size: 13px; color: #334155; margin-bottom: 12px; line-height: 1.5; background: #f8fafc; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-subtle);">
                 <span id="instruction-pan">
                     🖱️ <b>Giữ chuột trái & kéo:</b> Di chuyển góc nhìn bản đồ<br>
                     🔍 <b>Lăn chuột:</b> Phóng to / Thu nhỏ bản đồ<br>
@@ -420,16 +555,16 @@
                     ⚙️ <b>Nhấp vào điểm dừng:</b> Xem & chỉnh tọa độ chi tiết<br>
                     ❌ <b>Nhấp chuột phải:</b> Xóa điểm dừng này
                 </span>
-                <span id="instruction-draw" style="display:none; color: #fecdd3;">
+                <span id="instruction-draw" style="display:none; color: #be123c;">
                     🎯 <b>Nhấn giữ chuột trái & kéo hướng:</b> Đặt điểm dừng mới và hướng quay của xe.<br>
                     📍 <b>Kéo thả điểm dừng:</b> Thay đổi vị trí điểm dừng<br>
                     ⚙️ <b>Nhấp vào điểm dừng:</b> Xem & chỉnh tọa độ chi tiết<br>
                     ❌ <b>Nhấp chuột phải:</b> Xóa điểm dừng
                 </span>
-                <span id="instruction-initialpose" style="display:none; color: #d1fae5;">
+                <span id="instruction-initialpose" style="display:none; color: #047857;">
                     🏠 <b>Nhấn giữ chuột trái & kéo hướng:</b> Đặt lại vị trí xuất phát thực tế của xe trong siêu thị.
                 </span>
-                <span id="instruction-navgoal" style="display:none; color: #fef3c7;">
+                <span id="instruction-navgoal" style="display:none; color: #b45309;">
                     🚀 <b>Nhấn giữ chuột trái & kéo hướng:</b> Ra lệnh cho robot lập tức tự lái đến vị trí vừa chọn.
                 </span>
             </div>
@@ -439,13 +574,13 @@
                     id="val-wy">-</span></div>
         </div>
 
-        <div class="card" style="border-color: #10b981;">
-            <div class="card-title" style="color: #10b981;">4. LƯU TRỮ & ĐỒNG BỘ MÁY CHỦ</div>
-            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+        <div class="card" style="border: 1px solid #bbf7d0; background: #f0fdf4;">
+            <div class="card-title" style="color: #166534;">4. LƯU TRỮ & ĐỒNG BỘ MÁY CHỦ</div>
+            <div style="font-size: 12px; color: #166534; margin-bottom: 12px; opacity: 0.85;">
                 Đồng bộ bản đồ và danh sách các điểm dừng lên cơ sở dữ liệu siêu thị.
             </div>
-            <button onclick="syncMapFilesToBE()" style="width: 100%; background: #10b981; margin-bottom: 8px; font-weight: 600;" class="btn">💾 Lưu Bản Đồ Lên Máy Chủ</button>
-            <button onclick="syncWaypointsToBE()" style="width: 100%; background: #0284c7; font-weight: 600;" class="btn">📍 Lưu Điểm Dừng Lên Máy Chủ</button>
+            <button onclick="syncMapFilesToBE()" style="width: 100%; background: #16a34a; margin-bottom: 8px; font-weight: 600; color: #ffffff;" class="btn">💾 Lưu Bản Đồ Lên Máy Chủ</button>
+            <button onclick="syncWaypointsToBE()" style="width: 100%; background: #059669; font-weight: 600; color: #ffffff;" class="btn">📍 Lưu Điểm Dừng Lên Máy Chủ</button>
         </div>
 
         <!-- Removed Export Mission -->
@@ -454,6 +589,14 @@
     </div>
 
     <div class="map-container" id="mapContainer">
+        <!-- MAP HUD CONTROLS -->
+        <div class="map-hud-toolbar">
+            <button onclick="zoomMap(1.25)" class="map-hud-btn" title="Phóng to bản đồ (hoặc lăn chuột)">🔍 +</button>
+            <button onclick="zoomMap(0.8)" class="map-hud-btn" title="Thu nhỏ bản đồ (hoặc lăn chuột)">🔍 −</button>
+            <button onclick="fitMapToScreen()" class="map-hud-btn" title="Căn bản đồ vừa vặn trung tâm màn hình">🎯 Vừa Khung</button>
+            <button onclick="toggleMapTheme()" id="btn-map-theme" class="map-hud-btn" title="Đổi màu nền CAD Tối / Sáng">🌓 Đổi Nền CAD</button>
+        </div>
+
         <!-- Layer 1: Bản đồ gốc (sẽ bị scale mờ/pixelate) -->
         <canvas id="mapCanvas" width="800" height="600" style="image-rendering: pixelated;"></canvas>
         <!-- Layer 2: Vector UI (Luôn sắc nét, kích thước 1:1 với màn hình) -->
@@ -513,12 +656,12 @@
             <div class="data-row">
                 <span>Tọa độ xe Y:</span><span class="value text-primary" id="live-ry">0.000 m</span>
             </div>
-            <div class="data-row" style="margin-top: 5px; border-top: 1px dashed #334155; padding-top: 5px;">
+            <div class="data-row" style="margin-top: 5px; border-top: 1px dashed var(--border-subtle); padding-top: 5px;">
                 <span>Tần số truyền nhận:</span><span class="value text-success" id="live-hz">0 Hz</span>
             </div>
 
             <div class="data-row"
-                style="margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px;">
+                style="margin-top: 10px; border-top: 1px dashed var(--border-subtle); padding-top: 10px;">
                 <label style="font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-secondary);">
                     <input type="checkbox" id="toggle-live-map" autocomplete="off" onchange="toggleLiveMap()"> Hiện Lớp Bản Đồ Trực Tiếp
                 </label>
@@ -535,16 +678,16 @@
             <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
                 Hình ảnh trực tiếp từ camera mặt trước của xe.
             </div>
-            <div style="width: 100%; aspect-ratio: 16/9; background: #0f172a; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <div style="width: 100%; aspect-ratio: 16/9; background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
                 <img id="camera-stream-img" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;" />
-                <span id="camera-placeholder" style="color: #64748b; font-size: 13px;">Chưa bật camera quan sát</span>
+                <span id="camera-placeholder" style="color: #64748b; font-size: 13px; font-weight: 500;">Chưa bật camera quan sát</span>
             </div>
             <div class="data-row" style="margin-top: 10px;">
                 <label style="font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-secondary);">
                     <input type="checkbox" id="toggle-camera" autocomplete="off" onchange="toggleCameraStream()"> Bật Luồng Camera Robot
                 </label>
             </div>
-            <div style="margin-top: 12px; border-top: 1px dashed var(--border-strong); padding-top: 12px;">
+            <div style="margin-top: 12px; border-top: 1px dashed var(--border-subtle); padding-top: 12px;">
                 <a href="/ros-ai-monitor.html" class="btn btn-purple btn-full" target="_blank" style="text-decoration: none;">🧠 Mở Màn Hình AI Nhận Diện Sản Phẩm</a>
             </div>
         </div>
@@ -554,67 +697,122 @@
 
     <!-- Waypoint Edit Modal -->
     <div id="wp-modal-overlay"
-        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 999; transition: all 0.3s ease;"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 999; transition: all 0.3s ease;"
         onclick="closeWpModal()"></div>
     <div id="wp-modal"
-        style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1e293b; padding: 24px; border-radius: 12px; border: 1px solid #334155; z-index: 1000; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); min-width: 360px; font-family: 'Inter', sans-serif;">
+        style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #ffffff; padding: 24px; border-radius: 14px; border: 1px solid #e2e8f0; z-index: 1000; box-shadow: 0 25px 55px -10px rgba(0, 0, 0, 0.2); width: 440px; max-width: 92vw; font-family: 'Inter', sans-serif;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="margin: 0; color: #38bdf8; font-size: 1.15rem; font-weight: 600; display: flex; align-items: center; gap: 8px;">
-                <span>📍</span> Cập Nhật Tọa Độ Điểm Dừng
+            <h3 style="margin: 0; color: #166534; font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                <span>📍</span> Cấu Hình Điểm Dừng & Gán Kệ Hàng
             </h3>
             <button onclick="closeWpModal()"
-                style="background: transparent; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer; padding: 0;">&times;</button>
+                style="background: transparent; border: none; color: #64748b; font-size: 1.3rem; cursor: pointer; padding: 0;">&times;</button>
         </div>
 
         <input type="hidden" id="wp-edit-index">
-        <!-- Hidden inputs for backward compatibility -->
-        <input type="hidden" id="wp-edit-name">
-        <select id="wp-edit-role" style="display: none;"></select>
-        <select id="wp-edit-type" style="display: none;"></select>
-        <select id="wp-edit-shelf" style="display: none;"></select>
-        <input type="hidden" id="wp-edit-dwell">
-        <input type="checkbox" id="wp-edit-blocked" style="display: none;">
 
         <!-- Readonly Node Info Card -->
-        <div style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center;">
             <div>
-                <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Điểm Dừng Đang Chọn</div>
-                <div id="wp-display-name" style="font-size: 14px; font-weight: 600; color: #f8fafc; margin-top: 2px;">Điểm Dừng</div>
+                <div style="font-size: 11px; color: #166534; text-transform: uppercase; font-weight: 700;">Điểm Dừng Đang Chọn</div>
+                <div id="wp-display-name" style="font-size: 14px; font-weight: 700; color: #0f172a; margin-top: 2px;">Điểm Dừng</div>
             </div>
-            <div id="wp-display-badge" style="font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">
+            <div id="wp-display-badge" style="font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px; background: rgba(22, 163, 74, 0.12); color: #166534; border: 1px solid #bbf7d0;">
                 📍 Điểm Dừng
             </div>
         </div>
 
-        <!-- Editable X, Y Coordinates Only -->
-        <div style="display: flex; gap: 12px; margin-bottom: 12px;">
-            <div style="flex: 1;">
-                <label style="display: block; color: #cbd5e1; font-size: 13px; margin-bottom: 6px; font-weight: 600;">
-                    Tọa độ X (mét):
-                </label>
-                <input type="number" id="wp-edit-x" step="0.01"
-                    style="width: 100%; background: #0f172a; border: 1.5px solid #38bdf8; border-radius: 8px; padding: 10px 12px; color: #fff; font-size: 15px; font-weight: 700; font-family: monospace; outline: none;"
-                    onfocus="this.style.borderColor='#60a5fa'; this.style.boxShadow='0 0 0 2px rgba(96,165,250,0.3)'"
-                    onblur="this.style.borderColor='#38bdf8'; this.style.boxShadow='none'">
-            </div>
-            <div style="flex: 1;">
-                <label style="display: block; color: #cbd5e1; font-size: 13px; margin-bottom: 6px; font-weight: 600;">
-                    Tọa độ Y (mét):
-                </label>
-                <input type="number" id="wp-edit-y" step="0.01"
-                    style="width: 100%; background: #0f172a; border: 1.5px solid #38bdf8; border-radius: 8px; padding: 10px 12px; color: #fff; font-size: 15px; font-weight: 700; font-family: monospace; outline: none;"
-                    onfocus="this.style.borderColor='#60a5fa'; this.style.boxShadow='0 0 0 2px rgba(96,165,250,0.3)'"
-                    onblur="this.style.borderColor='#38bdf8'; this.style.boxShadow='none'">
+        <!-- 1. GÁN VÀO KỆ HÀNG (QUAN TRỌNG NHẤT) -->
+        <div style="margin-bottom: 14px;">
+            <label style="display: block; color: #166534; font-size: 13px; margin-bottom: 6px; font-weight: 700;">
+                🛍️ Gán Vào Kệ Hàng Siêu Thị:
+            </label>
+            <select id="wp-edit-shelf"
+                style="width: 100%; background: #ffffff; border: 1.5px solid #16a34a; border-radius: 8px; padding: 9px 12px; color: #0f172a; font-size: 13px; font-weight: 600; outline: none; cursor: pointer; box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.1);">
+                <option value="">-- Không gán kệ (Điểm dừng tự do) --</option>
+            </select>
+            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
+                Chọn kệ để liên kết vị trí dừng của robot khi tuần tra hoặc dẫn đường đến kệ này.
             </div>
         </div>
 
-        <div style="font-size: 11px; color: #94a3b8; margin-bottom: 20px; line-height: 1.5; background: rgba(56, 189, 248, 0.05); padding: 8px 10px; border-radius: 6px; border-left: 3px solid #38bdf8;">
-            ℹ️ <i>Cập nhật vị trí X, Y của điểm dừng trên bản đồ. Các thông tin liên kết kệ hàng và cấu hình khác được giữ nguyên.</i>
+        <!-- 2. TÊN ĐIỂM DỪNG -->
+        <div style="margin-bottom: 14px;">
+            <label style="display: block; color: #334155; font-size: 13px; margin-bottom: 6px; font-weight: 600;">
+                Tên Hiển Thị Trên Bản Đồ:
+            </label>
+            <input type="text" id="wp-edit-name" placeholder="Ví dụ: Kệ 1 - Bánh kẹo & Snack"
+                style="width: 100%; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 9px 12px; color: #0f172a; font-size: 13px; font-weight: 600; outline: none;"
+                onfocus="this.style.borderColor='#16a34a'; this.style.boxShadow='0 0 0 2px rgba(22,163,74,0.15)'"
+                onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'">
+        </div>
+
+        <!-- 3. ROLE & TYPE (2 CỘT) -->
+        <div style="display: flex; gap: 10px; margin-bottom: 14px;">
+            <div style="flex: 1;">
+                <label style="display: block; color: #334155; font-size: 12px; margin-bottom: 5px; font-weight: 600;">
+                    Nhiệm Vụ (Role):
+                </label>
+                <select id="wp-edit-role"
+                    style="width: 100%; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; color: #0f172a; font-size: 12px; font-weight: 600; outline: none; cursor: pointer;">
+                    <option value="ad">📺 ad (Quảng cáo)</option>
+                    <option value="patrol">🛒 patrol (Tuần tra)</option>
+                    <option value="charging">⚡ charging (Trạm sạc)</option>
+                    <option value="guide">🧭 guide (Dẫn đường)</option>
+                    <option value="nav">➡️ nav (Đi ngang qua)</option>
+                    <option value="pickup">📦 pickup (Lấy hàng)</option>
+                </select>
+            </div>
+            <div style="flex: 1;">
+                <label style="display: block; color: #334155; font-size: 12px; margin-bottom: 5px; font-weight: 600;">
+                    Phân Loại (Type):
+                </label>
+                <select id="wp-edit-type"
+                    style="width: 100%; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; color: #0f172a; font-size: 12px; font-weight: 600; outline: none; cursor: pointer;">
+                    <option value="Shelf">🛍️ Shelf (Quầy kệ)</option>
+                    <option value="Waypoint">📍 Waypoint (Điểm dừng)</option>
+                    <option value="ChargingStation">⚡ Charging (Trạm sạc)</option>
+                    <option value="Intersection">🛣️ Intersection (Ngã tư)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 4. TỌA ĐỘ X, Y & DWELL TIME (3 CỘT) -->
+        <div style="display: flex; gap: 10px; margin-bottom: 14px;">
+            <div style="flex: 1;">
+                <label style="display: block; color: #334155; font-size: 12px; margin-bottom: 5px; font-weight: 600;">
+                    Tọa độ X (m):
+                </label>
+                <input type="number" id="wp-edit-x" step="0.01"
+                    style="width: 100%; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; color: #0f172a; font-size: 13px; font-weight: 700; font-family: monospace; outline: none;">
+            </div>
+            <div style="flex: 1;">
+                <label style="display: block; color: #334155; font-size: 12px; margin-bottom: 5px; font-weight: 600;">
+                    Tọa độ Y (m):
+                </label>
+                <input type="number" id="wp-edit-y" step="0.01"
+                    style="width: 100%; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; color: #0f172a; font-size: 13px; font-weight: 700; font-family: monospace; outline: none;">
+            </div>
+            <div style="flex: 1;">
+                <label style="display: block; color: #334155; font-size: 12px; margin-bottom: 5px; font-weight: 600;">
+                    Dừng (giây):
+                </label>
+                <input type="number" id="wp-edit-dwell" min="0" value="30"
+                    style="width: 100%; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; color: #0f172a; font-size: 13px; font-weight: 700; font-family: monospace; outline: none;">
+            </div>
+        </div>
+
+        <!-- 5. BỊ CHẶN (IS BLOCKED) -->
+        <div style="margin-bottom: 18px;">
+            <label style="display: flex; align-items: center; gap: 8px; color: #be123c; font-size: 12px; font-weight: 600; cursor: pointer;">
+                <input type="checkbox" id="wp-edit-blocked" style="width: 16px; height: 16px; accent-color: #e11d48; cursor: pointer;">
+                Đánh dấu vị trí này đang bị chặn vật cản (Robot sẽ tránh đi qua)
+            </label>
         </div>
 
         <div style="display: flex; justify-content: flex-end; gap: 10px;">
             <button class="btn btn-secondary" onclick="closeWpModal()">Hủy</button>
-            <button class="btn btn-primary" onclick="saveWpModal()">Lưu Tọa Độ</button>
+            <button class="btn btn-primary" onclick="saveWpModal()" style="background: #16a34a; padding: 9px 18px; font-size: 12px; font-weight: 700;">💾 Lưu Cấu Hình & Gán Kệ</button>
         </div>
     </div>
 
@@ -771,18 +969,23 @@
             };
         }
 
-        // --- JS Logic cho Waypoint Config Modal (Chỉ cập nhật tọa độ X, Y) ---
+        // --- JS Logic cho Waypoint Config Modal (Gán Kệ & Cấu Hình) ---
         function openWpModal(index) {
             const wp = waypoints[index];
             if (!wp) return;
 
             document.getElementById('wp-edit-index').value = index;
+            document.getElementById('wp-edit-name').value = wp.name || `Waypoint ${index + 1}`;
+            document.getElementById('wp-edit-role').value = wp.role || 'ad';
+            document.getElementById('wp-edit-type').value = wp.nodeType || 'Waypoint';
             document.getElementById('wp-edit-x').value = wp.x;
             document.getElementById('wp-edit-y').value = wp.y;
+            document.getElementById('wp-edit-dwell').value = wp.dwellTimeSeconds !== undefined ? wp.dwellTimeSeconds : 30;
+            document.getElementById('wp-edit-blocked').checked = wp.isBlocked || false;
 
             const displayNameElem = document.getElementById('wp-display-name');
             if (displayNameElem) {
-                const idStr = (wp.id && typeof wp.id === 'number') ? ` (ID: ${wp.id})` : '';
+                const idStr = (wp.id && typeof wp.id === 'number') ? ` (ID: ${wp.id})` : ' (Mới - Chưa lưu)';
                 displayNameElem.innerText = (wp.name || `Waypoint ${index + 1}`) + idStr;
             }
 
@@ -798,27 +1001,60 @@
                 displayBadgeElem.innerText = `📍 ${typeStr} · ${roleStr}`;
             }
 
+            // Đổ danh sách Kệ Hàng từ window.allShelves
+            const shelfSelect = document.getElementById('wp-edit-shelf');
+            if (shelfSelect) {
+                shelfSelect.innerHTML = '<option value="">-- Không gán kệ (Điểm dừng tự do) --</option>';
+                if (window.allShelves && Array.isArray(window.allShelves)) {
+                    window.allShelves.forEach(s => {
+                        const opt = document.createElement('option');
+                        opt.value = s.shelfId;
+                        const isThisNode = (wp.id && s.nodeId === wp.id);
+                        const assignedOther = (s.nodeId && s.nodeId !== wp.id) ? ` [Node #${s.nodeId}]` : '';
+                        opt.text = `${s.shelfName}${s.aisleName ? ' (' + s.aisleName + ')' : ''}${assignedOther}${isThisNode ? ' ✅ (Đang gán)' : ''}`;
+                        shelfSelect.appendChild(opt);
+                    });
+                }
+
+                // Tìm kệ đang được gán cho node này
+                const mappedShelf = (window.allShelves || []).find(s => wp.id && s.nodeId === wp.id);
+                if (mappedShelf) {
+                    shelfSelect.value = mappedShelf.shelfId;
+                } else {
+                    shelfSelect.value = "";
+                }
+            }
+
             document.getElementById('wp-modal-overlay').style.display = 'block';
             document.getElementById('wp-modal').style.display = 'block';
-
-            // Tự động focus vào input X
-            setTimeout(() => {
-                const xInput = document.getElementById('wp-edit-x');
-                if (xInput) {
-                    xInput.focus();
-                    xInput.select();
-                }
-            }, 50);
         }
+
+        // Tự động gợi ý tên khi người dùng chọn Kệ hàng
+        document.addEventListener('DOMContentLoaded', () => {
+            const shelfSel = document.getElementById('wp-edit-shelf');
+            if (shelfSel) {
+                shelfSel.addEventListener('change', (e) => {
+                    const sId = e.target.value;
+                    if (sId) {
+                        const found = (window.allShelves || []).find(s => s.shelfId == sId);
+                        if (found) {
+                            document.getElementById('wp-edit-name').value = found.shelfName;
+                            document.getElementById('wp-edit-type').value = 'Shelf';
+                        }
+                    }
+                });
+            }
+        });
 
         function closeWpModal() {
             document.getElementById('wp-modal-overlay').style.display = 'none';
             document.getElementById('wp-modal').style.display = 'none';
         }
 
-        function saveWpModal() {
+        async function saveWpModal() {
             const index = parseInt(document.getElementById('wp-edit-index').value);
             if (index >= 0 && index < waypoints.length) {
+                const wp = waypoints[index];
                 const xVal = parseFloat(document.getElementById('wp-edit-x').value);
                 const yVal = parseFloat(document.getElementById('wp-edit-y').value);
 
@@ -827,22 +1063,53 @@
                     return;
                 }
 
-                // CHỈ CẬP NHẬT TỌA ĐỘ X, Y (giữ nguyên toàn bộ name, role, nodeType, dwell, shelf, isBlocked)
-                waypoints[index].x = parseFloat(xVal.toFixed(4));
-                waypoints[index].y = parseFloat(yVal.toFixed(4));
+                wp.name = document.getElementById('wp-edit-name').value.trim() || `Waypoint ${index + 1}`;
+                wp.role = document.getElementById('wp-edit-role').value;
+                wp.nodeType = document.getElementById('wp-edit-type').value;
+                wp.x = parseFloat(xVal.toFixed(4));
+                wp.y = parseFloat(yVal.toFixed(4));
+                wp.dwellTimeSeconds = parseFloat(document.getElementById('wp-edit-dwell').value) || 30;
+                wp.isBlocked = document.getElementById('wp-edit-blocked').checked;
+
+                // Xử lý gán Kệ hàng vào Node trên máy chủ (PUT /api/v1/shelves/{shelfId}/map-node/{nodeId})
+                const selectedShelfId = document.getElementById('wp-edit-shelf').value;
+                if (selectedShelfId && wp.id) {
+                    const baseUrl = window.SMB_ENV?.BE_URL !== undefined ? window.SMB_ENV.BE_URL : 'http://localhost:5000';
+                    try {
+                        const res = await fetch(`${baseUrl}/api/v1/shelves/${selectedShelfId}/map-node/${wp.id}`, {
+                            method: 'PUT',
+                            headers: getFetchHeaders()
+                        });
+                        if (res.ok) {
+                            console.log(`[ShelfMapping] Mapped Node #${wp.id} to Shelf #${selectedShelfId}`);
+                            // Cập nhật local state
+                            (window.allShelves || []).forEach(s => {
+                                if (s.nodeId === wp.id) s.nodeId = null;
+                            });
+                            const target = (window.allShelves || []).find(s => s.shelfId == selectedShelfId);
+                            if (target) target.nodeId = wp.id;
+                        } else {
+                            console.warn("Lỗi khi gán kệ trên máy chủ:", res.status);
+                        }
+                    } catch (e) {
+                        console.error("Error mapping shelf:", e);
+                    }
+                } else if (selectedShelfId && !wp.id) {
+                    alert("⚠️ Node này chưa có ID trên máy chủ (chưa được lưu). Vui lòng nhấn nút 'Lưu Điểm Dừng Lên Máy Chủ' trước, sau đó mới gán Kệ hàng!");
+                }
 
                 closeWpModal();
                 renderUI();
 
                 const toast = document.getElementById('toast');
-                toast.innerText = `✅ Đã cập nhật tọa độ (${waypoints[index].x.toFixed(2)}, ${waypoints[index].y.toFixed(2)})! Bấm "Lưu Điểm Dừng Lên Máy Chủ" để đồng bộ.`;
-                toast.style.background = '#0ea5e9';
+                toast.innerText = `✅ Đã lưu cấu hình cho "${wp.name}"! Bấm "Lưu Điểm Dừng Lên Máy Chủ" để đồng bộ toàn bộ.`;
+                toast.style.background = '#16a34a';
                 toast.classList.add('show');
                 setTimeout(() => toast.classList.remove('show'), 3500);
 
                 const syncBtn = document.querySelector('button[onclick="syncWaypointsToBE()"]');
                 if (syncBtn) {
-                    syncBtn.style.boxShadow = '0 0 16px rgba(14, 165, 233, 0.9)';
+                    syncBtn.style.boxShadow = '0 0 16px rgba(22, 163, 74, 0.9)';
                     syncBtn.style.transform = 'scale(1.02)';
                     syncBtn.style.transition = 'all 0.3s ease';
                     setTimeout(() => {
@@ -860,6 +1127,44 @@
             mapCanvas.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
             document.getElementById('val-zoom').innerText = Math.round(scale * 100) + '%';
             renderUI();
+        }
+
+        function zoomMap(factor) {
+            const centerX = container.clientWidth / 2;
+            const centerY = container.clientHeight / 2;
+            let newScale = scale * factor;
+            newScale = Math.max(0.2, Math.min(newScale, 40.0));
+            const actualFactor = newScale / scale;
+            translateX = centerX - (centerX - translateX) * actualFactor;
+            translateY = centerY - (centerY - translateY) * actualFactor;
+            scale = newScale;
+            applyTransform();
+        }
+
+        function fitMapToScreen() {
+            if (!IMAGE_WIDTH || !IMAGE_HEIGHT) return;
+            const padding = 70;
+            const availW = container.clientWidth - padding * 2;
+            const availH = container.clientHeight - padding * 2;
+            if (availW <= 0 || availH <= 0) return;
+            const fitScale = Math.min(availW / IMAGE_WIDTH, availH / IMAGE_HEIGHT);
+            scale = Math.max(0.2, Math.min(fitScale, 15.0));
+            translateX = (container.clientWidth - IMAGE_WIDTH * scale) / 2;
+            translateY = (container.clientHeight - IMAGE_HEIGHT * scale) / 2;
+            applyTransform();
+        }
+
+        function toggleMapTheme() {
+            const mapCont = document.getElementById('mapContainer');
+            const btn = document.getElementById('btn-map-theme');
+            mapCont.classList.toggle('light-theme');
+            const isLight = mapCont.classList.contains('light-theme');
+            if (btn) {
+                btn.innerHTML = isLight ? '☀️ Nền CAD Sáng' : '🌓 Nền CAD Tối';
+            }
+            try {
+                localStorage.setItem('smb_map_theme', isLight ? 'light' : 'dark');
+            } catch (e) {}
         }
 
         function resizeUICanvas() {
@@ -2332,9 +2637,7 @@ free_thresh: 0.196
                         ctxMap.clearRect(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
                         ctxMap.drawImage(img, 0, 0);
 
-                        translateX = (container.clientWidth - IMAGE_WIDTH) / 2;
-                        translateY = (container.clientHeight - IMAGE_HEIGHT) / 2;
-                        applyTransform();
+                        fitMapToScreen();
 
                         const toast = document.getElementById('toast');
                         toast.innerText = '✅ Đã tải bản đồ chuẩn từ máy chủ thành công!';
@@ -2358,6 +2661,14 @@ free_thresh: 0.196
 
         // Auto-fetch active map from BE on startup
         window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const savedTheme = localStorage.getItem('smb_map_theme');
+                if (savedTheme === 'light') {
+                    document.getElementById('mapContainer').classList.add('light-theme');
+                    const btn = document.getElementById('btn-map-theme');
+                    if (btn) btn.innerHTML = '☀️ Nền CAD Sáng';
+                }
+            } catch (e) {}
             await fetchAllShelves();
             fetchActiveMapFromBE().catch(e => console.warn('Auto fetch map failed:', e));
         });
