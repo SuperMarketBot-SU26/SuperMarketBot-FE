@@ -49,6 +49,15 @@ export const deleteRestockTask = async (id) => {
 }
 
 /**
+ * Lấy lịch sử bổ sung hàng / tương tác kệ của nhân viên đã hoàn tất
+ * @param {number} take - Số lượng bản ghi (mặc định 50)
+ */
+export const getRestockHistory = async (take = 50) => {
+  const res = await client.get(`${STAFF_ENDPOINT}/tasks/history`, { params: { take } })
+  return res.data
+}
+
+/**
  * Báo cáo kệ hàng bị trống hoặc che khuất (Report OOS)
  * @param {{ shelfId: number, slotId?: number, aisleId?: number, robotId?: number, reporterNote?: string }} payload
  */

@@ -12,7 +12,8 @@ import {
   getPatrolReadiness,
   dispatchPatrolMission,
   getPatrolRoutes,
-  getShelves
+  getShelves,
+  getRestockHistory
 } from '../features/robot/api/patrolApi'
 import { useRobotFleet } from '../features/robot/hooks/useRobotFleet'
 
@@ -60,8 +61,11 @@ export default function ShelfPatrolManagement() {
   const [scanFilterStatus, setScanFilterStatus] = useState('all')
   const [previewImage, setPreviewImage] = useState(null)
 
-  // ─── Tab 3: Restock Tasks State ───
+  // ─── Tab 3: Restock Tasks & Staff History State ───
+  const [restockSubTab, setRestockSubTab] = useState('pending') // 'pending' | 'history'
   const [tasks, setTasks] = useState([])
+  const [restockHistory, setRestockHistory] = useState([])
+  const [historyLoading, setHistoryLoading] = useState(false)
   const [taskFilterStatus, setTaskFilterStatus] = useState('all')
   const [completingTask, setCompletingTask] = useState(null)
   const [restockQty, setRestockQty] = useState(10)
@@ -132,6 +136,19 @@ export default function ShelfPatrolManagement() {
     }
   }, [])
 
+  const loadRestockHistory = useCallback(async () => {
+    setHistoryLoading(true)
+    try {
+      const res = await getRestockHistory(50)
+      const list = res?.items || (Array.isArray(res) ? res : [])
+      setRestockHistory(list)
+    } catch {
+      console.warn('Lỗi tải lịch sử châm hàng của nhân viên')
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [])
+
   const loadDensities = useCallback(async () => {
     setLoading(true)
     try {
@@ -152,17 +169,21 @@ export default function ShelfPatrolManagement() {
 
   useEffect(() => {
     if (activeTab === 'history') loadScanHistory()
-    else if (activeTab === 'restock') loadRestockTasks()
+    else if (activeTab === 'restock') {
+      loadRestockTasks()
+      loadRestockHistory()
+    }
     else if (activeTab === 'density') loadDensities()
-  }, [activeTab, loadScanHistory, loadRestockTasks, loadDensities])
+  }, [activeTab, loadScanHistory, loadRestockTasks, loadRestockHistory, loadDensities])
 
   // ─── Format Timestamp sang giờ VN (UTC+7) ───
   const formatDateTimeVN = (dateStr) => {
     if (!dateStr) return '—'
     try {
-      const str = String(dateStr).trim()
+      const str = String(dateStr).trim().replace(' ', 'T')
       const hasTz = /[Zz]$|[+\-]\d{2}:?\d{2}$/.test(str)
-      const d = new Date(hasTz ? str : `${str}Z`)
+      // Nếu không có hậu tố timezone, Backend đã lưu sẵn theo giờ VN (VnDateTime) -> gắn +07:00
+      const d = new Date(hasTz ? str : `${str}+07:00`)
       if (Number.isNaN(d.getTime())) return dateStr
       return d.toLocaleString('vi-VN', {
         timeZone: 'Asia/Ho_Chi_Minh',
@@ -172,6 +193,7 @@ export default function ShelfPatrolManagement() {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
+        hour12: false,
       })
     } catch {
       return dateStr
@@ -236,6 +258,8 @@ export default function ShelfPatrolManagement() {
       toast.success('Đã xác nhận châm hàng và cập nhật tồn kho thành công!')
       setCompletingTask(null)
       loadRestockTasks()
+      loadRestockHistory()
+      loadScanHistory()
     } catch {
       toast.error('Lỗi khi xác nhận hoàn thành nhiệm vụ')
     }
@@ -490,14 +514,23 @@ export default function ShelfPatrolManagement() {
                           {scan.emptyPercentage ? `${scan.emptyPercentage}%` : '—'}
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                            isRestock
-                              ? 'bg-rose-500/10 text-rose-600 border-rose-500/20'
-                              : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
-                          }`}>
-                            <span className={`size-1.5 rounded-full ${isRestock ? 'bg-rose-500' : 'bg-emerald-500'}`} />
-                            {isRestock ? 'Cần Châm Hàng' : 'Đủ Hàng'}
-                          </span>
+                          <div className="flex flex-col gap-1">
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                              isRestock
+                                ? 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                                : scan.analysisStatus === 'RestockedByStaff'
+                                ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/20'
+                                : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                            }`}>
+                              <span className={`size-1.5 rounded-full ${
+                                isRestock ? 'bg-rose-500' : scan.analysisStatus === 'RestockedByStaff' ? 'bg-indigo-500' : 'bg-emerald-500'
+                              }`} />
+                              {isRestock ? 'Cần Châm Hàng' : scan.analysisStatus === 'RestockedByStaff' ? 'Staff Đã Châm Hàng' : 'Đủ Hàng'}
+                            </span>
+                            {scan.analysisStatus === 'RestockedByStaff' && (
+                              <span className="text-[9px] text-indigo-600 dark:text-indigo-400 font-medium">👤 Bởi Nhân viên</span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-center">
                           {scan.imageUrl ? (
@@ -524,97 +557,253 @@ export default function ShelfPatrolManagement() {
       )}
 
       {/* ══════════════════════════════════════════════════════════════
-          TAB 3: NHIỆM VỤ BỔ SUNG HÀNG (STAFF RESTOCK)
+          TAB 3: NHIỆM VỤ BỔ SUNG HÀNG & LỊCH SỬ STAFF (STAFF RESTOCK)
       ══════════════════════════════════════════════════════════════ */}
       {activeTab === 'restock' && (
         <div className="rounded-2xl border border-smb-outline-variant/80 bg-smb-surface-container-lowest p-5 space-y-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-smb-outline-variant/50 pb-4">
             <div>
-              <h2 className="text-sm font-bold text-smb-on-surface">Danh Sách Nhiệm Vụ Cần Châm Hàng</h2>
+              <h2 className="text-sm font-bold text-smb-on-surface">
+                {restockSubTab === 'pending' ? 'Danh Sách Nhiệm Vụ Cần Châm Hàng' : 'Lịch Sử Bổ Sung Hàng Của Nhân Viên'}
+              </h2>
               <p className="text-[11px] text-smb-on-surface-variant">
-                Các ô hàng bị phát hiện trống qua Camera Robot hoặc báo cáo OOS khẩn cấp
+                {restockSubTab === 'pending'
+                  ? 'Các ô hàng bị phát hiện trống qua Camera Robot hoặc báo cáo OOS khẩn cấp'
+                  : 'Ghi nhận chi tiết thời gian, vị trí kệ, sản phẩm và kết quả châm hàng của nhân viên'}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+
+            {/* Sub-tab Pill Switcher */}
+            <div className="flex items-center gap-1.5 p-1 bg-smb-surface-container/40 rounded-xl border border-smb-outline-variant/60">
               <button
                 type="button"
-                onClick={() => setShowReportOosModal(true)}
-                className="flex items-center gap-1 text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20 transition-all"
+                onClick={() => setRestockSubTab('pending')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  restockSubTab === 'pending'
+                    ? 'bg-rose-600 text-white shadow-xs'
+                    : 'text-smb-on-surface-variant hover:text-smb-on-surface hover:bg-smb-surface-container'
+                }`}
               >
-                <Icon name="warning" className="text-sm" />
-                Báo Kệ Hết Hàng
+                <Icon name="assignment" className="text-sm" />
+                <span>Nhiệm Vụ Chờ Châm</span>
+                {tasks.length > 0 && (
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                    restockSubTab === 'pending' ? 'bg-white/20 text-white' : 'bg-rose-500/10 text-rose-600'
+                  }`}>
+                    {tasks.length}
+                  </span>
+                )}
               </button>
+
               <button
                 type="button"
-                onClick={loadRestockTasks}
-                disabled={loading}
+                onClick={() => {
+                  setRestockSubTab('history')
+                  loadRestockHistory()
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  restockSubTab === 'history'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-smb-on-surface-variant hover:text-smb-on-surface hover:bg-smb-surface-container'
+                }`}
+              >
+                <Icon name="history" className="text-sm" />
+                <span>Lịch Sử Đã Châm Hàng</span>
+                {restockHistory.length > 0 && (
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                    restockSubTab === 'history' ? 'bg-white/20 text-white' : 'bg-emerald-500/10 text-emerald-600'
+                  }`}>
+                    {restockHistory.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {restockSubTab === 'pending' && (
+                <button
+                  type="button"
+                  onClick={() => setShowReportOosModal(true)}
+                  className="flex items-center gap-1 text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20 transition-all"
+                >
+                  <Icon name="warning" className="text-sm" />
+                  Báo Kệ Hết Hàng
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (restockSubTab === 'pending') loadRestockTasks()
+                  else loadRestockHistory()
+                }}
+                disabled={loading || historyLoading}
                 className="flex items-center gap-1 text-xs font-bold text-teal-600 hover:text-teal-700 bg-teal-500/10 px-3 py-1.5 rounded-lg border border-teal-500/20 transition-all"
               >
-                <Icon name="refresh" className={`text-base ${loading ? 'animate-spin' : ''}`} />
+                <Icon name="refresh" className={`text-base ${(loading || historyLoading) ? 'animate-spin' : ''}`} />
                 Làm mới
               </button>
             </div>
           </div>
 
-          {/* Task Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {tasks.length === 0 ? (
-              <div className="col-span-full py-12 text-center text-smb-on-surface-variant space-y-2">
-                <Icon name="check_circle" className="text-4xl text-emerald-500" />
-                <div className="text-sm font-bold text-smb-on-surface">Tất cả kệ hàng đều đầy đủ!</div>
-                <p className="text-xs">Không có nhiệm vụ bổ sung hàng nào đang chờ xử lý.</p>
-              </div>
-            ) : (
-              tasks.map(task => (
-                <div
-                  key={task.taskId || task.id}
-                  className="rounded-xl border border-smb-outline-variant/80 bg-smb-surface-container/20 p-4 space-y-3 hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
-                      {task.priority || 'Ưu Tiên Cao'}
-                    </span>
-                    <span className="text-[10px] font-mono text-smb-on-surface-variant">
-                      {formatDateTimeVN(task.createdAt)}
-                    </span>
-                  </div>
-
-                  <div>
-                    <h3 className="text-xs font-bold text-smb-on-surface">
-                      {task.productName || `Sản phẩm #${task.productId || '—'}`}
-                    </h3>
-                    <p className="text-[11px] text-teal-600 dark:text-teal-400 font-medium">
-                      Vị trí: {task.location || `Khu vực: ${task.zoneName || 'Zone'} • Lối đi ${task.aisleId || ''} • Kệ ${task.shelfId || ''}`}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs bg-smb-surface-container-lowest p-2 rounded-lg border border-smb-outline-variant/40 font-mono">
-                    <span className="text-smb-on-surface-variant">Số lượng thiếu:</span>
-                    <span className="font-bold text-rose-600">-{task.missingQuantity || 1} cái</span>
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-1 border-t border-smb-outline-variant/40">
-                    <button
-                      type="button"
-                      onClick={() => setCompletingTask(task)}
-                      className="flex-1 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1"
-                    >
-                      <Icon name="check" className="text-sm" />
-                      Xác Nhận Đã Châm
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteTask(task.taskId || task.id)}
-                      className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-500/15 border border-rose-500/30 transition-all"
-                      title="Bỏ qua nhiệm vụ này"
-                    >
-                      <Icon name="delete" className="text-base" />
-                    </button>
-                  </div>
+          {/* Sub-tab 1: Pending Tasks Grid */}
+          {restockSubTab === 'pending' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {tasks.length === 0 ? (
+                <div className="col-span-full py-12 text-center text-smb-on-surface-variant space-y-2">
+                  <Icon name="check_circle" className="text-4xl text-emerald-500" />
+                  <div className="text-sm font-bold text-smb-on-surface">Tất cả kệ hàng đều đầy đủ!</div>
+                  <p className="text-xs">Không có nhiệm vụ bổ sung hàng nào đang chờ xử lý.</p>
                 </div>
-              ))
-            )}
-          </div>
+              ) : (
+                tasks.map(task => (
+                  <div
+                    key={task.taskId || task.id}
+                    className="rounded-xl border border-smb-outline-variant/80 bg-smb-surface-container/20 p-4 space-y-3 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
+                        {task.priority || 'Ưu Tiên Cao'}
+                      </span>
+                      <span className="text-[10px] font-mono text-smb-on-surface-variant">
+                        {formatDateTimeVN(task.createdAt)}
+                      </span>
+                    </div>
+
+                    <div>
+                      <h3 className="text-xs font-bold text-smb-on-surface">
+                        {task.productName || `Sản phẩm #${task.productId || '—'}`}
+                      </h3>
+                      <p className="text-[11px] text-teal-600 dark:text-teal-400 font-medium">
+                        Vị trí: {task.location || `Khu vực: ${task.zoneName || 'Zone'} • Lối đi ${task.aisleId || ''} • Kệ ${task.shelfId || ''}`}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs bg-smb-surface-container-lowest p-2 rounded-lg border border-smb-outline-variant/40 font-mono">
+                      <span className="text-smb-on-surface-variant">Số lượng thiếu:</span>
+                      <span className="font-bold text-rose-600">-{task.missingQuantity || 1} cái</span>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1 border-t border-smb-outline-variant/40">
+                      <button
+                        type="button"
+                        onClick={() => setCompletingTask(task)}
+                        className="flex-1 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1"
+                      >
+                        <Icon name="check" className="text-sm" />
+                        Xác Nhận Đã Châm
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTask(task.taskId || task.id)}
+                        className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-500/15 border border-rose-500/30 transition-all"
+                        title="Bỏ qua nhiệm vụ này"
+                      >
+                        <Icon name="delete" className="text-base" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Sub-tab 2: Restock History Table */}
+          {restockSubTab === 'history' && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-smb-on-surface">
+                <thead className="bg-smb-surface-container-high/60 text-[11px] font-bold uppercase tracking-wider text-smb-on-surface-variant border-b border-smb-outline-variant/60">
+                  <tr>
+                    <th className="px-4 py-3">Thời Gian Bổ Sung</th>
+                    <th className="px-4 py-3">Kệ Hàng & Dãy</th>
+                    <th className="px-4 py-3">Vị Trí & Ô Slot</th>
+                    <th className="px-4 py-3">Sản Phẩm Đã Châm</th>
+                    <th className="px-4 py-3">Mật Độ Sau Châm</th>
+                    <th className="px-4 py-3">Người Thực Hiện</th>
+                    <th className="px-4 py-3 text-center">Trạng Thái</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-smb-outline-variant/40">
+                  {restockHistory.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-10 text-center text-smb-on-surface-variant">
+                        <Icon name="history_toggle_off" className="text-3xl text-gray-400 mb-1" />
+                        <div>Chưa có lịch sử châm hàng nào được ghi nhận.</div>
+                      </td>
+                    </tr>
+                  ) : (
+                    restockHistory.map((item) => {
+                      const shelfId = item.shelfId || 1
+                      const meta = DEFAULT_SHELF_META[shelfId] || {}
+                      const displayShelfName = item.shelfName || meta.name || `Kệ #${shelfId}`
+                      const displayAisle = item.aisleName || meta.aisle || `Dãy A0${item.aisleId || 1}`
+                      return (
+                        <tr key={item.scanId || `${item.shelfId}-${item.restockedAt}`} className="hover:bg-smb-surface-container/20 transition-colors">
+                          <td className="px-4 py-3 font-mono font-medium whitespace-nowrap text-emerald-700 dark:text-emerald-400">
+                            {formatDateTimeVN(item.restockedAt)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="space-y-1">
+                              <div className="font-bold text-smb-on-surface text-xs flex items-center gap-1.5">
+                                <span className="text-sm">🏷️</span>
+                                <span>{displayShelfName}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="inline-block text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md font-mono">
+                                  Tag ArUco #{shelfId}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="space-y-1">
+                              <div className="font-semibold text-xs text-slate-700 flex items-center gap-1.5">
+                                <Icon name="storefront" className="text-xs text-emerald-600" />
+                                <span>{displayAisle}</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-[10px] text-slate-500 font-mono">
+                                <Icon name="grid_view" className="text-[11px] text-slate-400" />
+                                <span>Ô Slot: {item.slotCode || 'Tất cả các ô'}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="font-bold text-smb-on-surface">
+                              {item.productName || 'Toàn bộ sản phẩm trên kệ'}
+                            </div>
+                            <div className="text-[10px] text-smb-on-surface-variant">
+                              {item.notes || 'Bổ sung đầy đủ 100% hàng hóa'}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold font-mono text-emerald-600">
+                                {item.densityPercentage ?? 100}%
+                              </span>
+                              <div className="w-16 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-emerald-500 w-full" />
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 font-medium text-[11px]">
+                              <Icon name="person" className="text-xs text-indigo-500" />
+                              {item.performedBy || 'Nhân viên siêu thị (Staff)'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                              <span className="size-1.5 rounded-full bg-emerald-500" />
+                              Đã Hoàn Tất
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -643,8 +832,17 @@ export default function ShelfPatrolManagement() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {densities.map((shelf, idx) => {
-              const occRate = shelf.occupancyRatePct ?? 80
-              const emptyRate = 100 - occRate
+              const scanTime = shelf.scannedAt || shelf.lastScannedAt
+              const hasScanned = !!(scanTime || shelf.latestScanId)
+              const occRate = hasScanned
+                ? Math.round(Number(shelf.densityPercentage ?? shelf.occupancyRatePct ?? 100))
+                : null
+              const emptyRate = hasScanned
+                ? Math.round(Number(shelf.emptyPercentage ?? (100 - (occRate ?? 0))))
+                : null
+              const isSufficient = hasScanned ? (shelf.needsRestock === false || (!shelf.needsRestock && (occRate ?? 0) >= 70)) : true
+              const displayAisle = shelf.aisleName || (shelf.aisleId ? `Lối đi ${shelf.aisleId}` : 'Khu Tiêu Chuẩn')
+
               return (
                 <div
                   key={shelf.shelfId || idx}
@@ -658,14 +856,18 @@ export default function ShelfPatrolManagement() {
                       <div>
                         <h3 className="text-xs font-bold text-smb-on-surface">{shelf.shelfName || `Kệ Hàng #${idx + 1}`}</h3>
                         <p className="text-[10px] text-smb-on-surface-variant font-mono">
-                          {shelf.zoneName || 'Khu Vực Tiêu Chuẩn'} • Lối đi {shelf.aisleId || idx + 1}
+                          {shelf.zoneName || 'Khu Vực Tiêu Chuẩn'} • {displayAisle}
                         </p>
                       </div>
                     </div>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      occRate > 70 ? 'bg-emerald-500/15 text-emerald-600' : 'bg-rose-500/15 text-rose-600'
+                      !hasScanned
+                        ? 'bg-slate-500/15 text-slate-600 dark:text-slate-400'
+                        : isSufficient
+                        ? 'bg-emerald-500/15 text-emerald-600'
+                        : 'bg-rose-500/15 text-rose-600'
                     }`}>
-                      {occRate > 70 ? 'Đủ Hàng' : 'Thiếu Hàng'}
+                      {!hasScanned ? 'Chưa Quét' : isSufficient ? 'Đủ Hàng' : 'Thiếu Hàng'}
                     </span>
                   </div>
 
@@ -673,14 +875,22 @@ export default function ShelfPatrolManagement() {
                   <div className="space-y-1.5">
                     <div className="flex justify-between text-xs font-mono">
                       <span className="text-smb-on-surface-variant text-[11px]">Mật độ lấp đầy:</span>
-                      <span className="font-bold text-smb-on-surface">{occRate}%</span>
+                      <span className="font-bold text-smb-on-surface">
+                        {hasScanned ? `${occRate}%` : 'Chưa có dữ liệu'}
+                      </span>
                     </div>
                     <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-500 ${
-                          occRate > 70 ? 'bg-emerald-500' : occRate > 40 ? 'bg-amber-500' : 'bg-rose-500'
+                          !hasScanned
+                            ? 'bg-slate-300 dark:bg-slate-600'
+                            : (occRate ?? 0) >= 70
+                            ? 'bg-emerald-500'
+                            : (occRate ?? 0) >= 40
+                            ? 'bg-amber-500'
+                            : 'bg-rose-500'
                         }`}
-                        style={{ width: `${occRate}%` }}
+                        style={{ width: `${hasScanned ? (occRate ?? 0) : 0}%` }}
                       />
                     </div>
                   </div>
@@ -688,11 +898,15 @@ export default function ShelfPatrolManagement() {
                   <div className="grid grid-cols-2 gap-2 text-[11px] font-mono bg-smb-surface-container-lowest p-2.5 rounded-xl border border-smb-outline-variant/40">
                     <div>
                       <div className="text-smb-on-surface-variant text-[10px]">Tỷ Lệ Trống</div>
-                      <div className="font-bold text-rose-600">{emptyRate}%</div>
+                      <div className="font-bold text-rose-600 dark:text-rose-400">
+                        {hasScanned ? `${emptyRate}%` : '—'}
+                      </div>
                     </div>
                     <div>
                       <div className="text-smb-on-surface-variant text-[10px]">Lần Quét Gần Nhất</div>
-                      <div className="font-bold text-smb-on-surface">{shelf.lastScannedAt ? formatDateTimeVN(shelf.lastScannedAt) : 'Chưa quét'}</div>
+                      <div className="font-bold text-smb-on-surface text-[10px] leading-tight">
+                        {hasScanned ? formatDateTimeVN(scanTime) : 'Chưa quét'}
+                      </div>
                     </div>
                   </div>
 
