@@ -2,11 +2,11 @@
  * Maps API — /api/v1/maps
  *
  * Backend endpoints (MapsController.cs):
- *   GET    /api/v1/maps/latest?floorId=        → MapFloorplanDto (nodes/edges/semantic objects + floorplan image)
+ *   GET    /api/v1/maps/latest?floorId=        → MapFloorplanDto (nodes/edges + floorplan image)
  *   GET    /api/v1/maps/active?floorId=        → MapFloorplanDto (the canonical active map)
  *   GET    /api/v1/maps?floorId=               → MapSummaryDto[] (all map versions for a floor)
  *   GET    /api/v1/maps/{mapId}               → MapFloorplanDto (single map detail)
- *   POST   /api/v1/maps/sync                   → push full canvas state to DB (upsert nodes/edges/objects)
+ *   POST   /api/v1/maps/sync                   → push full canvas state to DB (upsert nodes/edges)
  *   POST   /api/v1/maps/{mapId}/set-active     → mark map as canonical for its floor
  *   POST   /api/v1/maps/{mapId}/upload-image   → multipart upload floorplan image
  *   POST   /api/v1/maps/upload-slam-bundle     → SLAM bundle (yaml + pgm → auto-convert + import waypoints)
@@ -16,17 +16,16 @@
  * MapFloorplanDto:
  *   { mapId, floorId, mapName, createdAt, floorplanImageUrl,
  *     widthMeters, heightMeters, resolution, originX, originY, originYaw, isActive,
- *     nodes[], edges[], semanticObjects[] }
+ *     nodes[], edges[] }
  *
  * MapSyncRequestDto (POST /maps/sync):
  *   { floorId, mapName?, mapData?, widthMeters, heightMeters, resolution?,
  *     originX?, originY?, originYaw?, isActive?,
- *     nodes[], edges[], semanticObjects[] }
+ *     nodes[], edges[] }
  *
  * MapSyncResultDto:
  *   { mapId, nodesCreated, nodesUpdated, nodesDeleted,
  *     edgesCreated, edgesUpdated, edgesDeleted,
- *     semanticObjectsCreated, semanticObjectsUpdated, semanticObjectsDeleted,
  *     message }
  *
  * Notes:
@@ -60,7 +59,7 @@ export const getActiveMap = async ({ floorId } = {}) => {
 
 /**
  * Sync the full canvas state to the server.
- * Performs upsert on nodes, edges, and semanticObjects (by their IDs).
+ * Performs upsert on nodes and edges (by their IDs).
  * Returns counts of created/updated/deleted entities.
  *
  * @param {Object} payload — MapSyncRequestDto
@@ -96,7 +95,7 @@ export const getMaps = async ({ floorId } = {}) => {
 }
 
 /**
- * Get a single map by ID (full detail with nodes/edges/semanticObjects).
+ * Get a single map by ID (full detail with nodes/edges).
  */
 export const getMap = async (mapId) => {
   const res = await client.get(`${ENDPOINT}/${mapId}`)

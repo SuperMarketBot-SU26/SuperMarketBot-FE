@@ -8,7 +8,7 @@
  * Allows admin to:
  *   - See which aisle is linked to which map waypoint (mappedNodeId, xCoord, yCoord)
  *   - Trigger "Setup Default Zones" for a floor
- *   - Click an aisle → sets selectedAisleId (parent can open the semantic-object editor)
+ *   - Click an aisle → sets selectedAisleId (parent can open the shelf editor)
  *
  * Props:
  *   floorId       — floor to load hierarchy for

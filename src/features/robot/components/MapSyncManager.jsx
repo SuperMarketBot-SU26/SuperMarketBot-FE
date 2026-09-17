@@ -9,7 +9,7 @@
  * Usage:
  *   <MapSyncManager
  *     mapId={currentMapId}
- *     canvasState={{ nodes, edges, semanticObjects }}
+ *     canvasState={{ nodes, edges }}
  *     floorId={1}
  *     mapName="Bản đồ Tầng 1"
  *     onSaved={(result) => { ... }}
@@ -44,7 +44,7 @@ function DiffRow({ label, icon, created, updated, deleted }) {
 }
 
 export function MapSyncPreview({ canvasState, mapName }) {
-  const { nodes = [], edges = [], semanticObjects = [] } = canvasState ?? {}
+  const { nodes = [], edges = [] } = canvasState ?? {}
   return (
     <div className="rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest p-4 space-y-2">
       <h4 className="text-xs font-bold text-smb-on-surface">
@@ -52,11 +52,10 @@ export function MapSyncPreview({ canvasState, mapName }) {
         Xác nhận đồng bộ: <span className="font-normal text-smb-on-surface-variant">{mapName}</span>
       </h4>
       <div className="text-[10px] text-smb-on-surface-variant">
-        {nodes.length} node · {edges.length} edge · {semanticObjects.length} kệ hàng
+        {nodes.length} node · {edges.length} edge
       </div>
       <DiffRow label="Node" icon="circle" created={nodes.filter((n) => n.isNew).length} updated={nodes.filter((n) => !n.isNew && n._dirty).length} deleted={nodes.filter((n) => n._deleted).length} />
       <DiffRow label="Edge" icon="timeline" created={edges.filter((e) => e.isNew).length} updated={edges.filter((e) => !e.isNew && e._dirty).length} deleted={edges.filter((e) => e._deleted).length} />
-      <DiffRow label="Kệ hàng" icon="inventory_2" created={semanticObjects.filter((s) => s.isNew).length} updated={semanticObjects.filter((s) => !s.isNew && s._dirty).length} deleted={semanticObjects.filter((s) => s._deleted).length} />
     </div>
   )
 }
@@ -71,11 +70,10 @@ export function MapSyncButton({ mapId, canvasState, floorId, mapName, onSaved, v
     setSyncing(true)
     setResult(null)
     try {
-      const { nodes, edges, semanticObjects } = canvasState ?? {}
+      const { nodes, edges } = canvasState ?? {}
       // Strip internal _dirty/_deleted flags before sending
       const cleanNodes = (nodes ?? []).filter((n) => !n._deleted).map(({ isNew, _dirty, ...rest }) => rest)
       const cleanEdges = (edges ?? []).filter((e) => !e._deleted).map(({ isNew, _dirty, ...rest }) => rest)
-      const cleanObjects = (semanticObjects ?? []).filter((s) => !s._deleted).map(({ isNew, _dirty, ...rest }) => rest)
 
       const data = await syncMap({
         floorId,
@@ -84,7 +82,6 @@ export function MapSyncButton({ mapId, canvasState, floorId, mapName, onSaved, v
         heightMeters: canvasState?.heightMeters ?? 20,
         nodes: cleanNodes,
         edges: cleanEdges,
-        semanticObjects: cleanObjects,
       })
       setResult({ success: true, data })
 
@@ -163,11 +160,10 @@ export function MapSyncButton({ mapId, canvasState, floorId, mapName, onSaved, v
                     <Icon name="check_circle" className="text-[20px]" />
                     Đồng bộ thành công!
                   </div>
-                  <div className="grid grid-cols-3 gap-2 text-center text-[11px]">
+                  <div className="grid grid-cols-2 gap-2 text-center text-[11px]">
                     {[
                       ['Node', result.data.nodesCreated + result.data.nodesUpdated],
                       ['Edge', result.data.edgesCreated + result.data.edgesUpdated],
-                      ['Kệ', result.data.semanticObjectsCreated + result.data.semanticObjectsUpdated],
                     ].map(([label, n]) => (
                       <div key={label} className="rounded-lg bg-emerald-100 p-2">
                         <span className="block text-lg font-black text-emerald-700">{n}</span>

@@ -17,10 +17,6 @@
  *   GET    /api/v1/zones/hierarchy?floorId=            → ZoneHierarchyDto (nested tree)
  *   POST   /api/v1/zones/zones/setup-default          → seed 4 default zones for a floor
  *   PUT    /api/v1/zones/aisles/{aisleId}/map-node/{nodeId} → link aisle to map node
- *
- * Semantic-Objects API — /api/v1/semantic-objects
- *   POST   /api/v1/semantic-objects/{objectId}/assign-product-type
- *   DELETE /api/v1/semantic-objects/{objectId}/assign-product-type
  */
 
 import client from '../../../api/client'
@@ -143,30 +139,5 @@ export const mapAisleToNode = async (aisleId, nodeId) => {
   return res.data
 }
 
-/* ========================================================================== */
-/*  Semantic Objects (shelf / product-type assignment)                         */
-/* ========================================================================== */
 
-const SO_ENDPOINT = '/api/v1/semantic-objects'
-
-/**
- * Assign a product type to a semantic object (shelf on the map).
- * @param {number} objectId
- * @param {number} productTypeId
- */
-export const assignProductType = async (objectId, productTypeId) => {
-  const res = await client.post(`${SO_ENDPOINT}/${objectId}/assign-product-type`, {
-    productTypeId,
-  })
-  return res.data
-}
-
-/**
- * Remove product-type assignment from a semantic object.
- * @param {number} objectId
- */
-export const unassignProductType = async (objectId) => {
-  const res = await client.delete(`${SO_ENDPOINT}/${objectId}/assign-product-type`)
-  return res.data
-}
 

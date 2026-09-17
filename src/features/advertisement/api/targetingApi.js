@@ -74,7 +74,7 @@ export const normalizeZone = (z) => ({
 export const normalizeShelf = (s) => {
   const shelfName = (s.label && s.label.trim()) || (s.shelfName && s.shelfName.trim()) || (s.name && s.name.trim()) || `Kệ #${s.shelfId ?? s.id}`;
   return {
-    id: s.shelfId ?? s.SemanticObjectId ?? s.objectId ?? s.id,
+    id: s.shelfId ?? s.id,
     name: shelfName,
     label: shelfName,
     aisleId: s.aisleId,

@@ -2620,7 +2620,6 @@ free_thresh: 0.196
         window.currentMapWidth = 0;
         window.currentMapHeight = 0;
         window.currentMapEdges = [];
-        window.currentMapSemanticObjects = [];
         window.allShelves = [];
 
         async function fetchAllShelves() {
@@ -2674,7 +2673,6 @@ free_thresh: 0.196
                 window.currentMapWidth = data.widthMeters || 0;
                 window.currentMapHeight = data.heightMeters || 0;
                 window.currentMapEdges = data.edges || [];
-                window.currentMapSemanticObjects = data.semanticObjects || [];
 
                 RESOLUTION = data.resolution || 0.05;
                 ORIGIN_X = data.originX || 0;
