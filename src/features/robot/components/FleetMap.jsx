@@ -22,20 +22,31 @@ export default function FleetMap({
   const selectedRobot = robots?.find((r) => r.robotCode === activeRobotCode)
   const pose = poses?.[activeRobotCode]
 
-  const flowType = (missionState?.flowType || selectedRobot?.activeFlowType || '').toLowerCase()
+  const waypoints = missionState?.waypoints || []
+  const currentIndex = missionState?.currentWaypointIndex ?? -1
+  const missionStatus = String(missionState?.status || 'IDLE').toUpperCase()
+  const isMissionActive = Boolean(
+    missionState &&
+    missionStatus !== 'COMPLETED' &&
+    missionStatus !== 'CANCELLED' &&
+    missionStatus !== 'IDLE' &&
+    waypoints.length > 0
+  )
+
+  const flowType = (isMissionActive ? (missionState?.flowType || selectedRobot?.activeFlowType || '') : '').toLowerCase()
   const isFreeRoam = Boolean(missionState?.isFreeRoam || missionState?.fullZoneMap)
 
   // Tự động chuyển màn hình giám sát phù hợp khi nhiệm vụ bắt đầu
   useEffect(() => {
-    if (flowType === 'patrol') {
+    if (isMissionActive && flowType === 'patrol') {
       setViewMode('patrol')
-    } else if (flowType === 'ad') {
+    } else if (isMissionActive && flowType === 'ad') {
       setViewMode('map')
     }
-  }, [flowType])
+  }, [isMissionActive, flowType])
 
   const flowTypeLabel = useMemo(() => {
-    if (!flowType) {
+    if (!isMissionActive || !flowType) {
       return {
         text: 'RẢNH / TRẠM SẠC',
         color: 'bg-gray-500',
@@ -78,12 +89,7 @@ export default function FleetMap({
       textCol: 'text-indigo-400',
       border: 'border-indigo-500/50',
     }
-  }, [flowType, isFreeRoam])
-
-  const waypoints = missionState?.waypoints || []
-  const currentIndex = missionState?.currentWaypointIndex ?? -1
-  const missionStatus = String(missionState?.status || 'IDLE').toUpperCase()
-  const isMissionActive = Boolean(missionState && missionStatus !== 'COMPLETED' && missionStatus !== 'CANCELLED' && waypoints.length > 0)
+  }, [isMissionActive, flowType, isFreeRoam])
 
   // Điểm dừng waypoint hiện tại
   const currentWaypoint = currentIndex >= 0 && waypoints[currentIndex] ? waypoints[currentIndex] : waypoints[0]
@@ -199,7 +205,7 @@ export default function FleetMap({
               title="Danh sách các chặng dừng trong lộ trình"
             >
               <span className="material-symbols-outlined text-[15px]">timeline</span>
-              <span>Chặng ({waypoints.length})</span>
+              <span>Chặng ({isMissionActive ? waypoints.length : 0})</span>
             </button>
           </div>
         </div>
@@ -228,23 +234,23 @@ export default function FleetMap({
         {/* View 2: Giám Sát Quảng Cáo (2D Interactive Supermarket Map) */}
         <div className={`w-full h-full relative ${viewMode === 'map' ? 'block' : 'hidden'}`}>
           <SupermarketInteractiveMap
-            waypoints={waypoints}
-            currentIndex={currentIndex}
+            waypoints={isMissionActive ? waypoints : []}
+            currentIndex={isMissionActive ? currentIndex : -1}
             robotPose={pose}
             robotCode={activeRobotCode}
-            missionStatus={missionStatus}
-            flowType={flowType}
+            missionStatus={isMissionActive ? missionStatus : 'IDLE'}
+            flowType={isMissionActive ? flowType : 'idle'}
           />
         </div>
 
         {/* View 3: Danh sách chặng di chuyển (Linear Mode) */}
         {viewMode === 'linear' && (
-          <div className="w-full h-full p-8 pt-24 overflow-y-auto flex flex-col items-center justify-center">
-            {waypoints.length === 0 ? (
-              <div className="text-center text-gray-500 flex flex-col items-center justify-center py-16">
-                <span className="material-symbols-outlined text-6xl mb-3 opacity-30">alt_route</span>
-                <p className="text-base font-medium text-gray-400">Chưa có danh sách chặng di chuyển</p>
-                <p className="text-xs text-gray-600 mt-1">Phát lệnh lộ trình ở bảng điều khiển bên phải để xem chi tiết.</p>
+          <div className="w-full h-full p-8 pt-24 overflow-y-auto flex flex-col items-center justify-center bg-slate-50">
+            {!isMissionActive || waypoints.length === 0 ? (
+              <div className="text-center text-slate-400 flex flex-col items-center justify-center py-16">
+                <span className="material-symbols-outlined text-6xl mb-3 opacity-30 text-slate-400">alt_route</span>
+                <p className="text-base font-semibold text-slate-700">Chưa có danh sách chặng di chuyển</p>
+                <p className="text-xs text-slate-500 mt-1">Phát lệnh lộ trình ở bảng điều khiển bên phải để xem chi tiết.</p>
               </div>
             ) : (
               <div className="flex items-center justify-start gap-3 overflow-x-auto pb-16 pt-8 px-6 w-full custom-scrollbar">
@@ -262,21 +268,21 @@ export default function FleetMap({
                             isActive
                               ? `${flowTypeLabel.color} text-white border-transparent shadow-lg scale-110`
                               : isPast
-                              ? `${flowTypeLabel.border} ${flowTypeLabel.textCol} bg-gray-900/60`
-                              : 'border-gray-800 text-gray-600 bg-gray-900'
+                              ? `${flowTypeLabel.border} ${flowTypeLabel.textCol} bg-emerald-50`
+                              : 'border-slate-300 text-slate-400 bg-slate-100'
                           }`}
                         >
                           <span className="font-bold text-sm">{isPast ? '✓' : idx + 1}</span>
                         </div>
                         <div className="mt-3 text-center w-full">
-                          <div className={`text-xs font-semibold truncate px-1 ${isActive ? 'text-white' : isPast ? 'text-gray-300' : 'text-gray-500'}`}>
+                          <div className={`text-xs font-semibold truncate px-1 ${isActive ? 'text-slate-900 font-bold' : isPast ? 'text-slate-700 font-semibold' : 'text-slate-400'}`}>
                             {wp.shelfName || wp.nodeName || `Node ${wp.nodeId}`}
                           </div>
-                          <div className="text-[10px] text-gray-500 font-mono mt-0.5">
+                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">
                             ({wp.xCoord?.toFixed(1) ?? '?'}, {wp.yCoord?.toFixed(1) ?? '?'})
                           </div>
                           {wp.dwellTimeSeconds > 0 && (
-                            <div className="text-[9px] text-gray-400 bg-gray-800/80 rounded px-1.5 py-0.5 mt-1 inline-block border border-gray-700/50">
+                            <div className="text-[9px] text-slate-600 bg-slate-100 rounded px-1.5 py-0.5 mt-1 inline-block border border-slate-200 font-medium">
                               ⏱ {wp.dwellTimeSeconds}s
                             </div>
                           )}
@@ -284,7 +290,7 @@ export default function FleetMap({
                       </div>
                       {idx < waypoints.length - 1 && (
                         <div className="flex-1 min-w-[36px] max-w-[70px] h-0.5 relative z-0 shrink-0">
-                          <div className={`absolute inset-0 transition-colors duration-500 ${isPast ? flowTypeLabel.color : 'bg-gray-800'}`} />
+                          <div className={`absolute inset-0 transition-colors duration-500 ${isPast ? flowTypeLabel.color : 'bg-slate-200'}`} />
                         </div>
                       )}
                     </React.Fragment>
@@ -301,25 +307,25 @@ export default function FleetMap({
         <div className="absolute bottom-4 left-4 right-4 z-20 pointer-events-none flex justify-center">
         {isMissionActive ? (
           /* Bảng HUD điều khiển khi Robot Đang Có Nhiệm Vụ */
-          <div className="pointer-events-auto max-w-2xl w-full bg-gray-900/90 backdrop-blur-xl border border-gray-700/80 rounded-2xl p-3.5 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3 smb-pop-in">
+          <div className="pointer-events-auto max-w-2xl w-full bg-white/95 backdrop-blur-xl border border-slate-200 rounded-2xl p-3.5 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 smb-pop-in">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="size-10 rounded-xl bg-orange-500/20 border border-orange-500/40 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[22px] text-orange-400 animate-spin">
+              <div className="size-10 rounded-xl bg-orange-50 border border-orange-200 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[22px] text-orange-500 animate-spin">
                   {missionStatus === 'PAUSED' ? 'pause' : 'autorenew'}
                 </span>
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-white uppercase tracking-wider">
+                  <span className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">
                     {flowTypeLabel.text}
                   </span>
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono">
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-mono font-bold border border-emerald-200">
                     Chặng {Math.max(1, currentIndex + 1)}/{waypoints.length}
                   </span>
                 </div>
-                <p className="text-xs text-gray-300 truncate mt-0.5">
+                <p className="text-xs text-slate-600 truncate mt-0.5">
                   Đang tại:{' '}
-                  <span className="font-semibold text-white">
+                  <span className="font-bold text-slate-900">
                     {currentWaypoint?.shelfName || currentWaypoint?.nodeName || `Mốc ${currentIndex + 1}`}
                   </span>
                   {currentWaypoint?.dwellTimeSeconds > 0 && ` (Dừng ${currentWaypoint.dwellTimeSeconds}s)`}
@@ -342,7 +348,7 @@ export default function FleetMap({
                 <button
                   onClick={handlePause}
                   disabled={actionLoading}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-600/80 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-md active:scale-95"
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-md active:scale-95"
                 >
                   <span className="material-symbols-outlined text-[16px]">pause</span>
                   Tạm Dừng
@@ -352,7 +358,7 @@ export default function FleetMap({
               <button
                 onClick={handleCancel}
                 disabled={actionLoading}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-600/80 hover:bg-red-600 text-white text-xs font-bold transition-all shadow-md active:scale-95"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all shadow-md active:scale-95"
               >
                 <span className="material-symbols-outlined text-[16px]">stop</span>
                 Hủy & Về Trạm
@@ -361,11 +367,11 @@ export default function FleetMap({
           </div>
         ) : (
           /* Bảng trạng thái khi Robot Đang Rảnh */
-          <div className="pointer-events-auto max-w-xl w-full bg-gray-900/85 backdrop-blur-xl border border-gray-800 rounded-2xl px-5 py-3 shadow-xl flex items-center justify-between gap-3 text-xs text-gray-400">
+          <div className="pointer-events-auto max-w-xl w-full bg-white/95 backdrop-blur-xl border border-slate-200 rounded-2xl px-5 py-3 shadow-md flex items-center justify-between gap-3 text-xs text-slate-600">
             <div className="flex items-center gap-2.5">
-              <span className="material-symbols-outlined text-[20px] text-emerald-400">smart_toy</span>
+              <span className="material-symbols-outlined text-[20px] text-emerald-600">smart_toy</span>
               <span>
-                <strong className="text-gray-200">Robot {activeRobotCode}</strong> đang ở trạm chờ / sạc pin (Sẵn sàng nhận lệnh).
+                <strong className="text-slate-900 font-bold">Robot {activeRobotCode}</strong> đang ở trạm chờ / sạc pin (Sẵn sàng nhận lệnh).
               </span>
             </div>
           </div>

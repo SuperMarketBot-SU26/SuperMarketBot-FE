@@ -556,7 +556,7 @@
         <div class="card">
             <div style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 10px; text-transform: uppercase; font-weight: 800; letter-spacing: 0.05em;">Kết nối</div>
             <input type="text" id="ros-ws-url" value="ws://snake.local:9090" style="width:100%; padding: 10px 12px; margin-bottom: 12px; border-radius: 8px; background: #f8fafc; color: #0f172a; border: 1.5px solid #cbd5e1; box-sizing: border-box; outline: none; font-family: monospace; font-size: 0.88rem; font-weight: 600;">
-            <button onclick="connectROS()" style="width: 100%; padding: 11px; background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; border: none; border-radius: 10px; font-weight: 800; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);">Kết Nối Robot</button>
+            <button id="btn-ros-connect" onclick="connectROS(true)" style="width: 100%; padding: 11px; background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; border: none; border-radius: 10px; font-weight: 800; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);">Kết Nối Robot</button>
             <div class="data-row" style="margin-top: 14px;">
                 <span style="font-size: 0.85rem; color: #64748b; font-weight: 600;">ROS 2 Bridge:</span>
                 <span id="ros-status" style="color: #b91c1c; font-weight: 800; font-size: 0.82rem; padding: 3px 10px; background: #fee2e2; border-radius: 12px; border: 1px solid #fca5a5;">Đã ngắt kết nối</span>
@@ -869,13 +869,42 @@
             }
         }
 
-        // Tự động kết nối MQTT và nạp danh sách robot khi load trang
+        let isRosManualDisconnect = false;
+        let rosReconnectTimer = null;
+
+        // Tự động kết nối MQTT, nạp danh sách robot và tự động kết nối ROS2 Bridge ngay khi load trang
         window.addEventListener('DOMContentLoaded', () => {
             connectMQTT();
             loadRobotsList();
+            setTimeout(() => {
+                connectROS();
+            }, 500);
         });
 
-        function connectROS() {
+        function connectROS(isManualAction = false) {
+            if (isManualAction && ros && ros.isConnected) {
+                // Người dùng chủ động ngắt kết nối
+                isRosManualDisconnect = true;
+                if (rosReconnectTimer) {
+                    clearTimeout(rosReconnectTimer);
+                    rosReconnectTimer = null;
+                }
+                try { ros.close(); } catch (e) {}
+                const statusEl = document.getElementById('ros-status');
+                statusEl.style.color = '#ef4444';
+                statusEl.style.background = 'rgba(239,68,68,0.1)';
+                statusEl.style.borderColor = 'rgba(239,68,68,0.3)';
+                statusEl.innerText = 'Đã ngắt kết nối';
+                showToast('ℹ️ Đã chủ động ngắt kết nối Robot.', 'info');
+                return;
+            }
+
+            isRosManualDisconnect = false;
+            if (rosReconnectTimer) {
+                clearTimeout(rosReconnectTimer);
+                rosReconnectTimer = null;
+            }
+
             const url = document.getElementById('ros-ws-url').value;
             const statusEl = document.getElementById('ros-status');
             
@@ -888,7 +917,13 @@
             statusEl.style.borderColor = 'rgba(234,179,8,0.3)';
             statusEl.innerText = 'Đang kết nối...';
 
-            ros = new ROSLIB.Ros({ url: url });
+            try {
+                ros = new ROSLIB.Ros({ url: url });
+            } catch (e) {
+                console.warn('Lỗi khởi tạo ROSLIB:', e);
+                statusEl.innerText = 'Lỗi kết nối';
+                return;
+            }
 
             ros.on('connection', () => {
                 statusEl.style.color = '#10b981';
@@ -942,9 +977,9 @@
                 statusEl.style.color = '#ef4444';
                 statusEl.style.background = 'rgba(239,68,68,0.1)';
                 statusEl.style.borderColor = 'rgba(239,68,68,0.3)';
-                statusEl.innerText = 'Lỗi kết nối';
-                console.error("ROS error:", err);
-                updateScanStatus('idle', 'Mất kết nối ROS');
+                statusEl.innerText = 'Chưa kết nối';
+                console.warn("ROS connection error (will retry automatically):", err?.message || err);
+                updateScanStatus('idle', 'Chưa kết nối Robot');
             });
 
             ros.on('close', () => {
@@ -954,6 +989,14 @@
                 statusEl.innerText = 'Đã ngắt kết nối';
                 if (isCameraEnabled) toggleCamera();
                 updateScanStatus('idle', 'Chưa kết nối Robot');
+
+                // Tự động kết nối lại sau 3.5 giây nếu không phải người dùng chủ động ngắt
+                if (!isRosManualDisconnect) {
+                    if (rosReconnectTimer) clearTimeout(rosReconnectTimer);
+                    rosReconnectTimer = setTimeout(() => {
+                        connectROS(false);
+                    }, 3500);
+                }
             });
         }
 

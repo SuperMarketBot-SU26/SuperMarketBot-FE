@@ -551,14 +551,14 @@
                 <span id="instruction-pan">
                     🖱️ <b>Giữ chuột trái & kéo:</b> Di chuyển góc nhìn bản đồ<br>
                     🔍 <b>Lăn chuột:</b> Phóng to / Thu nhỏ bản đồ<br>
-                    📍 <b>Kéo thả điểm dừng:</b> Thay đổi vị trí điểm dừng<br>
-                    ⚙️ <b>Nhấp vào điểm dừng:</b> Xem & chỉnh tọa độ chi tiết<br>
+                    🧭 <b>Nhấp chuột vào điểm dừng (Kệ 1..6):</b> Mở bảng chỉnh <b>Góc Hướng Quay (Heading Yaw)</b> & Tọa độ<br>
+                    📍 <b>Kéo thả điểm dừng:</b> Thay đổi vị trí dừng xe<br>
                     ❌ <b>Nhấp chuột phải:</b> Xóa điểm dừng này
                 </span>
                 <span id="instruction-draw" style="display:none; color: #be123c;">
                     🎯 <b>Nhấn giữ chuột trái & kéo hướng:</b> Đặt điểm dừng mới và hướng quay của xe.<br>
+                    🧭 <b>Nhấp vào điểm dừng cũ:</b> Mở bảng chỉnh góc hướng quay (Heading) & tọa độ<br>
                     📍 <b>Kéo thả điểm dừng:</b> Thay đổi vị trí điểm dừng<br>
-                    ⚙️ <b>Nhấp vào điểm dừng:</b> Xem & chỉnh tọa độ chi tiết<br>
                     ❌ <b>Nhấp chuột phải:</b> Xóa điểm dừng
                 </span>
                 <span id="instruction-initialpose" style="display:none; color: #047857;">
@@ -802,6 +802,41 @@
             </div>
         </div>
 
+        <!-- 4b. GÓC QUAY / HƯỚNG MẶT ROBOT (HEADING YAW) -->
+        <div style="margin-bottom: 14px; background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 10px; padding: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <label style="color: #92400e; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 5px;">
+                    🧭 Hướng Nhìn Của Robot (Heading Yaw):
+                </label>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <input type="number" id="wp-edit-heading-deg" min="-180" max="360" step="5" value="0"
+                        style="width: 70px; background: #ffffff; border: 1.5px solid #d97706; border-radius: 6px; padding: 4px 6px; font-size: 12px; font-weight: 700; text-align: right; color: #92400e;"
+                        oninput="onHeadingDegInput(this.value)">
+                    <span style="font-weight: 700; color: #92400e; font-size: 13px;">°</span>
+                </div>
+            </div>
+
+            <!-- Thanh trượt điều chỉnh góc trực quan -->
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                <span style="font-size: 11px; color: #b45309; font-weight: 600;">-180°</span>
+                <input type="range" id="wp-edit-heading-slider" min="-180" max="180" step="5" value="0"
+                    style="flex: 1; accent-color: #d97706; cursor: pointer;"
+                    oninput="onHeadingSliderInput(this.value)">
+                <span style="font-size: 11px; color: #b45309; font-weight: 600;">+180°</span>
+            </div>
+
+            <!-- Nút chọn hướng nhanh (4 hướng chính) -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 5px;">
+                <button type="button" class="btn btn-secondary" style="padding: 5px 2px; font-size: 11px; font-weight: 600;" onclick="setHeadingPreset(0)">➡️ Phải (0°)</button>
+                <button type="button" class="btn btn-secondary" style="padding: 5px 2px; font-size: 11px; font-weight: 600;" onclick="setHeadingPreset(90)">⬆️ Lên (90°)</button>
+                <button type="button" class="btn btn-secondary" style="padding: 5px 2px; font-size: 11px; font-weight: 600;" onclick="setHeadingPreset(180)">⬅️ Trái (180°)</button>
+                <button type="button" class="btn btn-secondary" style="padding: 5px 2px; font-size: 11px; font-weight: 600;" onclick="setHeadingPreset(-90)">⬇️ Xuống (-90°)</button>
+            </div>
+            <div style="font-size: 11px; color: #92400e; margin-top: 6px; line-height: 1.4;">
+                💡 <i>Mũi tên màu cam trên bản đồ sẽ xoay theo góc này ngay khi bạn kéo thanh trượt.</i>
+            </div>
+        </div>
+
         <!-- 5. BỊ CHẶN (IS BLOCKED) -->
         <div style="margin-bottom: 18px;">
             <label style="display: flex; align-items: center; gap: 8px; color: #be123c; font-size: 12px; font-weight: 600; cursor: pointer;">
@@ -970,6 +1005,37 @@
         }
 
         // --- JS Logic cho Waypoint Config Modal (Gán Kệ & Cấu Hình) ---
+        function setHeadingPreset(deg) {
+            document.getElementById('wp-edit-heading-deg').value = deg;
+            document.getElementById('wp-edit-heading-slider').value = deg;
+            const index = parseInt(document.getElementById('wp-edit-index').value);
+            if (index >= 0 && waypoints[index]) {
+                waypoints[index].heading = (deg * Math.PI) / 180;
+                renderUI();
+            }
+        }
+
+        function onHeadingDegInput(val) {
+            let deg = parseFloat(val);
+            if (isNaN(deg)) deg = 0;
+            document.getElementById('wp-edit-heading-slider').value = deg;
+            const index = parseInt(document.getElementById('wp-edit-index').value);
+            if (index >= 0 && waypoints[index]) {
+                waypoints[index].heading = (deg * Math.PI) / 180;
+                renderUI();
+            }
+        }
+
+        function onHeadingSliderInput(val) {
+            const deg = parseFloat(val);
+            document.getElementById('wp-edit-heading-deg').value = deg;
+            const index = parseInt(document.getElementById('wp-edit-index').value);
+            if (index >= 0 && waypoints[index]) {
+                waypoints[index].heading = (deg * Math.PI) / 180;
+                renderUI();
+            }
+        }
+
         function openWpModal(index) {
             const wp = waypoints[index];
             if (!wp) return;
@@ -982,6 +1048,17 @@
             document.getElementById('wp-edit-y').value = wp.y;
             document.getElementById('wp-edit-dwell').value = wp.dwellTimeSeconds !== undefined ? wp.dwellTimeSeconds : 30;
             document.getElementById('wp-edit-blocked').checked = wp.isBlocked || false;
+
+            // Load heading (góc quay)
+            let headingDeg = 0;
+            if (typeof wp.heading === 'number' && !isNaN(wp.heading)) {
+                headingDeg = Math.round((wp.heading * 180) / Math.PI);
+                // Giữ trong khoảng -180..180 cho slider
+                while (headingDeg > 180) headingDeg -= 360;
+                while (headingDeg < -180) headingDeg += 360;
+            }
+            document.getElementById('wp-edit-heading-deg').value = headingDeg;
+            document.getElementById('wp-edit-heading-slider').value = headingDeg;
 
             const displayNameElem = document.getElementById('wp-display-name');
             if (displayNameElem) {
@@ -1070,6 +1147,9 @@
                 wp.y = parseFloat(yVal.toFixed(4));
                 wp.dwellTimeSeconds = parseFloat(document.getElementById('wp-edit-dwell').value) || 30;
                 wp.isBlocked = document.getElementById('wp-edit-blocked').checked;
+
+                const headingDeg = parseFloat(document.getElementById('wp-edit-heading-deg').value);
+                wp.heading = !isNaN(headingDeg) ? (headingDeg * Math.PI) / 180 : (wp.heading || 0);
 
                 // Xử lý gán Kệ hàng vào Node trên máy chủ (PUT /api/v1/shelves/{shelfId}/map-node/{nodeId})
                 const selectedShelfId = document.getElementById('wp-edit-shelf').value;
@@ -2432,7 +2512,8 @@ free_thresh: 0.196
                     nodeName: wp.name || `Node ${i + 1}`,
                     nodeType: wp.nodeType || 'Waypoint',
                     nodeRole: wp.role || 'ad',
-                    isBlocked: wp.isBlocked || false
+                    isBlocked: wp.isBlocked || false,
+                    headingYaw: (wp.heading !== undefined && !isNaN(wp.heading)) ? Number(wp.heading) : null
                 }));
 
                 const baseUrl = window.SMB_ENV?.BE_URL !== undefined ? window.SMB_ENV.BE_URL : 'http://localhost:5000';

@@ -29,22 +29,27 @@ export function getShelfNameLines(name) {
   return [name]
 }
 
-// 6 Kệ hàng chính thức theo đặc tả kỹ thuật
+// 6 Kệ hàng chính thức theo đặc tả kỹ thuật và dữ liệu thực tế từ Database
 export const OFFICIAL_SHELVES = [
   {
     id: 1,
     tag: '#1',
     aisle: 'A01',
-    name: 'Đồ Ăn Vặt & Bánh Kẹo',
+    name: 'Đồ Ăn Vặt & Snack',
     icon: '🍪',
     type: 'vertical',
     x: 80,
     y: 850,
     w: 380,
     h: 850,
-    color: '#2563eb', // Blue A01
+    color: '#0284c7', // Sky Blue A01
     approachPoint: { x: 850, y: 1275 },
-    products: ['Snack Lays Giòn Rụm', 'Bánh ChocoPie Orion', 'Bánh Tét Mini Tết', 'Hũ Đậu Phộng Tinh Nghệ'],
+    products: [
+      "Snack Khoai Tây O'Star Vị Tảo Biển",
+      'Snack Swing Bò Bít Tết New York',
+      "Snack O'Star Phô Mai Trứng Muối",
+      "Snack Khoai Tây O'Star Tảo Đậm",
+    ],
     description: 'Dãy A01 · Kệ dọc bên trái phía trên quầy thu ngân',
   },
   {
@@ -58,9 +63,14 @@ export const OFFICIAL_SHELVES = [
     y: 80,
     w: 850,
     h: 380,
-    color: '#2563eb', // Blue A01
+    color: '#0284c7', // Sky Blue A01
     approachPoint: { x: 875, y: 780 },
-    products: ['Nước Ngọt Coca-Cola', 'Trà Xanh Không Độ', 'Cà Phê Sữa Highland', 'Nước Khoáng Lavie'],
+    products: [
+      'Bia Heineken Silver Lon 330ml',
+      'Nước Tinh Khiết Number 1 Chai 500ml',
+      'Bia Nobilis Lon 250ml',
+      'Lốc 50 Ly Nhựa Tiện Lợi',
+    ],
     description: 'Dãy A01 · Kệ ngang phía trên bên trái',
   },
   {
@@ -74,9 +84,14 @@ export const OFFICIAL_SHELVES = [
     y: 80,
     w: 850,
     h: 380,
-    color: '#16a34a', // Green B01
+    color: '#059669', // Emerald Green B01
     approachPoint: { x: 2125, y: 780 },
-    products: ['Thịt Bò Mỹ Nhập Khẩu', 'Cá Hồi Tươi Nauy', 'Thịt Heo Ba Rọi Sạch', 'Gà Ta Thả Vườn'],
+    products: [
+      'Phi Lê Cá Hồi Na Uy Tươi Sống',
+      'Thịt Bò Tươi Sạch Fillet 500g',
+      'Thịt Ba Chỉ Heo Tươi Sạch 500g',
+      'Dưa Leo Baby Giòn Ngọt 500g',
+    ],
     description: 'Dãy B01 · Kệ ngang phía trên bên phải',
   },
   {
@@ -90,9 +105,14 @@ export const OFFICIAL_SHELVES = [
     y: 850,
     w: 380,
     h: 850,
-    color: '#16a34a', // Green B01
+    color: '#059669', // Emerald Green B01
     approachPoint: { x: 2140, y: 1275 },
-    products: ['Mì Hảo Hảo Tôm Chua Cay', 'Mì Omachi Xốt Bò Hầm', 'Phở Đệ Nhất', 'Miến Phú Hương'],
+    products: [
+      'Mì Koreno Jumbo Vị Bò Cay 1kg',
+      'Mì Ly Life Cup Sườn Cay 65g',
+      'Cháo Thịt Bằm Gấu Đỏ Gói 50g',
+      'Mì Ý Spaghetti Barilla 500g',
+    ],
     description: 'Dãy B01 · Kệ dọc bên phải giáp tường',
   },
   {
@@ -106,9 +126,14 @@ export const OFFICIAL_SHELVES = [
     y: 1900,
     w: 450,
     h: 950,
-    color: '#d97706', // Amber C01
+    color: '#d97706', // Warm Amber C01
     approachPoint: { x: 2050, y: 2375 },
-    products: ['Nước Giặt OMO Matic', 'Dầu Gội Head & Shoulders', 'Sữa Tắm Lifebuoy', 'Nước Rửa Chén Sunlight'],
+    products: [
+      'Khăn Ướt Dịu Nhẹ Hình Gấu 80 Tờ',
+      'Khăn Ướt Em Bé Bumbo Gói 100 Tờ',
+      'Màng Bọc Thực Phẩm PE 400m',
+      'Thố Inox Giữ Nhiệt Có Nắp Đậy',
+    ],
     description: 'Dãy C01 · Kệ dọc lớn góc dưới bên phải',
   },
   {
@@ -122,9 +147,14 @@ export const OFFICIAL_SHELVES = [
     y: 1950,
     w: 380,
     h: 950,
-    color: '#d97706', // Amber C01
+    color: '#d97706', // Warm Amber C01
     approachPoint: { x: 950, y: 2425 },
-    products: ['Hạt Nêm Knorr Nấm', 'Nước Mắm Nam Ngư', 'Dầu Ăn Simply Nguyên Chất', 'Trà Ô Long TEA+'],
+    products: [
+      'Trà Hương Lài Ngọc An Gói 300g',
+      'Trà Thảo Mộc Thiên Thảo Dưỡng Nhan',
+      'Bột Nêm Gà Cao Cấp Hũ Vàng 250g',
+      'Nước Tương Chin-su Tỏi Ớt 330ml',
+    ],
     description: 'Dãy C01 · Kệ dọc trung tâm lối vào siêu thị',
   },
 ]
@@ -392,48 +422,48 @@ export default function SupermarketInteractiveMap({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onDoubleClick={handleDoubleClick}
-      className={`relative w-full h-full bg-[#080d1a] overflow-hidden select-none flex flex-col justify-center items-center ${
+      className={`relative w-full h-full bg-slate-50 overflow-hidden select-none flex flex-col justify-center items-center ${
         isDragging ? 'cursor-grabbing' : 'cursor-grab'
       }`}
     >
       {/* Zoom / Viewport Controls (Góc dưới bên phải) */}
-      <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 bg-gray-900/85 backdrop-blur-md p-1.5 rounded-xl border border-gray-800 shadow-lg pointer-events-auto">
-        <span className="text-[10px] text-gray-400 px-2 hidden lg:inline font-medium select-none">
+      <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 bg-white/95 backdrop-blur-md p-1.5 rounded-xl border border-slate-200 shadow-sm pointer-events-auto">
+        <span className="text-[10px] text-slate-500 px-2 hidden lg:inline font-medium select-none">
           🖱️ Giữ chuột kéo để di chuyển · Lăn chuột để zoom
         </span>
-        <div className="w-[1px] h-4 bg-gray-700 mx-0.5 hidden lg:block" />
+        <div className="w-[1px] h-4 bg-slate-200 mx-0.5 hidden lg:block" />
         <button
           onClick={() => setZoomLevel((z) => Math.min(3.5, z * 1.2))}
-          className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-300 hover:text-white transition-colors"
+          className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors"
           title="Phóng to (hoặc lăn chuột lên)"
         >
           <span className="material-symbols-outlined text-[18px]">zoom_in</span>
         </button>
         <button
           onClick={() => setZoomLevel((z) => Math.max(0.5, z / 1.2))}
-          className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-300 hover:text-white transition-colors"
+          className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors"
           title="Thu nhỏ (hoặc lăn chuột xuống)"
         >
           <span className="material-symbols-outlined text-[18px]">zoom_out</span>
         </button>
         <button
           onClick={handleResetView}
-          className="px-2 py-1 rounded-lg hover:bg-gray-800 text-gray-300 hover:text-white text-xs font-medium transition-colors"
+          className="px-2 py-1 rounded-lg hover:bg-slate-100 text-slate-700 hover:text-slate-900 text-xs font-semibold transition-colors"
           title="Đặt lại vị trí ban đầu (100%)"
         >
           {Math.round(zoomLevel * 100)}%
         </button>
         <button
           onClick={handleResetView}
-          className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-300 hover:text-white transition-colors"
+          className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors"
           title="Về trung tâm (Reset Pan & Zoom)"
         >
           <span className="material-symbols-outlined text-[18px]">center_focus_strong</span>
         </button>
-        <div className="w-[1px] h-4 bg-gray-700 mx-1" />
+        <div className="w-[1px] h-4 bg-slate-200 mx-1" />
         <button
           onClick={() => setShowGrid((g) => !g)}
-          className={`p-1.5 rounded-lg transition-colors ${showGrid ? 'bg-indigo-600/30 text-indigo-400' : 'text-gray-400 hover:bg-gray-800'}`}
+          className={`p-1.5 rounded-lg transition-colors ${showGrid ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'text-slate-500 hover:bg-slate-100'}`}
           title="Bật/Tắt Lưới Tọa Độ"
         >
           <span className="material-symbols-outlined text-[18px]">grid_4x4</span>
@@ -441,25 +471,25 @@ export default function SupermarketInteractiveMap({
       </div>
 
       {/* Map Legend Mini Bar (Góc dưới bên trái) */}
-      <div className="absolute bottom-3 left-3 z-20 hidden md:flex items-center gap-3 bg-gray-900/85 backdrop-blur-md px-3 py-1.5 rounded-xl border border-gray-800/80 shadow-lg text-[10px] text-gray-300 pointer-events-none">
+      <div className="absolute bottom-3 left-3 z-20 hidden md:flex items-center gap-3 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-slate-200 shadow-sm text-[11px] font-medium text-slate-700 pointer-events-none">
         <div className="flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-[#2563eb]" />
+          <span className="size-2.5 rounded-full bg-[#0284c7]" />
           <span>Dãy A01</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-[#16a34a]" />
+          <span className="size-2.5 rounded-full bg-[#059669]" />
           <span>Dãy B01</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-[#d97706]" />
+          <span className="size-2.5 rounded-full bg-[#d97706]" />
           <span>Dãy C01</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-[#f59e0b]" />
+          <span className="size-2.5 rounded-full bg-[#10b981]" />
           <span>⚡ Trạm Sạc</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-[#475569]" />
+          <span className="size-2.5 rounded-full bg-[#64748b]" />
           <span>💳 Thu Ngân</span>
         </div>
       </div>
@@ -479,46 +509,51 @@ export default function SupermarketInteractiveMap({
           className="w-full h-full max-w-full max-h-full object-contain pointer-events-auto"
           style={{
             aspectRatio: '1 / 1',
-            filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.6))',
+            filter: 'drop-shadow(0 10px 25px rgba(15,23,42,0.08))',
           }}
         >
           {/* DEFINITIONS & GRADIENTS */}
           <defs>
             {/* Lưới tọa độ 500mm */}
             <pattern id="grid-500" width="500" height="500" patternUnits="userSpaceOnUse">
-              <path d="M 500 0 L 0 0 0 500" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="4" />
+              <path d="M 500 0 L 0 0 0 500" fill="none" stroke="rgba(203, 213, 225, 0.7)" strokeWidth="3" />
             </pattern>
             <pattern id="grid-100" width="100" height="100" patternUnits="userSpaceOnUse">
-              <path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(255,255,255,0.015)" strokeWidth="2" />
+              <path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(226, 232, 240, 0.5)" strokeWidth="1.5" />
             </pattern>
 
             {/* Gradient cho 3 Zone Dãy A, B, C */}
             <radialGradient id="grad-zone-a" cx="30%" cy="30%" r="50%">
-              <stop offset="0%" stopColor="#2563eb" stopOpacity="0.08" />
-              <stop offset="100%" stopColor="#2563eb" stopOpacity="0" />
+              <stop offset="0%" stopColor="#0284c7" stopOpacity="0.05" />
+              <stop offset="100%" stopColor="#0284c7" stopOpacity="0" />
             </radialGradient>
             <radialGradient id="grad-zone-b" cx="70%" cy="30%" r="50%">
-              <stop offset="0%" stopColor="#16a34a" stopOpacity="0.08" />
-              <stop offset="100%" stopColor="#16a34a" stopOpacity="0" />
+              <stop offset="0%" stopColor="#059669" stopOpacity="0.05" />
+              <stop offset="100%" stopColor="#059669" stopOpacity="0" />
             </radialGradient>
             <radialGradient id="grad-zone-c" cx="60%" cy="80%" r="50%">
-              <stop offset="0%" stopColor="#d97706" stopOpacity="0.08" />
+              <stop offset="0%" stopColor="#d97706" stopOpacity="0.05" />
               <stop offset="100%" stopColor="#d97706" stopOpacity="0" />
             </radialGradient>
 
+            {/* Đổ bóng cho Khối kệ siêu thị */}
+            <filter id="shelf-shadow" x="-10%" y="-10%" width="125%" height="125%">
+              <feDropShadow dx="0" dy="8" stdDeviation="14" floodColor="#0f172a" floodOpacity="0.08" />
+            </filter>
+
             {/* Bộ lọc phát sáng Neon cho Lộ trình */}
             <filter id="neon-glow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="15" result="blur" />
+              <feGaussianBlur stdDeviation="12" result="blur" />
               <feComposite in="SourceGraphic" in2="blur" operator="over" />
             </filter>
             <filter id="robot-pulse" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="25" result="blur" />
+              <feGaussianBlur stdDeviation="20" result="blur" />
               <feComposite in="SourceGraphic" in2="blur" operator="over" />
             </filter>
           </defs>
 
           {/* 1. NỀN ARENA 3000 x 3000 */}
-          <rect x="0" y="0" width="3000" height="3000" fill="#090e1c" rx="40" stroke="#1e293b" strokeWidth="8" />
+          <rect x="0" y="0" width="3000" height="3000" fill="#ffffff" rx="40" stroke="#cbd5e1" strokeWidth="6" />
 
           {/* 2. LƯỚI TỌA ĐỘ VÀ THƯỚC ĐO */}
           {showGrid && (
@@ -529,10 +564,10 @@ export default function SupermarketInteractiveMap({
               {/* Nhãn khoảng cách trên các trục (0.5m -> 3.0m) */}
               {[500, 1000, 1500, 2000, 2500].map((val) => (
                 <React.Fragment key={val}>
-                  <text x={val} y="45" fill="#475569" fontSize="32" fontFamily="monospace" textAnchor="middle">
+                  <text x={val} y="48" fill="#64748b" fontSize="30" fontFamily="monospace" fontWeight="600" textAnchor="middle">
                     {(val / 1000).toFixed(1)}m
                   </text>
-                  <text x="35" y={val + 10} fill="#475569" fontSize="32" fontFamily="monospace" textAnchor="middle">
+                  <text x="35" y={val + 10} fill="#64748b" fontSize="30" fontFamily="monospace" fontWeight="600" textAnchor="middle">
                     {(val / 1000).toFixed(1)}m
                   </text>
                 </React.Fragment>
@@ -553,9 +588,10 @@ export default function SupermarketInteractiveMap({
               width={FUNCTIONAL_AREAS.cashier.w}
               height={FUNCTIONAL_AREAS.cashier.h}
               rx="30"
-              fill="#1e293b"
-              stroke="#475569"
-              strokeWidth="6"
+              fill="#f8fafc"
+              stroke="#cbd5e1"
+              strokeWidth="5"
+              filter="url(#shelf-shadow)"
             />
             <rect
               x={FUNCTIONAL_AREAS.cashier.x + 20}
@@ -563,14 +599,13 @@ export default function SupermarketInteractiveMap({
               width={FUNCTIONAL_AREAS.cashier.w - 40}
               height={FUNCTIONAL_AREAS.cashier.h - 40}
               rx="20"
-              fill="#0f172a"
-              stroke="#334155"
+              fill="#ffffff"
+              stroke="#e2e8f0"
               strokeWidth="3"
             />
             <text
               x={FUNCTIONAL_AREAS.cashier.x + FUNCTIONAL_AREAS.cashier.w / 2}
               y={FUNCTIONAL_AREAS.cashier.y + 240}
-              fill="#f8fafc"
               fontSize="90"
               textAnchor="middle"
             >
@@ -579,9 +614,9 @@ export default function SupermarketInteractiveMap({
             <text
               x={FUNCTIONAL_AREAS.cashier.x + FUNCTIONAL_AREAS.cashier.w / 2}
               y={FUNCTIONAL_AREAS.cashier.y + 360}
-              fill="#cbd5e1"
+              fill="#0f172a"
               fontSize="44"
-              fontWeight="bold"
+              fontWeight="800"
               textAnchor="middle"
             >
               QUẦY THU NGÂN
@@ -593,6 +628,7 @@ export default function SupermarketInteractiveMap({
               fontSize="34"
               textAnchor="middle"
               fontFamily="monospace"
+              fontWeight="600"
             >
               (POS Station)
             </text>
@@ -604,23 +640,24 @@ export default function SupermarketInteractiveMap({
               cx={FUNCTIONAL_AREAS.dock.cx}
               cy={FUNCTIONAL_AREAS.dock.cy}
               r={FUNCTIONAL_AREAS.dock.r + 30}
-              fill="rgba(245, 158, 11, 0.08)"
-              stroke="#f59e0b"
-              strokeWidth="6"
+              fill="rgba(5, 150, 105, 0.05)"
+              stroke="#10b981"
+              strokeWidth="5"
               strokeDasharray="20 10"
             />
             <circle
               cx={FUNCTIONAL_AREAS.dock.cx}
               cy={FUNCTIONAL_AREAS.dock.cy}
               r={FUNCTIONAL_AREAS.dock.r}
-              fill="#1e1b4b"
-              stroke="#6366f1"
+              fill="#ecfdf5"
+              stroke="#059669"
               strokeWidth="5"
+              filter="url(#shelf-shadow)"
             />
             <text
               x={FUNCTIONAL_AREAS.dock.cx}
               y={FUNCTIONAL_AREAS.dock.cy + 25}
-              fill="#fbbf24"
+              fill="#059669"
               fontSize="70"
               textAnchor="middle"
             >
@@ -629,9 +666,9 @@ export default function SupermarketInteractiveMap({
             <text
               x={FUNCTIONAL_AREAS.dock.cx}
               y={FUNCTIONAL_AREAS.dock.cy + 160}
-              fill="#fbbf24"
+              fill="#047857"
               fontSize="34"
-              fontWeight="bold"
+              fontWeight="800"
               textAnchor="middle"
             >
               TRẠM SẠC
@@ -646,16 +683,17 @@ export default function SupermarketInteractiveMap({
               width={FUNCTIONAL_AREAS.entrance.w}
               height={FUNCTIONAL_AREAS.entrance.h}
               rx="15"
-              fill="#064e3b"
-              stroke="#10b981"
-              strokeWidth="6"
+              fill="#ecfdf5"
+              stroke="#059669"
+              strokeWidth="5"
+              filter="url(#shelf-shadow)"
             />
             <text
               x={FUNCTIONAL_AREAS.entrance.x + FUNCTIONAL_AREAS.entrance.w / 2}
               y={FUNCTIONAL_AREAS.entrance.y + 45}
-              fill="#34d399"
-              fontSize="38"
-              fontWeight="bold"
+              fill="#047857"
+              fontSize="36"
+              fontWeight="800"
               textAnchor="middle"
               letterSpacing="2"
             >
@@ -670,18 +708,18 @@ export default function SupermarketInteractiveMap({
               <polyline
                 points={polylinePoints}
                 fill="none"
-                stroke={flowType === 'ad' ? '#f97316' : flowType === 'patrol' ? '#3b82f6' : '#10b981'}
+                stroke={flowType === 'ad' ? '#059669' : flowType === 'patrol' ? '#0284c7' : '#10b981'}
                 strokeWidth="18"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeOpacity="0.4"
+                strokeOpacity="0.25"
                 filter="url(#neon-glow)"
               />
               {/* Lớp nét đứt chuyển động */}
               <polyline
                 points={polylinePoints}
                 fill="none"
-                stroke={flowType === 'ad' ? '#fb923c' : flowType === 'patrol' ? '#60a5fa' : '#34d399'}
+                stroke={flowType === 'ad' ? '#10b981' : flowType === 'patrol' ? '#0ea5e9' : '#059669'}
                 strokeWidth="8"
                 strokeDasharray="30 20"
                 strokeLinecap="round"
@@ -706,14 +744,14 @@ export default function SupermarketInteractiveMap({
                 {/* Vòng hào quang phát sáng nếu Kệ đang là mục tiêu di chuyển */}
                 {isTarget && (
                   <rect
-                    x={shelf.x - 30}
-                    y={shelf.y - 30}
-                    width={shelf.w + 60}
-                    height={shelf.h + 60}
-                    rx="40"
+                    x={shelf.x - 25}
+                    y={shelf.y - 25}
+                    width={shelf.w + 50}
+                    height={shelf.h + 50}
+                    rx="36"
                     fill="none"
-                    stroke={shelf.color}
-                    strokeWidth="12"
+                    stroke="#10b981"
+                    strokeWidth="10"
                     strokeOpacity="0.6"
                     filter="url(#neon-glow)"
                   />
@@ -726,27 +764,28 @@ export default function SupermarketInteractiveMap({
                   width={shelf.w}
                   height={shelf.h}
                   rx="26"
-                  fill="#0f172a"
-                  stroke={isSelected ? '#ffffff' : isTarget ? '#38bdf8' : shelf.color}
-                  strokeWidth={isSelected ? 10 : isTarget ? 8 : 6}
+                  fill="#ffffff"
+                  stroke={isSelected ? '#059669' : isTarget ? '#10b981' : shelf.color}
+                  strokeWidth={isSelected ? 9 : isTarget ? 7 : 4.5}
+                  filter="url(#shelf-shadow)"
                 />
 
                 {/* Các vạch ngăn tầng kệ */}
                 {shelf.type === 'vertical' ? (
                   <>
-                    <line x1={shelf.x + 20} y1={shelf.y + shelf.h * 0.33} x2={shelf.x + shelf.w - 20} y2={shelf.y + shelf.h * 0.33} stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
-                    <line x1={shelf.x + 20} y1={shelf.y + shelf.h * 0.66} x2={shelf.x + shelf.w - 20} y2={shelf.y + shelf.h * 0.66} stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
+                    <line x1={shelf.x + 20} y1={shelf.y + shelf.h * 0.33} x2={shelf.x + shelf.w - 20} y2={shelf.y + shelf.h * 0.33} stroke="#f1f5f9" strokeWidth="3" />
+                    <line x1={shelf.x + 20} y1={shelf.y + shelf.h * 0.66} x2={shelf.x + shelf.w - 20} y2={shelf.y + shelf.h * 0.66} stroke="#f1f5f9" strokeWidth="3" />
                   </>
                 ) : (
                   <>
-                    <line x1={shelf.x + shelf.w * 0.33} y1={shelf.y + 20} x2={shelf.x + shelf.w * 0.33} y2={shelf.y + shelf.h - 20} stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
-                    <line x1={shelf.x + shelf.w * 0.66} y1={shelf.y + 20} x2={shelf.x + shelf.w * 0.66} y2={shelf.y + shelf.h - 20} stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
+                    <line x1={shelf.x + shelf.w * 0.33} y1={shelf.y + 20} x2={shelf.x + shelf.w * 0.33} y2={shelf.y + shelf.h - 20} stroke="#f1f5f9" strokeWidth="3" />
+                    <line x1={shelf.x + shelf.w * 0.66} y1={shelf.y + 20} x2={shelf.x + shelf.w * 0.66} y2={shelf.y + shelf.h - 20} stroke="#f1f5f9" strokeWidth="3" />
                   </>
                 )}
 
                 {/* NỘI DUNG KỆ HÀNG */}
                 {shelf.type === 'vertical' ? (
-                  /* ── KỆ DỌC (KỆ 1, 4, 5, 6) - CHỮ NẰM NGANG 100%, CĂN GIỮA, THẨM MỸ CAO ── */
+                  /* ── KỆ DỌC (KỆ 1, 4, 5, 6) ── */
                   <g>
                     {/* Tag ArUco Marker ID (Góc trên - trái) */}
                     <rect
@@ -776,9 +815,9 @@ export default function SupermarketInteractiveMap({
                       width="105"
                       height="48"
                       rx="14"
-                      fill={`${shelf.color}25`}
+                      fill={`${shelf.color}15`}
                       stroke={shelf.color}
-                      strokeWidth="2.5"
+                      strokeWidth="2"
                     />
                     <text
                       x={shelf.x + shelf.w - 74}
@@ -791,11 +830,11 @@ export default function SupermarketInteractiveMap({
                       {shelf.aisle}
                     </text>
 
-                    {/* Tiêu đề KỆ ID - Ngang, To, Nổi Bật Chính Giữa */}
+                    {/* Tiêu đề KỆ ID */}
                     <text
                       x={cx}
                       y={shelf.y + 138}
-                      fill="#ffffff"
+                      fill="#0f172a"
                       fontSize="46"
                       fontWeight="800"
                       textAnchor="middle"
@@ -814,11 +853,11 @@ export default function SupermarketInteractiveMap({
                       {shelf.icon}
                     </text>
 
-                    {/* Tên nhóm hàng (Chữ nằm ngang, 2 dòng rõ ràng, font đậm) */}
+                    {/* Tên nhóm hàng */}
                     <text
                       x={cx}
                       y={shelf.y + 315}
-                      fill="#f8fafc"
+                      fill="#0f172a"
                       fontSize="34"
                       fontWeight="bold"
                       textAnchor="middle"
@@ -829,7 +868,7 @@ export default function SupermarketInteractiveMap({
                       <text
                         x={cx}
                         y={shelf.y + 360}
-                        fill="#e2e8f0"
+                        fill="#334155"
                         fontSize="32"
                         fontWeight="600"
                         textAnchor="middle"
@@ -844,7 +883,7 @@ export default function SupermarketInteractiveMap({
                       y1={shelf.y + 405}
                       x2={shelf.x + shelf.w - 35}
                       y2={shelf.y + 405}
-                      stroke="rgba(255,255,255,0.12)"
+                      stroke="#e2e8f0"
                       strokeWidth="2.5"
                       strokeDasharray="6 4"
                     />
@@ -856,40 +895,41 @@ export default function SupermarketInteractiveMap({
                       width="210"
                       height="44"
                       rx="12"
-                      fill="rgba(255,255,255,0.06)"
-                      stroke="rgba(255,255,255,0.15)"
+                      fill="#f8fafc"
+                      stroke="#e2e8f0"
                       strokeWidth="2"
                     />
                     <text
                       x={cx}
                       y={shelf.y + 455}
-                      fill="#cbd5e1"
+                      fill="#475569"
                       fontSize="24"
-                      fontWeight="600"
+                      fontWeight="700"
                       textAnchor="middle"
                     >
                       📦 {shelf.products.length} MẶT HÀNG
                     </text>
 
-                    {/* Danh sách sản phẩm tiêu biểu (Nằm ngang, căn giữa, font rõ nét) */}
-                    <g opacity="0.9">
+                    {/* Danh sách sản phẩm tiêu biểu */}
+                    <g>
                       {shelf.products.slice(0, shelf.h >= 900 ? 4 : 3).map((p, pIdx) => (
                         <text
                           key={pIdx}
                           x={cx}
                           y={shelf.y + 515 + pIdx * 46}
-                          fill={pIdx < 2 ? '#e2e8f0' : '#94a3b8'}
+                          fill="#1e293b"
                           fontSize="24"
-                          fontWeight="500"
+                          fontWeight="600"
                           textAnchor="middle"
                         >
-                          ✦ {p.length > 18 ? p.slice(0, 17) + '…' : p}
+                          <tspan fill="#059669" fontWeight="bold">✦ </tspan>
+                          {p.length > 18 ? p.slice(0, 17) + '…' : p}
                         </text>
                       ))}
                     </g>
 
                     {/* Điểm neo tiếp cận robot ở đáy kệ */}
-                    <g opacity="0.85">
+                    <g>
                       <text
                         x={cx}
                         y={shelf.y + shelf.h - 35}
@@ -906,7 +946,7 @@ export default function SupermarketInteractiveMap({
                 ) : (
                   /* ── KỆ NGANG (KỆ 2, 3) ── */
                   <g>
-                    {/* Tag ArUco Marker ID (Góc trên - trái) */}
+                    {/* Tag ArUco Marker ID */}
                     <rect
                       x={shelf.x + 24}
                       y={shelf.y + 24}
@@ -934,9 +974,9 @@ export default function SupermarketInteractiveMap({
                       width="110"
                       height="50"
                       rx="14"
-                      fill={`${shelf.color}25`}
+                      fill={`${shelf.color}15`}
                       stroke={shelf.color}
-                      strokeWidth="2.5"
+                      strokeWidth="2"
                     />
                     <text
                       x={shelf.x + 203}
@@ -963,31 +1003,38 @@ export default function SupermarketInteractiveMap({
                     <text
                       x={shelf.x + 40}
                       y={shelf.y + 155}
-                      fill="#ffffff"
+                      fill="#0f172a"
                       fontSize="46"
                       fontWeight="800"
                     >
-                      KỆ {shelf.id}: <tspan fill="#f1f5f9" fontWeight="bold">{shelf.name}</tspan>
+                      KỆ {shelf.id}: <tspan fill="#334155" fontWeight="bold">{shelf.name}</tspan>
                     </text>
 
                     {/* Danh sách sản phẩm tiêu biểu theo hàng ngang */}
                     <text
                       x={shelf.x + 40}
                       y={shelf.y + 225}
-                      fill="#cbd5e1"
+                      fill="#1e293b"
                       fontSize="28"
-                      fontWeight="500"
+                      fontWeight="600"
                     >
-                      ✦ {shelf.products.slice(0, 2).join('   ✦ ')}
+                      <tspan fill="#059669">✦ </tspan>{shelf.products[0] || ''}
+                      {shelf.products[1] && <tspan fill="#64748b">   |   </tspan>}
+                      {shelf.products[1] && <tspan fill="#059669">✦ </tspan>}
+                      {shelf.products[1] || ''}
                     </text>
 
                     <text
                       x={shelf.x + 40}
                       y={shelf.y + 275}
-                      fill="#94a3b8"
+                      fill="#475569"
                       fontSize="26"
+                      fontWeight="500"
                     >
-                      ✦ {shelf.products.slice(2, 4).join('   ✦ ')}
+                      <tspan fill="#059669">✦ </tspan>{shelf.products[2] || ''}
+                      {shelf.products[3] && <tspan fill="#94a3b8">   |   </tspan>}
+                      {shelf.products[3] && <tspan fill="#059669">✦ </tspan>}
+                      {shelf.products[3] || ''}
                     </text>
 
                     {/* Badge số lượng mặt hàng */}
@@ -997,16 +1044,16 @@ export default function SupermarketInteractiveMap({
                       width="225"
                       height="44"
                       rx="12"
-                      fill="rgba(255,255,255,0.06)"
-                      stroke="rgba(255,255,255,0.15)"
+                      fill="#f8fafc"
+                      stroke="#e2e8f0"
                       strokeWidth="2"
                     />
                     <text
                       x={shelf.x + shelf.w - 147}
                       y={shelf.y + shelf.h - 38}
-                      fill="#94a3b8"
+                      fill="#475569"
                       fontSize="22"
-                      fontWeight="600"
+                      fontWeight="700"
                       textAnchor="middle"
                     >
                       📦 {shelf.products.length} MẶT HÀNG
@@ -1019,7 +1066,7 @@ export default function SupermarketInteractiveMap({
                   cx={shelf.approachPoint.x}
                   cy={shelf.approachPoint.y}
                   r="24"
-                  fill="rgba(2, 132, 199, 0.2)"
+                  fill="rgba(5, 150, 105, 0.15)"
                   stroke={shelf.color}
                   strokeWidth="5"
                   strokeDasharray="8 5"
@@ -1044,7 +1091,7 @@ export default function SupermarketInteractiveMap({
               <g key={`wp-${idx}`} transform={`translate(${wp.svgX}, ${wp.svgY})`}>
                 {/* Vòng tròn nhấp nháy cho điểm đích hiện tại */}
                 {isTarget && (
-                  <circle r="75" fill="none" stroke="#38bdf8" strokeWidth="12" opacity="0.8">
+                  <circle r="75" fill="none" stroke="#10b981" strokeWidth="12" opacity="0.8">
                     <animate attributeName="r" values="45;95;45" dur="2s" repeatCount="indefinite" />
                     <animate attributeName="opacity" values="0.9;0.2;0.9" dur="2s" repeatCount="indefinite" />
                   </circle>
@@ -1053,17 +1100,17 @@ export default function SupermarketInteractiveMap({
                 {/* Thân điểm dừng */}
                 <circle
                   r="45"
-                  fill={isTarget ? '#0284c7' : isPast ? '#334155' : '#0f172a'}
-                  stroke={isTarget ? '#38bdf8' : isPast ? '#64748b' : '#f97316'}
-                  strokeWidth="8"
-                  filter="drop-shadow(0 4px 10px rgba(0,0,0,0.5))"
+                  fill={isTarget ? '#059669' : isPast ? '#f1f5f9' : '#ffffff'}
+                  stroke={isTarget ? '#10b981' : isPast ? '#94a3b8' : '#059669'}
+                  strokeWidth="7"
+                  filter="url(#shelf-shadow)"
                 />
 
                 {/* Số thứ tự điểm dừng */}
                 <text
                   x="0"
                   y="15"
-                  fill={isTarget ? '#ffffff' : isPast ? '#94a3b8' : '#fed7aa'}
+                  fill={isTarget ? '#ffffff' : isPast ? '#64748b' : '#047857'}
                   fontSize="42"
                   fontWeight="bold"
                   textAnchor="middle"
@@ -1075,8 +1122,8 @@ export default function SupermarketInteractiveMap({
                 {/* Dwell time badge */}
                 {wp.dwellTimeSeconds > 0 && (
                   <g transform="translate(55, -20)">
-                    <rect x="0" y="0" width="130" height="42" rx="10" fill="#0f172a" stroke="#475569" strokeWidth="3" />
-                    <text x="65" y="28" fill="#f8fafc" fontSize="24" textAnchor="middle" fontFamily="monospace">
+                    <rect x="0" y="0" width="130" height="42" rx="10" fill="#ffffff" stroke="#cbd5e1" strokeWidth="3" filter="url(#shelf-shadow)" />
+                    <text x="65" y="28" fill="#0f172a" fontSize="24" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
                       ⏱ {wp.dwellTimeSeconds}s
                     </text>
                   </g>
@@ -1088,26 +1135,26 @@ export default function SupermarketInteractiveMap({
           {/* 10. ROBOT REALTIME TELEMETRY AVATAR */}
           <g transform={`translate(${robotSvgPos.x}, ${robotSvgPos.y})`}>
             {/* Vòng radar quét sóng xung quanh Robot */}
-            <circle r="120" fill="none" stroke="#10b981" strokeWidth="8" opacity="0.3">
+            <circle r="120" fill="none" stroke="#059669" strokeWidth="8" opacity="0.25">
               <animate attributeName="r" values="70;140;70" dur="2.5s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0.6;0;0.6" dur="2.5s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.5;0;0.5" dur="2.5s" repeatCount="indefinite" />
             </circle>
 
             {/* Mũi tên chỉ hướng Heading Yaw */}
             <g transform={`rotate(${robotSvgPos.heading})`}>
-              <polygon points="0,-115 -35,-65 35,-65" fill="#10b981" filter="url(#neon-glow)" />
+              <polygon points="0,-115 -35,-65 35,-65" fill="#059669" filter="url(#neon-glow)" />
               <circle cx="0" cy="-60" r="10" fill="#ffffff" />
             </g>
 
             {/* Thân xe Robot */}
             <circle
               r="65"
-              fill="#064e3b"
-              stroke="#34d399"
-              strokeWidth="10"
-              filter="url(#robot-pulse)"
+              fill="#ecfdf5"
+              stroke="#059669"
+              strokeWidth="9"
+              filter="url(#shelf-shadow)"
             />
-            <circle r="42" fill="#022c22" stroke="#10b981" strokeWidth="4" />
+            <circle r="42" fill="#d1fae5" stroke="#10b981" strokeWidth="4" />
 
             {/* Icon robot ở trung tâm */}
             <text x="0" y="16" fontSize="48" textAnchor="middle">
@@ -1121,16 +1168,16 @@ export default function SupermarketInteractiveMap({
                 y="-55"
                 width="440"
                 height="85"
-                rx="24"
-                fill="#0f172a"
-                stroke="#10b981"
-                strokeWidth="5"
-                filter="drop-shadow(0 8px 16px rgba(0,0,0,0.7))"
+                rx="22"
+                fill="#ffffff"
+                stroke="#059669"
+                strokeWidth="4.5"
+                filter="url(#shelf-shadow)"
               />
-              <text x="0" y="-12" fill="#f8fafc" fontSize="34" fontWeight="bold" textAnchor="middle">
+              <text x="0" y="-12" fill="#0f172a" fontSize="32" fontWeight="800" textAnchor="middle">
                 {robotCode} · {robotSvgPos.isDocked ? '⚡ Đang Sạc' : missionStatus}
               </text>
-              <text x="0" y="22" fill="#34d399" fontSize="26" fontFamily="monospace" textAnchor="middle">
+              <text x="0" y="22" fill="#059669" fontSize="24" fontFamily="monospace" fontWeight="700" textAnchor="middle">
                 ({(robotSvgPos.x / 1000).toFixed(2)}m, {(robotSvgPos.y / 1000).toFixed(2)}m)
               </text>
             </g>
@@ -1140,38 +1187,43 @@ export default function SupermarketInteractiveMap({
 
       {/* POPUP CHI TIẾT KỆ HÀNG KHI NHẤP CHUỘT */}
       {selectedShelf && (
-        <div className="absolute top-16 left-6 z-30 w-80 bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-5 shadow-2xl text-white smb-pop-in">
+        <div className="absolute top-16 left-6 z-30 w-84 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-2xl p-5 shadow-2xl text-slate-800 smb-pop-in">
           <div className="flex items-start justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">{selectedShelf.icon}</span>
+            <div className="flex items-center gap-2.5">
+              <span className="text-3xl">{selectedShelf.icon}</span>
               <div>
-                <h4 className="font-bold text-sm text-white">Kệ {selectedShelf.id}: {selectedShelf.name}</h4>
-                <p className="text-xs text-gray-400">Tag ArUco: {selectedShelf.tag} · Dãy {selectedShelf.aisle}</p>
+                <h4 className="font-bold text-sm text-slate-900">Kệ {selectedShelf.id}: {selectedShelf.name}</h4>
+                <p className="text-xs text-slate-500">Tag ArUco: {selectedShelf.tag} · Dãy {selectedShelf.aisle}</p>
               </div>
             </div>
             <button
               onClick={() => setSelectedShelf(null)}
-              className="p-1 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800"
+              className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
             >
               <span className="material-symbols-outlined text-[18px]">close</span>
             </button>
           </div>
 
-          <p className="text-xs text-gray-400 mt-2 mb-3 leading-relaxed">{selectedShelf.description}</p>
+          <p className="text-xs text-slate-600 mt-2 mb-3 leading-relaxed">{selectedShelf.description}</p>
 
-          <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">Sản Phẩm Trưng Bày:</div>
-          <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+          <div className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <span className="size-2 rounded-full bg-emerald-500" />
+            <span>Sản Phẩm Trưng Bày ({selectedShelf.products.length}):</span>
+          </div>
+          <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
             {selectedShelf.products.map((p, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs text-gray-300 bg-gray-800/60 px-2.5 py-1.5 rounded-lg border border-gray-700/50">
-                <span className="size-1.5 rounded-full bg-emerald-400" />
-                <span className="truncate">{p}</span>
+              <div key={i} className="flex items-center gap-2 text-xs text-slate-800 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200/80">
+                <span className="size-1.5 rounded-full bg-emerald-500 shrink-0" />
+                <span className="truncate font-medium">{p}</span>
               </div>
             ))}
           </div>
 
-          <div className="mt-4 pt-3 border-t border-gray-800 flex items-center justify-between text-[11px] text-gray-400 font-mono">
+          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-mono">
             <span>Tọa độ kệ: ({selectedShelf.x / 1000}m, {selectedShelf.y / 1000}m)</span>
-            <span className="text-indigo-400">2 Tầng / 4 Slots</span>
+            <span className="text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+              2 Tầng / 4 Slots
+            </span>
           </div>
         </div>
       )}

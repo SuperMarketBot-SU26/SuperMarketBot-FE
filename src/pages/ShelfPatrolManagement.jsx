@@ -20,13 +20,21 @@ function Icon({ name, className = '' }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>
 }
 
+const DEFAULT_SHELF_META = {
+  1: { name: 'Kệ 1 - Snack & Đồ Ăn Vặt', aisle: 'Dãy A01 • Khu Snack', tag: 1, node: 1 },
+  2: { name: 'Kệ 2 - Nước Giải Khát & Đồ Uống', aisle: 'Dãy A01 • Khu Đồ Uống', tag: 2, node: 2 },
+  3: { name: 'Kệ 3 - Thực Phẩm Tươi Sống', aisle: 'Dãy B01 • Khu Tươi Sống', tag: 3, node: 3 },
+  4: { name: 'Kệ 4 - Mì Ăn Liền & Đóng Gói', aisle: 'Dãy B01 • Khu Đồ Khô', tag: 4, node: 4 },
+  5: { name: 'Kệ 5 - Đồ Gia Dụng & Tiện Ích', aisle: 'Dãy C01 • Khu Gia Dụng', tag: 5, node: 5 },
+  6: { name: 'Kệ 6 - Gia Vị & Trà', aisle: 'Dãy C01 • Khu Gia Vị', tag: 6, node: 6 },
+}
+
 export default function ShelfPatrolManagement() {
-  const [activeTab, setActiveTab] = useState('dispatch') // 'dispatch' | 'history' | 'restock' | 'density'
+  const [activeTab, setActiveTab] = useState('history') // 'history' | 'restock' | 'density'
   
   // ─── Shared State ───
   const { robots, selectedRobotCode, setSelectedRobotCode } = useRobotFleet()
   const [shelves, setShelves] = useState([])
-  const [routes, setRoutes] = useState([])
   const [readiness, setReadiness] = useState(null)
   const [readinessLoading, setReadinessLoading] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -325,7 +333,6 @@ export default function ShelfPatrolManagement() {
       {/* ── Navigation Tabs ── */}
       <div className="flex flex-wrap items-center gap-2 border-b border-smb-outline-variant/60 pb-3">
         {[
-          { id: 'dispatch', label: 'Điều Khiển & Phát Lệnh', icon: 'rocket_launch' },
           { id: 'history', label: 'Lịch Sử Quét Kệ & Ảnh AI', icon: 'photo_camera' },
           { id: 'restock', label: 'Nhiệm Vụ Bổ Sung Hàng (Staff)', icon: 'inventory' },
           { id: 'density', label: 'Mật Độ 6 Kệ Hàng', icon: 'stacked_bar_chart' }
@@ -350,237 +357,6 @@ export default function ShelfPatrolManagement() {
       </div>
 
       {/* ══════════════════════════════════════════════════════════════
-          TAB 1: ĐIỀU KHIỂN & PHÁT LỆNH TUẦN TRA
-      ══════════════════════════════════════════════════════════════ */}
-      {activeTab === 'dispatch' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Cột trái: Cấu hình phát lệnh (7 cols) */}
-          <div className="lg:col-span-7 space-y-5">
-            <div className="rounded-2xl border border-smb-outline-variant/80 bg-smb-surface-container-lowest p-5 space-y-5 shadow-sm">
-              <div className="flex items-center justify-between border-b border-smb-outline-variant/50 pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="size-8 rounded-lg bg-teal-500/10 text-teal-600 flex items-center justify-center">
-                    <Icon name="tune" className="text-lg" />
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-bold text-smb-on-surface">Phương Thức Tuần Tra</h2>
-                    <p className="text-[11px] text-smb-on-surface-variant">Chọn tuần tra tự động theo lộ trình hoặc tùy chọn kệ cần kiểm tra</p>
-                  </div>
-                </div>
-
-                {/* Toggle switch */}
-                <div className="flex rounded-xl bg-smb-surface-container-high p-1 border border-smb-outline-variant/60">
-                  <button
-                    type="button"
-                    onClick={() => setPatrolMode('route')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      patrolMode === 'route'
-                        ? 'bg-teal-600 text-white shadow-xs'
-                        : 'text-smb-on-surface-variant hover:text-smb-on-surface'
-                    }`}
-                  >
-                    <Icon name="alt_route" className="text-sm" />
-                    Theo Tuyến
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPatrolMode('selective')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      patrolMode === 'selective'
-                        ? 'bg-teal-600 text-white shadow-xs'
-                        : 'text-smb-on-surface-variant hover:text-smb-on-surface'
-                    }`}
-                  >
-                    <Icon name="checklist" className="text-sm" />
-                    Chọn Kệ ({selectedShelfNodeIds.length})
-                  </button>
-                </div>
-              </div>
-
-              {/* Chế độ 1: Theo Tuyến */}
-              {patrolMode === 'route' ? (
-                <div className="space-y-3 bg-smb-surface-container/20 p-4 rounded-xl border border-smb-outline-variant/40">
-                  <label className="text-xs font-bold text-smb-on-surface block">Chọn lộ trình tuần tra định sẵn:</label>
-                  <select
-                    value={selectedRouteId}
-                    onChange={(e) => setSelectedRouteId(e.target.value)}
-                    className="w-full rounded-xl bg-smb-surface-container-lowest border border-smb-outline-variant px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none focus:border-teal-500"
-                  >
-                    {routes.map(r => (
-                      <option key={r.robotRouteId || r.routeId} value={r.robotRouteId || r.routeId}>
-                        {r.routeName} ({r.nodeCount || r.nodes?.length || 'Nhiều'} điểm dừng)
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-[11px] text-smb-on-surface-variant flex items-center gap-1">
-                    <Icon name="info" className="text-xs text-teal-600" />
-                    Robot sẽ tự động duyệt qua tất cả các waypoint trong tuyến, chụp ảnh phân tích và gửi báo cáo về kho.
-                  </p>
-                </div>
-              ) : (
-                /* Chế độ 2: Chọn Kệ Cụ Thể */
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-smb-on-surface">Danh sách Kệ Hàng ({shelves.length} kệ):</span>
-                    <button
-                      type="button"
-                      onClick={handleSelectAllShelves}
-                      className="text-xs font-bold text-teal-600 hover:text-teal-700 hover:underline"
-                    >
-                      {selectedShelfNodeIds.length === shelves.filter(s => s.nodeId).length ? 'Bỏ chọn tất cả' : 'Chọn tất cả kệ'}
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[280px] overflow-y-auto p-1">
-                    {shelves.map(shelf => {
-                      const isSelected = selectedShelfNodeIds.includes(shelf.nodeId)
-                      const hasNode = !!shelf.nodeId
-                      return (
-                        <div
-                          key={shelf.shelfId}
-                          onClick={() => hasNode && handleToggleShelf(shelf.nodeId)}
-                          className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
-                            isSelected
-                              ? 'bg-teal-500/10 border-teal-500/50 shadow-xs'
-                              : hasNode
-                                ? 'bg-smb-surface-container-lowest border-smb-outline-variant/60 hover:bg-smb-surface-container/30'
-                                : 'opacity-40 cursor-not-allowed bg-gray-100 border-gray-200'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              disabled={!hasNode}
-                              onChange={() => {}}
-                              className="size-4 accent-teal-600 rounded cursor-pointer"
-                            />
-                            <div>
-                              <div className="text-xs font-bold text-smb-on-surface">{shelf.shelfName}</div>
-                              <div className="text-[10px] text-smb-on-surface-variant font-mono">
-                                Lối đi: {shelf.aisleName || `Aisle #${shelf.aisleId}`} • Node {shelf.nodeId || 'Chưa gán'}
-                              </div>
-                            </div>
-                          </div>
-                          <span className="text-[10px] font-bold text-teal-700 dark:text-teal-300 bg-teal-500/15 px-2 py-0.5 rounded">
-                            Tag #{shelf.shelfId}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Nút phát lệnh */}
-              <div className="pt-2 border-t border-smb-outline-variant/40 flex items-center justify-between">
-                <div className="text-xs text-smb-on-surface-variant">
-                  {patrolMode === 'selective' ? `Đã chọn: ${selectedShelfNodeIds.length} kệ hàng` : 'Chế độ: Toàn tuyến tuần tra'}
-                </div>
-                <button
-                  type="button"
-                  disabled={dispatching || (targetRobot?.isOnline === false)}
-                  onClick={handleDispatchPatrol}
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs shadow-md shadow-teal-600/25 transition-all active:scale-95 disabled:opacity-50"
-                >
-                  <Icon name={dispatching ? 'sync' : 'rocket_launch'} className={`text-base ${dispatching ? 'animate-spin' : ''}`} />
-                  <span>{dispatching ? 'Đang phát lệnh...' : 'Phát Lệnh Tuần Tra Ngay'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Trạng thái sẵn sàng hệ thống */}
-            <div className="rounded-2xl border border-smb-outline-variant/70 bg-smb-surface-container-lowest p-4 space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold text-smb-on-surface">
-                <span className="flex items-center gap-1.5">
-                  <Icon name="health_and_safety" className="text-teal-600" />
-                  Độ Sẵn Sàng Tuần Tra (Readiness Guard)
-                </span>
-                <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${readiness?.ready ? 'bg-emerald-500/15 text-emerald-600' : 'bg-amber-500/15 text-amber-600'}`}>
-                  {readiness?.ready ? 'SẴN SÀNG' : 'CHƯA ĐẦY ĐỦ'}
-                </span>
-              </div>
-              <p className="text-[11px] text-smb-on-surface-variant">
-                {readiness?.message || 'Database, Cloudinary Storage và Gemini Vision AI đã được kiểm tra tính sẵn sàng trước chuyến tuần tra.'}
-              </p>
-            </div>
-          </div>
-
-          {/* Cột phải: Camera & AI Analysis HUD (5 cols) */}
-          <div className="lg:col-span-5 space-y-5">
-            <div className="rounded-2xl border border-smb-outline-variant/80 bg-slate-950 text-white p-5 space-y-4 shadow-md">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <div className="flex items-center gap-2">
-                  <Icon name="videocam" className="text-teal-400 text-lg" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
-                    Giám Sát Camera & Quét Kệ Hàng
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setCameraActive(prev => !prev)}
-                  className={`text-xs px-2.5 py-1 rounded-lg font-bold transition-all ${
-                    cameraActive ? 'bg-rose-600 text-white' : 'bg-teal-600 text-white hover:bg-teal-500'
-                  }`}
-                >
-                  {cameraActive ? 'Tắt Camera' : 'Bật Camera'}
-                </button>
-              </div>
-
-              {/* Camera Preview Area */}
-              <div className="relative aspect-video rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center overflow-hidden">
-                {cameraActive ? (
-                  <div className="w-full h-full flex flex-col items-center justify-center space-y-2 p-4 text-center">
-                    <Icon name="sensors" className="text-3xl text-teal-400 animate-pulse" />
-                    <span className="text-xs text-slate-300 font-medium">Đang nhận luồng trực tiếp từ Camera Robot...</span>
-                    <span className="text-[10px] text-slate-500 font-mono">Độ trễ AI &lt; 25ms • YuNet + ONNX SFace</span>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center space-y-2 text-slate-500 text-center p-4">
-                    <Icon name="photo_camera_back" className="text-4xl text-slate-600" />
-                    <span className="text-xs">Camera đang tắt. Bấm "Bật Camera" để xem luồng chụp trực tiếp.</span>
-                  </div>
-                )}
-                <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-xs px-2 py-0.5 rounded text-[10px] font-mono text-teal-300 border border-teal-500/30">
-                  HUD LIVE
-                </div>
-              </div>
-
-              {/* Panel Phân Tích Kệ Hàng (Ảnh 2) */}
-              <div className="rounded-xl border border-rose-500/30 bg-rose-500/5 p-3.5 space-y-2.5 font-mono text-xs">
-                <div className="text-[11px] font-bold text-rose-400 uppercase tracking-wider flex items-center justify-between border-b border-rose-500/20 pb-1.5">
-                  <span>Phân Tích Kệ Hàng (AI Gemini)</span>
-                  <span className="text-[10px] text-slate-400 font-normal">{liveAnalysis.aiProcessingMs} ms</span>
-                </div>
-                <div className="space-y-1.5 text-[11px]">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Kệ mục tiêu:</span>
-                    <span className="text-slate-100 font-bold">{liveAnalysis.targetShelf}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Stock trạng thái:</span>
-                    <span className="text-amber-300 font-bold">{liveAnalysis.stockStatus}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Mật độ (Độ đầy):</span>
-                    <span className="text-teal-300 font-bold">{liveAnalysis.occupancyRate}%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Tổng sản phẩm:</span>
-                    <span className="text-slate-200">{liveAnalysis.totalProducts}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Ô trống (Hết hàng):</span>
-                    <span className="text-rose-400 font-bold">{liveAnalysis.emptySlots}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ══════════════════════════════════════════════════════════════
           TAB 2: LỊCH SỬ QUÉT KỆ & ẢNH CHỤP AI
       ══════════════════════════════════════════════════════════════ */}
       {activeTab === 'history' && (
@@ -597,9 +373,14 @@ export default function ShelfPatrolManagement() {
                   className="rounded-lg bg-smb-surface-container-high border border-smb-outline-variant px-2.5 py-1 text-xs text-smb-on-surface font-semibold outline-none"
                 >
                   <option value="all">Tất cả các kệ</option>
-                  {shelves.map(s => (
-                    <option key={s.shelfId} value={s.shelfId}>{s.shelfName}</option>
-                  ))}
+                  {(shelves.length > 0 ? shelves : Object.entries(DEFAULT_SHELF_META).map(([id, m]) => ({ shelfId: Number(id), shelfName: m.name }))).map(s => {
+                    const meta = DEFAULT_SHELF_META[s.shelfId] || {}
+                    return (
+                      <option key={s.shelfId} value={s.shelfId}>
+                        {s.shelfName || meta.name || `Kệ #${s.shelfId}`}
+                      </option>
+                    )
+                  })}
                 </select>
               </div>
 
@@ -635,8 +416,8 @@ export default function ShelfPatrolManagement() {
               <thead className="bg-smb-surface-container-high/60 text-[11px] font-bold uppercase tracking-wider text-smb-on-surface-variant border-b border-smb-outline-variant/60">
                 <tr>
                   <th className="px-4 py-3">Thời Gian Quét</th>
-                  <th className="px-4 py-3">Kệ Hàng</th>
-                  <th className="px-4 py-3">Lối Đi / Node</th>
+                  <th className="px-4 py-3">Kệ Hàng & Danh Mục</th>
+                  <th className="px-4 py-3">Vị Trí & Điểm Dừng</th>
                   <th className="px-4 py-3">Mật Độ Lấp Đầy</th>
                   <th className="px-4 py-3">Ô Trống</th>
                   <th className="px-4 py-3">Trạng Thái</th>
@@ -654,16 +435,43 @@ export default function ShelfPatrolManagement() {
                   filteredScans.map(scan => {
                     const density = scan.densityPercentage ?? (100 - (scan.emptyPercentage || 0))
                     const isRestock = scan.needsRestock || (scan.emptyPercentage || 0) > 30
+                    const shelfId = scan.shelfLevelId || scan.shelfId || 1
+                    const matchedShelf = shelves.find(s => s.shelfId === shelfId)
+                    const meta = DEFAULT_SHELF_META[shelfId] || {}
+
+                    const displayShelfName = scan.shelfName || matchedShelf?.shelfName || meta.name || `Kệ #${shelfId}`
+                    const displayAisle = scan.aisleName || matchedShelf?.aisleName || meta.aisle || `Dãy A0${scan.aisleId || 1}`
+                    const effectiveNodeId = scan.aisleNodeId || matchedShelf?.nodeId || meta.node
+
                     return (
                       <tr key={scan.scanId} className="hover:bg-smb-surface-container/20 transition-colors">
                         <td className="px-4 py-3 font-mono font-medium whitespace-nowrap">
                           {formatDateTimeVN(scan.scannedAt)}
                         </td>
-                        <td className="px-4 py-3 font-bold">
-                          Kệ #{scan.shelfId || '—'}
+                        <td className="px-4 py-3">
+                          <div className="space-y-1">
+                            <div className="font-bold text-smb-on-surface text-xs flex items-center gap-1.5">
+                              <span className="text-sm">🏷️</span>
+                              <span>{displayShelfName}</span>
+                            </div>
+                            <div>
+                              <span className="inline-block text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md font-mono">
+                                Tag ArUco #{shelfId}
+                              </span>
+                            </div>
+                          </div>
                         </td>
-                        <td className="px-4 py-3 font-mono text-[11px] text-smb-on-surface-variant">
-                          Aisle #{scan.aisleId} {scan.aisleNodeId ? `(Node ${scan.aisleNodeId})` : ''}
+                        <td className="px-4 py-3">
+                          <div className="space-y-1">
+                            <div className="font-semibold text-xs text-slate-700 flex items-center gap-1.5">
+                              <Icon name="storefront" className="text-xs text-emerald-600" />
+                              <span>{displayAisle}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-[10px] text-slate-500 font-mono">
+                              <Icon name="pin_drop" className="text-[11px] text-slate-400" />
+                              <span>Điểm dừng Node #{effectiveNodeId || '—'}</span>
+                            </div>
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
@@ -890,16 +698,33 @@ export default function ShelfPatrolManagement() {
 
                   <button
                     type="button"
-                    onClick={() => {
-                      if (shelf.nodeId) {
-                        setSelectedShelfNodeIds([shelf.nodeId])
-                        setPatrolMode('selective')
-                        setActiveTab('dispatch')
-                      } else {
+                    disabled={dispatching}
+                    onClick={async () => {
+                      if (!shelf.nodeId) {
                         toast.error('Kệ này chưa được gán Node trên bản đồ')
+                        return
+                      }
+                      const shelfLabel = shelf.shelfName || `Kệ #${shelf.shelfId}`
+                      const confirmed = window.confirm(
+                        `Bạn muốn phát lệnh tuần tra ngay "${shelfLabel}"?\n\nRobot ${targetRobot?.robotCode || 'RB0001'} sẽ lập tức di chuyển tới kệ này, chụp ảnh và phân tích AI.`
+                      )
+                      if (!confirmed) return
+
+                      setDispatching(true)
+                      try {
+                        await dispatchPatrolMission({
+                          robotCode: targetRobot?.robotCode || 'RB0001',
+                          flowType: 'patrol',
+                          nodeIds: [shelf.nodeId]
+                        })
+                        toast.success(`Đã phát lệnh tuần tra "${shelfLabel}" thành công!`)
+                      } catch (err) {
+                        toast.error(err?.response?.data?.message || err?.message || 'Phát lệnh tuần tra thất bại')
+                      } finally {
+                        setDispatching(false)
                       }
                     }}
-                    className="w-full py-2 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-400 font-bold text-xs border border-teal-500/30 transition-all flex items-center justify-center gap-1.5"
+                    className="w-full py-2 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-400 font-bold text-xs border border-teal-500/30 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
                   >
                     <Icon name="radar" className="text-sm" />
                     <span>Tuần tra ngay kệ này</span>
@@ -917,15 +742,18 @@ export default function ShelfPatrolManagement() {
       {previewImage && (
         <div
           onClick={() => setPreviewImage(null)}
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
         >
-          <div className="relative max-w-3xl w-full bg-slate-900 rounded-2xl overflow-hidden border border-slate-700 shadow-2xl space-y-3 p-4">
-            <div className="flex items-center justify-between text-white border-b border-slate-800 pb-2">
-              <span className="text-xs font-bold font-mono">Ảnh Chụp Thực Tế Từ Camera Robot (Cloudinary)</span>
+          <div className="relative max-w-3xl w-full bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-2xl space-y-3 p-4">
+            <div className="flex items-center justify-between text-slate-800 border-b border-slate-200 pb-2">
+              <span className="text-xs font-bold font-mono flex items-center gap-2">
+                <Icon name="photo_camera" className="text-emerald-600 text-sm" />
+                Ảnh Chụp Thực Tế Từ Camera Robot (Cloudinary)
+              </span>
               <button
                 type="button"
                 onClick={() => setPreviewImage(null)}
-                className="text-slate-400 hover:text-white"
+                className="text-slate-400 hover:text-slate-700"
               >
                 <Icon name="close" className="text-xl" />
               </button>

@@ -178,6 +178,10 @@ export function RobotAssignmentPanel({
       } else {
         toast.success(`Đã kích hoạt chế độ: ${mode === 'amcl' ? 'Dẫn Đường Tự Hành (AMCL)' : 'Quét Bản Đồ Mới (SLAM)'}`)
         setTimeout(checkAgentStatus, 2000)
+        // Tự động kết nối WebSocket điều khiển khi kích hoạt dẫn đường
+        setTimeout(() => {
+          connectWs(rosWsUrl, false)
+        }, 1200)
       }
     } catch (e) {
       toast.error(`Không thể kết nối đến Agent Server: ${e.message}`)
@@ -194,6 +198,12 @@ export function RobotAssignmentPanel({
     try {
       await fetch(`${apiUrl}/stop`, { method: 'POST' })
       toast.warn('Đã gửi lệnh Dừng Hoạt Động tới Robot.')
+      // Ngắt kết nối WebSocket điều khiển khi dừng dẫn đường
+      if (window._rosInstance) {
+        try { window._rosInstance.close() } catch {}
+        window._rosInstance = null
+      }
+      setWsConnected(false)
       setTimeout(checkAgentStatus, 1500)
     } catch (e) {
       toast.error(`Lỗi khi dừng ROS 2: ${e.message}`)
@@ -231,22 +241,19 @@ export function RobotAssignmentPanel({
     }
   }
 
-  // Quản lý WebSocket Rosbridge
-  const handleToggleWs = () => {
-    if (wsConnected) {
-      if (window._rosInstance) {
-        window._rosInstance.close()
-        window._rosInstance = null
-      }
-      setWsConnected(false)
-      toast.info('Đã ngắt kết nối cổng WebSocket.')
+  // Hàm kết nối WebSocket Rosbridge
+  const connectWs = useCallback((targetUrl, showToastMsg = true) => {
+    if (window._rosInstance && window._rosInstance.readyState === WebSocket.OPEN) {
+      setWsConnected(true)
       return
     }
 
+    const url = targetUrl || rosWsUrl
     setWsConnecting(true)
-    localStorage.setItem('globalSetting_rosWsUrl', rosWsUrl)
+    localStorage.setItem('globalSetting_rosWsUrl', url)
+
     try {
-      const ws = new WebSocket(rosWsUrl)
+      const ws = new WebSocket(url)
       ws.onopen = () => {
         setWsConnected(true)
         setWsConnecting(false)
@@ -258,13 +265,13 @@ export function RobotAssignmentPanel({
             type: 'geometry_msgs/msg/Twist'
           }))
         } catch {}
-        toast.success(`Đã kết nối thành công tới ${rosWsUrl}`)
+        if (showToastMsg) toast.success(`Đã kết nối thành công tới ${url}`)
       }
       ws.onerror = () => {
         setWsConnected(false)
         setWsConnecting(false)
         window._rosInstance = null
-        toast.error(`Không thể kết nối tới ${rosWsUrl}`)
+        if (showToastMsg) toast.error(`Không thể kết nối tới ${url}`)
       }
       ws.onclose = () => {
         setWsConnected(false)
@@ -275,8 +282,32 @@ export function RobotAssignmentPanel({
       setWsConnected(false)
       setWsConnecting(false)
       window._rosInstance = null
-      toast.error(`Lỗi WebSocket: ${e.message}`)
+      if (showToastMsg) toast.error(`Lỗi WebSocket: ${e.message}`)
     }
+  }, [rosWsUrl])
+
+  // Tự động kết nối WebSocket mặc định khi component load
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!wsConnected && !wsConnecting && !window._rosInstance) {
+        connectWs(rosWsUrl, false)
+      }
+    }, 600)
+    return () => clearTimeout(timer)
+  }, [rosWsUrl, connectWs])
+
+  // Quản lý nút bấm bật/tắt thủ công WebSocket
+  const handleToggleWs = () => {
+    if (wsConnected) {
+      if (window._rosInstance) {
+        try { window._rosInstance.close() } catch {}
+        window._rosInstance = null
+      }
+      setWsConnected(false)
+      toast.info('Đã ngắt kết nối cổng WebSocket.')
+      return
+    }
+    connectWs(rosWsUrl, true)
   }
 
   return (
@@ -762,6 +793,7 @@ function AutonomousTab({
           flowType,
           status: 'NAVIGATING',
           currentWaypointIndex: 0,
+          dispatchedAt: Date.now(),
         })
       }
     } catch (e) {
@@ -1291,10 +1323,16 @@ function AutonomousTab({
               <div className="mb-3 flex gap-2">
                 <button
                   disabled={dispatching || selectedAdShelfIds.length === 0}
-                  onClick={() => handleDispatch('ad', {
-                    shelfIds: selectedAdShelfIds,
-                    floorId: map?.floorId || 1,
-                  })}
+                  onClick={() => {
+                    const targetNodeIds = validShelves
+                      .filter((s) => selectedAdShelfIds.includes(s.shelfId) && s.nodeId)
+                      .map((s) => s.nodeId)
+                    handleDispatch('ad', {
+                      nodeIds: targetNodeIds,
+                      shelfIds: selectedAdShelfIds,
+                      floorId: map?.floorId || 1,
+                    })
+                  }}
                   className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 py-3 text-xs font-extrabold text-white shadow-md transition-all hover:from-orange-700 hover:to-amber-700 active:scale-95 disabled:opacity-50 disabled:scale-100"
                 >
                   {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="play_arrow" className="text-[16px]" />}
@@ -1576,12 +1614,17 @@ function AutonomousTab({
           <div className="mb-3 flex gap-2">
             <button
               disabled={dispatching || selectedShelfIds.length === 0}
-              onClick={() => handleDispatch('patrol', {
-                nodeIds: selectedNodeIds,
-                shelfIds: selectedShelfIds,
-                floorId: map?.floorId || 1,
-                dwellTimeSeconds: Number(patrolDwell) || 3
-              })}
+              onClick={() => {
+                const targetNodeIds = validShelves
+                  .filter((s) => selectedShelfIds.includes(s.shelfId) && s.nodeId)
+                  .map((s) => s.nodeId)
+                handleDispatch('patrol', {
+                  nodeIds: targetNodeIds,
+                  shelfIds: selectedShelfIds,
+                  floorId: map?.floorId || 1,
+                  dwellTimeSeconds: Number(patrolDwell) || 3
+                })
+              }}
               className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 py-3 text-xs font-extrabold text-white shadow-md transition-all hover:from-blue-700 hover:to-indigo-700 active:scale-95 disabled:opacity-50 disabled:scale-100"
             >
               {dispatching ? <Icon name="progress_activity" className="animate-spin text-[16px]" /> : <Icon name="search" className="text-[16px]" />}
@@ -2393,6 +2436,7 @@ function RobotsTab({
           flowType: 'return',
           status: 'NAVIGATING',
           currentWaypointIndex: 0,
+          dispatchedAt: Date.now(),
         })
       }
     } catch (e) {

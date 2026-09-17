@@ -1,4 +1,4 @@
-import { useCallback, useState, useMemo } from 'react'
+import { useCallback, useState, useMemo, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 import Navbar from '../components/Navbar'
 import CommandPalette from '../components/CommandPalette'
@@ -20,33 +20,75 @@ export function RobotMonitoring() {
 
   const [selectedRobotCode, setSelectedRobotCode] = useState(null)
   const activeRobotCode = selectedRobotCode || robots?.[0]?.robotCode || 'RB0001'
+  const selectedRobot = robots?.find((r) => r.robotCode === activeRobotCode)
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
 
   const { missionState: fetchedMissionState } = useActiveMission(activeRobotCode, 3000)
   const [dispatchedMission, setDispatchedMission] = useState(null)
 
+  // Tự động giải phóng trạng thái dispatchedMission khi nhiệm vụ kết thúc / robot trở về trạng thái rảnh
+  useEffect(() => {
+    if (!dispatchedMission) return
+
+    const isFetchedTerminal =
+      fetchedMissionState &&
+      (fetchedMissionState.status === 'COMPLETED' ||
+        fetchedMissionState.status === 'CANCELLED' ||
+        fetchedMissionState.status === 'IDLE')
+
+    const isRobotIdle =
+      selectedRobot &&
+      (selectedRobot.activeMissionStatus === 'COMPLETED' ||
+        selectedRobot.activeMissionStatus === 'CANCELLED' ||
+        (selectedRobot.status === 'IDLE' && selectedRobot.activeMissionStatus === null))
+
+    const isHandoffTimedOut =
+      dispatchedMission.dispatchedAt &&
+      Date.now() - dispatchedMission.dispatchedAt > 8000 &&
+      !fetchedMissionState
+
+    if (isFetchedTerminal || isRobotIdle || isHandoffTimedOut) {
+      setDispatchedMission(null)
+    }
+  }, [fetchedMissionState, selectedRobot, dispatchedMission])
+
   // Kết hợp trạng thái nhiệm vụ vừa phát từ Admin và trạng thái polling từ Robot
   const missionState = useMemo(() => {
-    if (dispatchedMission) {
-      if (
-        fetchedMissionState &&
-        (fetchedMissionState.status === 'COMPLETED' || fetchedMissionState.status === 'CANCELLED')
-      ) {
-        return fetchedMissionState
-      }
+    // 1. Nếu backend báo đã COMPLETED / CANCELLED / IDLE -> không còn nhiệm vụ hoạt động
+    if (
+      fetchedMissionState &&
+      (fetchedMissionState.status === 'COMPLETED' ||
+        fetchedMissionState.status === 'CANCELLED' ||
+        fetchedMissionState.status === 'IDLE')
+    ) {
+      return null
+    }
+
+    // 2. Nếu backend đang có nhiệm vụ đang chạy (NAVIGATING / ARRIVED / PAUSED / DISPATCHED)
+    if (fetchedMissionState) {
       return {
-        ...dispatchedMission,
-        ...(fetchedMissionState || {}),
-        waypoints: dispatchedMission.waypoints?.length
-          ? dispatchedMission.waypoints
-          : fetchedMissionState?.waypoints || [],
+        ...fetchedMissionState,
+        waypoints:
+          fetchedMissionState.waypoints && fetchedMissionState.waypoints.length > 0
+            ? fetchedMissionState.waypoints
+            : dispatchedMission?.waypoints || [],
       }
     }
-    return fetchedMissionState
+
+    // 3. Nếu vừa phát lệnh trong vòng 8s và backend chưa kịp phản hồi polling
+    if (
+      dispatchedMission &&
+      (!dispatchedMission.dispatchedAt || Date.now() - dispatchedMission.dispatchedAt < 8000)
+    ) {
+      return dispatchedMission
+    }
+
+    return null
   }, [dispatchedMission, fetchedMissionState])
 
   const handleSelectRobot = useCallback((robot) => {
     setSelectedRobotCode(robot.robotCode)
+    setDispatchedMission(null)
   }, [])
 
   return (
