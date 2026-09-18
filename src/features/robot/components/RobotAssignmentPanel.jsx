@@ -430,17 +430,27 @@ function formatHumanDuration(seconds) {
 const STATUS_OK  = 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
 const STATUS_ERR = 'bg-rose-500/10 text-rose-600 border-rose-500/20'
 
-function StatusBadge({ msg }) {
+function StatusBadge({ msg, onDismiss }) {
   if (!msg) return null
   return (
-    <div className={`flex items-start gap-2 rounded-xl border px-3 py-2.5 text-xs font-medium ${msg.type === 'success' ? STATUS_OK : STATUS_ERR}`}>
+    <div className={`relative flex items-start gap-2 rounded-xl border px-3 py-2.5 text-xs font-medium ${msg.type === 'success' ? STATUS_OK : STATUS_ERR}`}>
       <span className="mt-0.5 shrink-0">{msg.type === 'success' ? '✅' : '❌'}</span>
       <span className="flex-1 leading-snug">{msg.text}</span>
+      {onDismiss && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="ml-1 p-0.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded transition-colors shrink-0"
+          title="Đóng thông báo"
+        >
+          <Icon name="close" className="text-[14px]" />
+        </button>
+      )}
     </div>
   )
 }
 
-function WaypointList({ waypoints }) {
+function WaypointList({ waypoints, onDismiss }) {
   const [expanded, setExpanded] = useState(false)
   if (!waypoints?.length) return null
 
@@ -448,10 +458,22 @@ function WaypointList({ waypoints }) {
   const remaining = waypoints.length - 5
 
   return (
-    <div className="mt-3 rounded-xl border border-smb-outline-variant bg-smb-surface-container p-3 space-y-1.5">
-      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-smb-on-surface-variant">
-        {waypoints.length} điểm đến được tính toán
-      </p>
+    <div className="mt-3 rounded-xl border border-smb-outline-variant bg-smb-surface-container p-3 space-y-1.5 relative">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-smb-on-surface-variant">
+          {waypoints.length} điểm đến được tính toán
+        </p>
+        {onDismiss && (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="p-0.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded transition-colors shrink-0"
+            title="Đóng danh sách điểm đến"
+          >
+            <Icon name="close" className="text-[14px]" />
+          </button>
+        )}
+      </div>
       {visibleWaypoints.map((wp, i) => {
         const productName = wp.playlist?.[0]?.productName || wp.productNames?.[0]
         const hasMoreProducts = (wp.playlist?.length > 1) || (wp.productNames?.length > 1)
@@ -645,6 +667,13 @@ function AutonomousTab({
       try {
         const state = await getRobotMissionState(selectedRobot)
         setMissionState(state)
+        // Tự động dọn sạch kết quả phát lệnh khi phiên đã hoàn thành, bị hủy hoặc kết thúc
+        if (state && ['COMPLETED', 'CANCELLED', 'FAILED', 'IDLE', 'ESTOP'].includes(String(state.status).toUpperCase())) {
+          setAdMsg((prev) => (prev?.type === 'success' ? null : prev))
+          setAdWaypoints(null)
+          setPatrolMsg((prev) => (prev?.type === 'success' ? null : prev))
+          setPatrolWaypoints(null)
+        }
       } catch {
         setMissionState(null)
       }
@@ -787,6 +816,19 @@ function AutonomousTab({
       toast.success(msg)
       if (flowType === 'ad')      { setAdMsg({ type: 'success', text: msg });      setAdWaypoints(data.waypoints) }
       if (flowType === 'patrol')  { setPatrolMsg({ type: 'success', text: msg });  setPatrolWaypoints(data.waypoints) }
+      
+      // Tự động ẩn thông báo sau 45s để không chiếm diện tích màn hình
+      setTimeout(() => {
+        if (flowType === 'ad') {
+          setAdMsg((prev) => (prev?.type === 'success' ? null : prev))
+          setAdWaypoints(null)
+        }
+        if (flowType === 'patrol') {
+          setPatrolMsg((prev) => (prev?.type === 'success' ? null : prev))
+          setPatrolWaypoints(null)
+        }
+      }, 45000)
+
       if (onMissionDispatched) {
         onMissionDispatched({
           ...data,
@@ -1342,8 +1384,8 @@ function AutonomousTab({
             </>
           )}
 
-          <StatusBadge msg={adMsg} />
-          <WaypointList waypoints={adWaypoints} />
+          <StatusBadge msg={adMsg} onDismiss={() => setAdMsg(null)} />
+          <WaypointList waypoints={adWaypoints} onDismiss={() => setAdWaypoints(null)} />
         </div>
 
         {/* ── Flow 2: Tuần Tra Kệ Hàng (Patrol) ── */}
@@ -1632,8 +1674,8 @@ function AutonomousTab({
             </button>
           </div>
 
-          <StatusBadge msg={patrolMsg} />
-          <WaypointList waypoints={patrolWaypoints} />
+          <StatusBadge msg={patrolMsg} onDismiss={() => setPatrolMsg(null)} />
+          <WaypointList waypoints={patrolWaypoints} onDismiss={() => setPatrolWaypoints(null)} />
         </div>
 
       </div>

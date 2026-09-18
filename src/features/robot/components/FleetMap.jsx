@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo } from 'react'
 import { toast } from 'react-toastify'
 import SupermarketInteractiveMap from './SupermarketInteractiveMap'
 import {
@@ -6,6 +6,50 @@ import {
   pauseRobotNavigation,
   resumeRobotNavigation,
 } from '../api/navigationApi'
+
+/**
+ * Chuyển đổi tọa độ Decartes (x, y) sang vị trí ngữ cảnh bán lẻ trực quan
+ * Loại bỏ các số float khó hiểu như (0.27m, 2.09m)
+ */
+function getFriendlyLocationName(pose) {
+  if (!pose || typeof pose.xCoord !== 'number' || typeof pose.yCoord !== 'number') {
+    return 'Trạm Sạc (Khu trung tâm)'
+  }
+  const x = pose.xCoord
+  const y = pose.yCoord
+
+  // Khoảng cách tới Trạm Sạc (x: 0.27, y: 2.09)
+  const distDock = Math.hypot(x - 0.27, y - 2.09)
+  if (distDock < 0.5) return 'Trạm Sạc (Khu trung tâm)'
+
+  // 6 Kệ hàng chính thức trong siêu thị
+  const shelfPositions = [
+    { id: 1, name: 'Kệ 1 - Đồ Ăn Vặt & Bánh Kẹo', x: 0.85, y: 1.28 },
+    { id: 2, name: 'Kệ 2 - Nước Giải Khát & Đồ Uống', x: 0.88, y: 0.78 },
+    { id: 3, name: 'Kệ 3 - Thực Phẩm Tươi Sống', x: 2.13, y: 0.78 },
+    { id: 4, name: 'Kệ 4 - Mì Ăn Liền & Đóng Gói', x: 1.50, y: 1.60 },
+    { id: 5, name: 'Kệ 5 - Đồ Gia Dụng & Tiện Ích', x: 1.50, y: 2.20 },
+    { id: 6, name: 'Kệ 6 - Gia Vị & Trà', x: 2.50, y: 1.60 },
+  ]
+
+  let closest = null
+  let minDist = Infinity
+  for (const s of shelfPositions) {
+    const d = Math.hypot(x - s.x, y - s.y)
+    if (d < minDist) {
+      minDist = d
+      closest = s
+    }
+  }
+
+  if (closest && minDist < 0.7) {
+    return `Khu vực ${closest.name}`
+  }
+
+  if (x < 1.2) return 'Dãy A01 (Khu vực Đồ Uống & Snack)'
+  if (x < 2.0) return 'Dãy B01 (Khu vực Thực Phẩm Tươi & Mì)'
+  return 'Dãy C01 (Khu vực Gia Dụng & Gia Vị)'
+}
 
 export default function FleetMap({
   robots,
@@ -15,7 +59,10 @@ export default function FleetMap({
   selectedRobotCode,
   onMissionCancelled,
 }) {
-  const [viewMode, setViewMode] = useState('map') // 'patrol' | 'map' | 'linear'
+  // 'map' (Bản đồ 2D siêu thị - mặc định) | 'camera' (Camera AI & quét kệ)
+  const [viewMode, setViewMode] = useState('map')
+  // Khay ngăn kéo xem chi tiết các chặng dừng (Waypoints Drawer) nổi trên nền bản đồ
+  const [showWaypointsDrawer, setShowWaypointsDrawer] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
 
   const activeRobotCode = selectedRobotCode || robots?.[0]?.robotCode || 'RB0001'
@@ -36,14 +83,7 @@ export default function FleetMap({
   const flowType = (isMissionActive ? (missionState?.flowType || selectedRobot?.activeFlowType || '') : '').toLowerCase()
   const isFreeRoam = Boolean(missionState?.isFreeRoam || missionState?.fullZoneMap)
 
-  // Tự động chuyển màn hình giám sát phù hợp khi nhiệm vụ bắt đầu
-  useEffect(() => {
-    if (isMissionActive && flowType === 'patrol') {
-      setViewMode('patrol')
-    } else if (isMissionActive && flowType === 'ad') {
-      setViewMode('map')
-    }
-  }, [isMissionActive, flowType])
+  const friendlyLocation = useMemo(() => getFriendlyLocationName(pose), [pose])
 
   const flowTypeLabel = useMemo(() => {
     if (!isMissionActive || !flowType) {
@@ -137,10 +177,11 @@ export default function FleetMap({
 
   return (
     <div className="relative h-full w-full flex flex-col bg-slate-50 text-slate-800 smb-fade-in overflow-hidden">
-      {/* ── 1. HEADER BAR ────────────────────────────────────── */}
-      <div className="absolute top-3 left-3 right-3 z-20 flex items-center justify-between pointer-events-none">
-        {/* Left: Flow Type & Robot Telemetry Info */}
-        <div className="flex items-center gap-2 pointer-events-auto">
+      {/* ── 1. HEADER BAR: TELEMETRY & VIEW SWITCHER ───────────────────────── */}
+      <div className="absolute top-3 left-3 right-3 z-30 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+        {/* Left: Robot Status & Retail Context Location */}
+        <div className="flex flex-wrap items-center gap-2 pointer-events-auto">
+          {/* Status Badge */}
           <div
             className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full font-bold text-xs tracking-wider border ${flowTypeLabel.border} ${flowTypeLabel.bg} ${flowTypeLabel.textCol} shadow-xs backdrop-blur-md`}
           >
@@ -148,13 +189,13 @@ export default function FleetMap({
             <span>{flowTypeLabel.text}</span>
           </div>
 
-          <div className="flex items-center gap-2 text-xs font-mono text-slate-700 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-slate-200 shadow-xs">
-            <span className="font-extrabold text-emerald-600">{activeRobotCode}</span>
+          {/* Location & Battery Tag */}
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-slate-200 shadow-xs">
+            <span className="font-extrabold text-teal-600 font-mono">{activeRobotCode}</span>
             <span className="text-slate-300">|</span>
-            <span>
-              {pose && typeof pose.xCoord === 'number'
-                ? `(${pose.xCoord.toFixed(2)}m, ${pose.yCoord.toFixed(2)}m)`
-                : 'Trạm Sạc (0.27m, 2.09m)'}
+            <span className="flex items-center gap-1 text-slate-700">
+              <span className="material-symbols-outlined text-[15px] text-teal-600">location_on</span>
+              <span>{friendlyLocation}</span>
             </span>
             {selectedRobot?.batteryPct != null && (
               <>
@@ -164,74 +205,68 @@ export default function FleetMap({
                 </span>
               </>
             )}
+            <span className="text-slate-300">|</span>
+            <span className="text-[11px] text-emerald-600 font-bold flex items-center gap-1">
+              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Online
+            </span>
           </div>
         </div>
 
-        {/* Right: Switch View & Direct Link to ROS Map Tool */}
+        {/* Right: View Switcher (2D Map, Camera AI, Waypoints Drawer) */}
         <div className="flex items-center gap-2 pointer-events-auto">
-          {/* Toggle Giám sát Tuần Tra / Giám sát Quảng Cáo / Danh sách chặng */}
-          <div className="flex items-center bg-white/95 backdrop-blur-md p-1 rounded-xl border border-slate-200 shadow-xs gap-1">
+          <div className="flex items-center bg-white/95 backdrop-blur-md p-1 rounded-2xl border border-slate-200 shadow-xs gap-1">
+            {/* Button 1: Bản Đồ 2D Siêu Thị (Mặc định chính) */}
             <button
-              onClick={() => setViewMode('patrol')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                viewMode === 'patrol'
-                  ? 'bg-emerald-600 text-white shadow-xs'
+              type="button"
+              onClick={() => setViewMode('map')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                viewMode === 'map'
+                  ? 'bg-teal-600 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
-              title="Màn hình giám sát Camera AI & Tuần tra quét kệ hàng"
+              title="Xem không gian tương tác 2D toàn siêu thị"
+            >
+              <span className="material-symbols-outlined text-[16px]">map</span>
+              <span>Bản Đồ 2D Siêu Thị</span>
+            </button>
+
+            {/* Button 2: Camera AI & Quét Kệ (Góc nhìn camera robot) */}
+            <button
+              type="button"
+              onClick={() => setViewMode('camera')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                viewMode === 'camera'
+                  ? 'bg-teal-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+              title="Xem luồng Camera AI nhận diện kệ hàng và ArUco"
             >
               <span className="material-symbols-outlined text-[16px]">videocam</span>
-              <span>Giám Sát Tuần Tra</span>
+              <span>Camera AI Quét Kệ</span>
             </button>
+
+            {/* Button 3: Lộ Trình / Chặng (Bật/Tắt Ngăn Kéo Nổi, không làm mất bản đồ) */}
             <button
-              onClick={() => setViewMode('map')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                viewMode === 'map'
-                  ? 'bg-emerald-600 text-white shadow-xs'
+              type="button"
+              onClick={() => setShowWaypointsDrawer((prev) => !prev)}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                showWaypointsDrawer
+                  ? 'bg-amber-500 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
-              title="Bản đồ 2D siêu thị & Giám sát di chuyển quảng cáo"
+              title="Xem danh sách chi tiết các chặng dừng trong lộ trình"
             >
-              <span className="material-symbols-outlined text-[16px]">campaign</span>
-              <span>Giám Sát Quảng Cáo</span>
-            </button>
-            <button
-              onClick={() => setViewMode('linear')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                viewMode === 'linear'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-              title="Danh sách các chặng dừng trong lộ trình"
-            >
-              <span className="material-symbols-outlined text-[15px]">timeline</span>
-              <span>Chặng ({isMissionActive ? waypoints.length : 0})</span>
+              <span className="material-symbols-outlined text-[16px]">timeline</span>
+              <span>Lộ Trình ({waypoints.length})</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* ── 2. BODY CONTENT: GIÁM SÁT TUẦN TRA (AI MONITOR), BẢN ĐỒ 2D, HOẶC DANH SÁCH CHẶNG ────── */}
+      {/* ── 2. BODY CONTENT: BẢN ĐỒ 2D HOẶC CAMERA AI ───────────────────────── */}
       <div className="flex-1 w-full h-full relative overflow-hidden bg-slate-50">
-        {/* View 1: Giám Sát Tuần Tra (AI Camera & Shelf Sweep Monitor) */}
-        <div
-          className={`w-full h-full relative bg-slate-50 ${
-            viewMode === 'patrol' ? 'block' : 'hidden'
-          }`}
-          style={{
-            paddingTop: '58px',
-            paddingBottom: isMissionActive ? '76px' : '0px',
-          }}
-        >
-          <iframe
-            src="/ros-ai-monitor.html?v=light_theme_v2"
-            className="w-full h-full border-0 bg-slate-50"
-            title="Hệ thống Giám sát AI Kệ hàng"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          />
-        </div>
-
-        {/* View 2: Giám Sát Quảng Cáo (2D Interactive Supermarket Map) */}
+        {/* VIEW A: BẢN ĐỒ 2D SIÊU THỊ (LUÔN CÓ MẶT NỀN TẢNG) */}
         <div className={`w-full h-full relative ${viewMode === 'map' ? 'block' : 'hidden'}`}>
           <SupermarketInteractiveMap
             waypoints={isMissionActive ? waypoints : []}
@@ -243,54 +278,91 @@ export default function FleetMap({
           />
         </div>
 
-        {/* View 3: Danh sách chặng di chuyển (Linear Mode) */}
-        {viewMode === 'linear' && (
-          <div className="w-full h-full p-8 pt-24 overflow-y-auto flex flex-col items-center justify-center bg-slate-50">
-            {!isMissionActive || waypoints.length === 0 ? (
-              <div className="text-center text-slate-400 flex flex-col items-center justify-center py-16">
-                <span className="material-symbols-outlined text-6xl mb-3 opacity-30 text-slate-400">alt_route</span>
-                <p className="text-base font-semibold text-slate-700">Chưa có danh sách chặng di chuyển</p>
-                <p className="text-xs text-slate-500 mt-1">Phát lệnh lộ trình ở bảng điều khiển bên phải để xem chi tiết.</p>
+        {/* VIEW B: CAMERA AI & QUÉT KỆ */}
+        <div
+          className={`w-full h-full relative bg-slate-50 ${viewMode === 'camera' ? 'block' : 'hidden'}`}
+          style={{
+            paddingTop: '58px',
+            paddingBottom: isMissionActive ? '76px' : '0px',
+          }}
+        >
+          <iframe
+            src="/ros-ai-monitor.html?v=light_theme_v2"
+            className="w-full h-full border-0 bg-slate-50"
+            title="Hệ thống Giám sát Camera AI Kệ hàng"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          />
+        </div>
+
+        {/* ── 3. OVERLAY DRAWER: DANH SÁCH CHẶNG DỪNG (NỔI TRÊN NỀN BẢN ĐỒ 2D) ── */}
+        {showWaypointsDrawer && (
+          <div className="absolute inset-x-4 bottom-24 z-40 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-3xl p-4 shadow-2xl transition-all smb-pop-in max-h-[320px] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-teal-600 text-xl">alt_route</span>
+                <span className="font-extrabold text-sm text-slate-800">
+                  Lộ Trình Di Chuyển Chi Tiết {waypoints.length > 0 ? `(${waypoints.length} mốc dừng)` : ''}
+                </span>
+                {isMissionActive && (
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 font-bold border border-teal-200">
+                    Đang chạy: Mốc {Math.max(1, currentIndex + 1)}/{waypoints.length}
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowWaypointsDrawer(false)}
+                className="size-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-all"
+                title="Đóng khay lộ trình"
+              >
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            </div>
+
+            {waypoints.length === 0 ? (
+              <div className="py-8 text-center text-slate-500 flex flex-col items-center justify-center gap-1.5">
+                <span className="material-symbols-outlined text-4xl text-slate-300">route</span>
+                <p className="text-xs font-bold text-slate-700">Robot hiện chưa có lộ trình di chuyển hoạt động</p>
+                <p className="text-[11px] text-slate-400 max-w-md">
+                  Robot đang ở trạm sạc. Bạn có thể chọn tuyến hoặc chọn kệ ở bảng điều khiển bên phải và phát lệnh Tuần tra / Quảng cáo để bắt đầu.
+                </p>
               </div>
             ) : (
-              <div className="flex items-center justify-start gap-3 overflow-x-auto pb-16 pt-8 px-6 w-full custom-scrollbar">
+              <div className="flex items-center justify-start gap-3 overflow-x-auto pb-3 px-1 w-full custom-scrollbar">
                 {waypoints.map((wp, idx) => {
                   const isActive = idx === currentIndex
                   const isPast = idx < currentIndex
                   return (
                     <React.Fragment key={idx}>
-                      <div className="relative flex flex-col items-center shrink-0 w-36 group smb-pop-in">
-                        {isActive && (
-                          <div className={`absolute top-4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full ${flowTypeLabel.bg} animate-ping opacity-75`} />
-                        )}
+                      <div className="relative flex flex-col items-center shrink-0 w-44 group bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3 shadow-2xs">
                         <div
-                          className={`relative w-12 h-12 rounded-full border-2 flex items-center justify-center z-10 transition-all duration-300 ${
+                          className={`size-9 rounded-xl flex items-center justify-center font-bold text-xs transition-all ${
                             isActive
-                              ? `${flowTypeLabel.color} text-white border-transparent shadow-lg scale-110`
+                              ? 'bg-teal-600 text-white shadow-md shadow-teal-600/30 scale-105 ring-4 ring-teal-500/20'
                               : isPast
-                              ? `${flowTypeLabel.border} ${flowTypeLabel.textCol} bg-emerald-50`
-                              : 'border-slate-300 text-slate-400 bg-slate-100'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                              : 'bg-white text-slate-400 border border-slate-200'
                           }`}
                         >
-                          <span className="font-bold text-sm">{isPast ? '✓' : idx + 1}</span>
+                          {isPast ? '✓' : idx + 1}
                         </div>
-                        <div className="mt-3 text-center w-full">
-                          <div className={`text-xs font-semibold truncate px-1 ${isActive ? 'text-slate-900 font-bold' : isPast ? 'text-slate-700 font-semibold' : 'text-slate-400'}`}>
-                            {wp.shelfName || wp.nodeName || `Node ${wp.nodeId}`}
+                        <div className="mt-2 text-center w-full">
+                          <div className={`text-xs truncate font-bold ${isActive ? 'text-teal-700 font-extrabold' : isPast ? 'text-slate-700' : 'text-slate-400'}`}>
+                            {wp.shelfName || wp.nodeName || `Mốc #${wp.nodeId}`}
                           </div>
-                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                            ({wp.xCoord?.toFixed(1) ?? '?'}, {wp.yCoord?.toFixed(1) ?? '?'})
+                          <div className="text-[10px] text-slate-500 mt-0.5 font-medium">
+                            {wp.aisleName || (wp.zoneName ? `Khu ${wp.zoneName}` : 'Điểm dừng lộ trình')}
                           </div>
                           {wp.dwellTimeSeconds > 0 && (
-                            <div className="text-[9px] text-slate-600 bg-slate-100 rounded px-1.5 py-0.5 mt-1 inline-block border border-slate-200 font-medium">
-                              ⏱ {wp.dwellTimeSeconds}s
+                            <div className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/80 rounded-md px-2 py-0.5 mt-1 inline-block">
+                              ⏱ Dừng: {wp.dwellTimeSeconds}s
                             </div>
                           )}
                         </div>
                       </div>
                       {idx < waypoints.length - 1 && (
-                        <div className="flex-1 min-w-[36px] max-w-[70px] h-0.5 relative z-0 shrink-0">
-                          <div className={`absolute inset-0 transition-colors duration-500 ${isPast ? flowTypeLabel.color : 'bg-slate-200'}`} />
+                        <div className="min-w-[20px] h-0.5 bg-slate-200 relative shrink-0">
+                          <div className={`h-full ${isPast ? 'bg-teal-500' : 'bg-slate-200'}`} />
                         </div>
                       )}
                     </React.Fragment>
@@ -302,15 +374,14 @@ export default function FleetMap({
         )}
       </div>
 
-      {/* ── 3. BOTTOM FLOATING MISSION HUD & CONTROLS ────────── */}
-      {(isMissionActive || viewMode !== 'patrol') && (
-        <div className="absolute bottom-4 left-4 right-4 z-20 pointer-events-none flex justify-center">
+      {/* ── 4. BOTTOM FLOATING MISSION HUD & QUICK CONTROLS ─────────────────── */}
+      <div className="absolute bottom-4 left-4 right-4 z-30 pointer-events-none flex justify-center">
         {isMissionActive ? (
-          /* Bảng HUD điều khiển khi Robot Đang Có Nhiệm Vụ */
+          /* Bảng HUD khi Robot Đang Chạy Nhiệm Vụ */
           <div className="pointer-events-auto max-w-2xl w-full bg-white/95 backdrop-blur-xl border border-slate-200 rounded-2xl p-3.5 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 smb-pop-in">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="size-10 rounded-xl bg-orange-50 border border-orange-200 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[22px] text-orange-500 animate-spin">
+              <div className="size-10 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[22px] text-teal-600 animate-spin">
                   {missionStatus === 'PAUSED' ? 'pause' : 'autorenew'}
                 </span>
               </div>
@@ -319,8 +390,8 @@ export default function FleetMap({
                   <span className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">
                     {flowTypeLabel.text}
                   </span>
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-mono font-bold border border-emerald-200">
-                    Chặng {Math.max(1, currentIndex + 1)}/{waypoints.length}
+                  <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-700 font-mono font-bold border border-teal-200">
+                    Mốc {Math.max(1, currentIndex + 1)}/{waypoints.length}
                   </span>
                 </div>
                 <p className="text-xs text-slate-600 truncate mt-0.5">
@@ -335,55 +406,73 @@ export default function FleetMap({
 
             {/* Quick Action Control Buttons */}
             <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowWaypointsDrawer((prev) => !prev)}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all border border-slate-200"
+              >
+                <span className="material-symbols-outlined text-[15px]">list</span>
+                <span>{showWaypointsDrawer ? 'Ẩn Lộ Trình' : 'Xem Lộ Trình'}</span>
+              </button>
+
               {missionStatus === 'PAUSED' ? (
                 <button
+                  type="button"
                   onClick={handleResume}
                   disabled={actionLoading}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md active:scale-95"
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition-all shadow-md active:scale-95"
                 >
                   <span className="material-symbols-outlined text-[16px]">play_arrow</span>
-                  Tiếp Tục
+                  <span>Tiếp Tục</span>
                 </button>
               ) : (
                 <button
+                  type="button"
                   onClick={handlePause}
                   disabled={actionLoading}
                   className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-md active:scale-95"
                 >
                   <span className="material-symbols-outlined text-[16px]">pause</span>
-                  Tạm Dừng
+                  <span>Tạm Dừng</span>
                 </button>
               )}
 
               <button
+                type="button"
                 onClick={handleCancel}
                 disabled={actionLoading}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all shadow-md active:scale-95"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-md active:scale-95"
               >
                 <span className="material-symbols-outlined text-[16px]">stop</span>
-                Hủy & Về Trạm
+                <span>Hủy & Về Trạm</span>
               </button>
             </div>
           </div>
         ) : (
-          /* Bảng trạng thái khi Robot Đang Rảnh */
+          /* Bảng trạng thái khi Robot Đang Rảnh / Tại Trạm Sạc */
           <div className="pointer-events-auto max-w-xl w-full bg-white/95 backdrop-blur-xl border border-slate-200 rounded-2xl px-5 py-3 shadow-md flex items-center justify-between gap-3 text-xs text-slate-600">
             <div className="flex items-center gap-2.5">
-              <span className="material-symbols-outlined text-[20px] text-emerald-600">smart_toy</span>
+              <span className="material-symbols-outlined text-[20px] text-teal-600">smart_toy</span>
               <span>
-                <strong className="text-slate-900 font-bold">Robot {activeRobotCode}</strong> đang ở trạm chờ / sạc pin (Sẵn sàng nhận lệnh).
+                <strong className="text-slate-900 font-bold">Robot {activeRobotCode}</strong> đang ở trạm sạc (Sẵn sàng nhận lệnh từ Web Admin hoặc Robot Kiosk).
               </span>
             </div>
+            <button
+              type="button"
+              onClick={() => setShowWaypointsDrawer((prev) => !prev)}
+              className="text-[11px] font-bold text-teal-600 hover:text-teal-700 hover:underline shrink-0"
+            >
+              {showWaypointsDrawer ? 'Đóng chi tiết' : 'Kiểm tra lộ trình'}
+            </button>
           </div>
         )}
       </div>
-      )}
 
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
       `}</style>
     </div>
   )

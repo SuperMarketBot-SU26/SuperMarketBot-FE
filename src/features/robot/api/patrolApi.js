@@ -102,3 +102,12 @@ export const getShelves = async () => {
   const res = await client.get('/api/v1/shelves')
   return res.data
 }
+
+/**
+ * Lấy lịch sử toàn bộ các hoạt động di chuyển tự hành (Dẫn đường, Quảng cáo, Tuần tra) từ mọi nguồn tương tác
+ * @param {{ flowType?: string, source?: string, status?: string, take?: number }} params
+ */
+export const getAutonomousMissionsHistory = async (params = {}) => {
+  const res = await client.get(`${NAVIGATION_ENDPOINT}/autonomous-missions/history`, { params })
+  return res.data
+}

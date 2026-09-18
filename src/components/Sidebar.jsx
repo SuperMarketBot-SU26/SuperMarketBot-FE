@@ -9,7 +9,7 @@ export const navGroups = [
     items: [
       { icon: 'smart_toy', label: 'Giám Sát Robot', path: '/robots' },
       { icon: 'map', label: 'Bản Đồ & Định Vị Robot', path: '/ros-map' },
-      { icon: 'shield_with_heart', label: 'Quản Lý Tuần Tra', path: '/patrol-management' },
+      { icon: 'alt_route', label: 'Quản Lý Di Chuyển Tự Hành', path: '/patrol-management' },
     ],
   },
   {

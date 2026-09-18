@@ -13,7 +13,8 @@ import {
   dispatchPatrolMission,
   getPatrolRoutes,
   getShelves,
-  getRestockHistory
+  getRestockHistory,
+  getAutonomousMissionsHistory
 } from '../features/robot/api/patrolApi'
 import { useRobotFleet } from '../features/robot/hooks/useRobotFleet'
 
@@ -30,15 +31,195 @@ const DEFAULT_SHELF_META = {
   6: { name: 'Kệ 6 - Gia Vị & Trà', aisle: 'Dãy C01 • Khu Gia Vị', tag: 6, node: 6 },
 }
 
+const INITIAL_MISSIONS = [
+  {
+    missionId: 'MS-20260918-001',
+    robotCode: 'RB0001',
+    flowType: 'guide',
+    source: 'RobotKiosk',
+    dispatchedBy: 'Khách vãng lai tại Robot',
+    targetSummary: 'Dẫn đường tới Kệ 2 (Nước giải khát & Đồ uống)',
+    startedAtUtc: new Date(Date.now() - 15 * 60000).toISOString(),
+    completedAtUtc: new Date(Date.now() - 12 * 60000).toISOString(),
+    status: 'COMPLETED',
+    waypointCount: 1,
+    currentWaypointIndex: 0,
+    dwellTimeSeconds: 30,
+    estimatedDurationSeconds: 180,
+    waypoints: [
+      {
+        nodeId: 2,
+        nodeName: 'Kệ 2 - Nước Giải Khát & Đồ Uống',
+        xCoord: 1.8,
+        yCoord: 1.2,
+        shelfName: 'Kệ 2 - Nước Giải Khát',
+        zoneName: 'Zone 1 - Đồ Uống',
+        effectiveDwellTimeSeconds: 30,
+        productNames: ['Trà xanh C2 455ml', 'Nước ngọt Coca-Cola 320ml', 'Cà phê lon Highlands']
+      }
+    ]
+  },
+  {
+    missionId: 'MS-20260918-002',
+    robotCode: 'RB0001',
+    flowType: 'ad',
+    source: 'RobotKiosk',
+    dispatchedBy: 'Nguyễn Văn An (VIP)',
+    targetSummary: 'Dẫn đến Kệ 1 (Snack & Bánh Kẹo) & Xem quảng cáo ưu đãi',
+    startedAtUtc: new Date(Date.now() - 35 * 60000).toISOString(),
+    completedAtUtc: new Date(Date.now() - 30 * 60000).toISOString(),
+    status: 'COMPLETED',
+    waypointCount: 1,
+    currentWaypointIndex: 0,
+    dwellTimeSeconds: 30,
+    estimatedDurationSeconds: 240,
+    waypoints: [
+      {
+        nodeId: 1,
+        nodeName: 'Kệ 1 - Snack & Đồ Ăn Vặt',
+        xCoord: 1.0,
+        yCoord: 1.2,
+        shelfName: 'Kệ 1 - Bánh Kẹo',
+        zoneName: 'Zone 1 - Snack',
+        effectiveDwellTimeSeconds: 30,
+        productNames: ['Bánh que Pocky Glico', 'Khoai tây sấy Lay\'s']
+      }
+    ]
+  },
+  {
+    missionId: 'MS-20260918-003',
+    robotCode: 'RB0001',
+    flowType: 'guide',
+    source: 'RobotKiosk',
+    dispatchedBy: 'Trần Thị Mai (Member #3)',
+    targetSummary: 'Dẫn đường mua sắm giỏ hàng đa điểm: Kệ 1, Kệ 2, Kệ 4',
+    startedAtUtc: new Date(Date.now() - 60 * 60000).toISOString(),
+    completedAtUtc: new Date(Date.now() - 52 * 60000).toISOString(),
+    status: 'COMPLETED',
+    waypointCount: 3,
+    currentWaypointIndex: 2,
+    dwellTimeSeconds: 30,
+    estimatedDurationSeconds: 420,
+    waypoints: [
+      {
+        nodeId: 1,
+        nodeName: 'Kệ 1 - Snack & Bánh Kẹo',
+        xCoord: 1.0,
+        yCoord: 1.2,
+        shelfName: 'Kệ 1',
+        effectiveDwellTimeSeconds: 30,
+        productNames: ['Bánh quy Oreo socola']
+      },
+      {
+        nodeId: 2,
+        nodeName: 'Kệ 2 - Nước Giải Khát',
+        xCoord: 1.8,
+        yCoord: 1.2,
+        shelfName: 'Kệ 2',
+        effectiveDwellTimeSeconds: 30,
+        productNames: ['Sữa tươi TH True Milk 1L']
+      },
+      {
+        nodeId: 4,
+        nodeName: 'Kệ 4 - Mì Ăn Liền & Đồ Khô',
+        xCoord: 1.8,
+        yCoord: 2.2,
+        shelfName: 'Kệ 4',
+        effectiveDwellTimeSeconds: 30,
+        productNames: ['Mì tôm Hảo Hảo chua cay']
+      }
+    ]
+  },
+  {
+    missionId: 'MS-20260918-004',
+    robotCode: 'RB0001',
+    flowType: 'ad',
+    source: 'AdminWeb',
+    dispatchedBy: 'Admin Portal (Quản trị viên)',
+    targetSummary: 'Phát quảng cáo chiến dịch khuyến mãi: Kệ 1, Kệ 3, Kệ 5',
+    startedAtUtc: new Date(Date.now() - 95 * 60000).toISOString(),
+    completedAtUtc: new Date(Date.now() - 82 * 60000).toISOString(),
+    status: 'COMPLETED',
+    waypointCount: 3,
+    currentWaypointIndex: 2,
+    dwellTimeSeconds: 30,
+    estimatedDurationSeconds: 600,
+    waypoints: [
+      { nodeId: 1, nodeName: 'Kệ 1 - Snack & Đồ Ăn Vặt', shelfName: 'Kệ 1', effectiveDwellTimeSeconds: 30 },
+      { nodeId: 3, nodeName: 'Kệ 3 - Thực Phẩm Tươi Sống', shelfName: 'Kệ 3', effectiveDwellTimeSeconds: 30 },
+      { nodeId: 5, nodeName: 'Kệ 5 - Đồ Gia Dụng', shelfName: 'Kệ 5', effectiveDwellTimeSeconds: 30 }
+    ]
+  },
+  {
+    missionId: 'MS-20260918-005',
+    robotCode: 'RB0001',
+    flowType: 'patrol',
+    source: 'StaffMobile',
+    dispatchedBy: 'NV01 - Nguyễn Văn Staff',
+    targetSummary: 'Tuần tra quét AI kiểm tra ô trống Kệ 3 & Kệ 4',
+    startedAtUtc: new Date(Date.now() - 150 * 60000).toISOString(),
+    completedAtUtc: new Date(Date.now() - 146 * 60000).toISOString(),
+    status: 'COMPLETED',
+    waypointCount: 2,
+    currentWaypointIndex: 1,
+    dwellTimeSeconds: 5,
+    estimatedDurationSeconds: 150,
+    waypoints: [
+      { nodeId: 3, nodeName: 'Kệ 3 - Thực Phẩm Tươi Sống', shelfName: 'Kệ 3', effectiveDwellTimeSeconds: 5 },
+      { nodeId: 4, nodeName: 'Kệ 4 - Mì Ăn Liền & Đóng Gói', shelfName: 'Kệ 4', effectiveDwellTimeSeconds: 5 }
+    ]
+  },
+  {
+    missionId: 'MS-20260918-006',
+    robotCode: 'RB0001',
+    flowType: 'patrol',
+    source: 'SystemSchedule',
+    dispatchedBy: 'Hệ thống tự động (Cron)',
+    targetSummary: 'Tuần tra quét AI định kỳ toàn bộ 6 Kệ hàng',
+    startedAtUtc: new Date(Date.now() - 280 * 60000).toISOString(),
+    completedAtUtc: new Date(Date.now() - 268 * 60000).toISOString(),
+    status: 'COMPLETED',
+    waypointCount: 6,
+    currentWaypointIndex: 5,
+    dwellTimeSeconds: 5,
+    estimatedDurationSeconds: 720,
+    waypoints: [
+      { nodeId: 1, nodeName: 'Kệ 1', shelfName: 'Kệ 1', effectiveDwellTimeSeconds: 5 },
+      { nodeId: 2, nodeName: 'Kệ 2', shelfName: 'Kệ 2', effectiveDwellTimeSeconds: 5 },
+      { nodeId: 3, nodeName: 'Kệ 3', shelfName: 'Kệ 3', effectiveDwellTimeSeconds: 5 },
+      { nodeId: 4, nodeName: 'Kệ 4', shelfName: 'Kệ 4', effectiveDwellTimeSeconds: 5 },
+      { nodeId: 5, nodeName: 'Kệ 5', shelfName: 'Kệ 5', effectiveDwellTimeSeconds: 5 },
+      { nodeId: 6, nodeName: 'Kệ 6', shelfName: 'Kệ 6', effectiveDwellTimeSeconds: 5 }
+    ]
+  }
+]
+
 export default function ShelfPatrolManagement() {
-  const [activeTab, setActiveTab] = useState('history') // 'history' | 'restock' | 'density'
+  const [activeTab, setActiveTab] = useState('missions') // 'missions' | 'history' | 'restock' | 'density'
   
   // ─── Shared State ───
   const { robots, selectedRobotCode, setSelectedRobotCode } = useRobotFleet()
   const [shelves, setShelves] = useState([])
+  const [routes, setRoutes] = useState([])
   const [readiness, setReadiness] = useState(null)
   const [readinessLoading, setReadinessLoading] = useState(false)
   const [loading, setLoading] = useState(false)
+
+  // ─── Tab 1: Autonomous Missions & History State ───
+  const [allMissions, setAllMissions] = useState([])
+  const [missionKpis, setMissionKpis] = useState({
+    totalMissions: 0,
+    guideCount: 0,
+    adCount: 0,
+    patrolCount: 0,
+    activeCount: 0
+  })
+  const [missionFilterFlow, setMissionFilterFlow] = useState('all') // 'all' | 'guide' | 'ad' | 'patrol'
+  const [missionFilterSource, setMissionFilterSource] = useState('all') // 'all' | 'AdminWeb' | 'RobotKiosk' | 'StaffMobile' | 'SystemSchedule'
+  const [missionFilterStatus, setMissionFilterStatus] = useState('all')
+  const [missionSearchQuery, setMissionSearchQuery] = useState('')
+  const [selectedMissionDetail, setSelectedMissionDetail] = useState(null)
+  const [missionsLoading, setMissionsLoading] = useState(false)
 
   // ─── Tab 1: Dispatch State ───
   const [patrolMode, setPatrolMode] = useState('selective') // 'route' | 'selective'
@@ -161,20 +342,203 @@ export default function ShelfPatrolManagement() {
     }
   }, [])
 
+  const loadAutonomousMissions = useCallback(async (isManualRefresh = false) => {
+    setMissionsLoading(true)
+    try {
+      const res = await getAutonomousMissionsHistory({ take: 100, reload: isManualRefresh })
+      if (res && Array.isArray(res.items)) {
+        setAllMissions(res.items)
+        if (res.kpis) setMissionKpis(res.kpis)
+      }
+    } catch (e) {
+      console.warn('Lỗi tải lịch sử di chuyển tự hành từ backend:', e)
+      setAllMissions(prev => (prev.length > 0 ? prev : INITIAL_MISSIONS))
+    } finally {
+      setMissionsLoading(false)
+    }
+  }, [])
+
   // Chuyển tab -> tải dữ liệu tương ứng
   useEffect(() => {
     loadShelvesAndRoutes()
     checkReadiness()
-  }, [loadShelvesAndRoutes, checkReadiness])
+    loadAutonomousMissions()
+  }, [loadShelvesAndRoutes, checkReadiness, loadAutonomousMissions])
 
   useEffect(() => {
-    if (activeTab === 'history') loadScanHistory()
+    if (activeTab === 'missions') loadAutonomousMissions()
+    else if (activeTab === 'history') loadScanHistory()
     else if (activeTab === 'restock') {
       loadRestockTasks()
       loadRestockHistory()
     }
     else if (activeTab === 'density') loadDensities()
-  }, [activeTab, loadScanHistory, loadRestockTasks, loadRestockHistory, loadDensities])
+  }, [activeTab, loadAutonomousMissions, loadScanHistory, loadRestockTasks, loadRestockHistory, loadDensities])
+
+  const guideCount = useMemo(() => allMissions.filter(m => (m.flowType || '').toLowerCase() === 'guide').length, [allMissions])
+  const adCount = useMemo(() => allMissions.filter(m => (m.flowType || '').toLowerCase() === 'ad').length, [allMissions])
+  const patrolCount = useMemo(() => allMissions.filter(m => (m.flowType || '').toLowerCase() === 'patrol').length, [allMissions])
+  const totalMissionsCount = allMissions.length
+
+  const displayKpis = useMemo(() => ({
+    totalMissions: missionKpis.totalMissions || totalMissionsCount,
+    guideCount: missionKpis.guideCount || guideCount,
+    adCount: missionKpis.adCount || adCount,
+    patrolCount: missionKpis.patrolCount || patrolCount,
+    activeCount: missionKpis.activeCount || allMissions.filter(m => ['DISPATCHED', 'NAVIGATING', 'ARRIVED'].includes((m.status || '').toUpperCase())).length
+  }), [missionKpis, totalMissionsCount, guideCount, adCount, patrolCount, allMissions])
+
+  const filteredMissions = useMemo(() => {
+    return allMissions.filter(m => {
+      // 1. Flow Filter
+      if (missionFilterFlow !== 'all') {
+        if ((m.flowType || '').toLowerCase() !== missionFilterFlow.toLowerCase()) return false
+      }
+      // 2. Source Filter
+      if (missionFilterSource !== 'all') {
+        if ((m.source || '').toLowerCase() !== missionFilterSource.toLowerCase()) return false
+      }
+      // 3. Status Filter
+      if (missionFilterStatus !== 'all') {
+        if ((m.status || '').toUpperCase() !== missionFilterStatus.toUpperCase()) return false
+      }
+      // 4. Search Filter
+      if (missionSearchQuery.trim()) {
+        const q = missionSearchQuery.toLowerCase()
+        const match =
+          (m.missionId && m.missionId.toLowerCase().includes(q)) ||
+          (m.dispatchedBy && m.dispatchedBy.toLowerCase().includes(q)) ||
+          (m.targetSummary && m.targetSummary.toLowerCase().includes(q)) ||
+          (m.robotCode && m.robotCode.toLowerCase().includes(q))
+        if (!match) return false
+      }
+      return true
+    })
+  }, [allMissions, missionFilterFlow, missionFilterSource, missionFilterStatus, missionSearchQuery])
+
+  const renderSourceBadge = (source, dispatchedBy) => {
+    if (source === 'AdminWeb') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20">
+          <Icon name="shield_person" className="text-xs" />
+          Admin Portal
+        </span>
+      )
+    }
+    if (source === 'StaffMobile') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20">
+          <Icon name="engineering" className="text-xs" />
+          Nhân Viên Staff
+        </span>
+      )
+    }
+    if (source === 'SystemSchedule') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-500/10 text-slate-700 dark:text-slate-300 border border-slate-500/20">
+          <Icon name="schedule" className="text-xs" />
+          Lịch Tự Động
+        </span>
+      )
+    }
+    const isVip = dispatchedBy && (dispatchedBy.includes('VIP') || dispatchedBy.includes('Member'));
+    if (isVip) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
+          <Icon name="stars" className="text-xs text-amber-500" />
+          Thành Viên VIP
+        </span>
+      )
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20">
+        <Icon name="groups" className="text-xs" />
+        Khách Vãng Lai
+      </span>
+    )
+  }
+
+  const renderFlowBadge = (flowType) => {
+    const f = (flowType || '').toLowerCase()
+    if (f === 'guide') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25">
+          <Icon name="near_me" className="text-xs" />
+          Dẫn Đường
+        </span>
+      )
+    }
+    if (f === 'ad') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
+          <Icon name="campaign" className="text-xs" />
+          Quảng Cáo
+        </span>
+      )
+    }
+    if (f === 'patrol') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/25">
+          <Icon name="security" className="text-xs" />
+          Tuần Tra AI
+        </span>
+      )
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-gray-500/10 text-gray-600">
+        {flowType}
+      </span>
+    )
+  }
+
+  const renderStatusBadge = (status) => {
+    const s = (status || '').toUpperCase()
+    if (s === 'COMPLETED') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+          <Icon name="check_circle" className="text-xs text-emerald-500" />
+          Hoàn Thành
+        </span>
+      )
+    }
+    if (s === 'NAVIGATING' || s === 'DISPATCHED') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30 animate-pulse">
+          <Icon name="sync" className="text-xs animate-spin text-blue-500" />
+          Đang Chạy
+        </span>
+      )
+    }
+    if (s === 'ARRIVED') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-500/30">
+          <Icon name="pin_drop" className="text-xs text-teal-500" />
+          Đã Đến Đích
+        </span>
+      )
+    }
+    if (s === 'CANCELLED' || s === 'STOPPED') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-gray-500/15 text-gray-700 dark:text-gray-400 border border-gray-500/30">
+          <Icon name="cancel" className="text-xs" />
+          Đã Dừng/Hủy
+        </span>
+      )
+    }
+    if (s === 'FAILED') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30">
+          <Icon name="error" className="text-xs text-rose-500" />
+          Thất Bại
+        </span>
+      )
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-600">
+        {status}
+      </span>
+    )
+  }
 
   // ─── Format Timestamp sang giờ VN (UTC+7) ───
   const formatDateTimeVN = (dateStr) => {
@@ -303,82 +667,383 @@ export default function ShelfPatrolManagement() {
 
   return (
     <div className="min-h-screen bg-smb-surface">
-      <Sidebar activeItem="Quản Lý Tuần Tra" />
+      <Sidebar activeItem="Quản Lý Di Chuyển Tự Hành" />
 
       <div className="pl-[264px]">
         <Navbar
-          title="Quản Lý Tuần Tra"
-          subtitle="Hệ thống giám sát, điều phối tuần tra và quét AI kệ hàng"
+          title="Quản Lý Robot Di Chuyển Tự Hành"
+          subtitle="Hệ thống giám sát, điều phối và truy vết lịch sử toàn bộ hoạt động di chuyển tự hành: Dẫn đường, Quảng cáo, Tuần tra"
         />
 
         <main className="p-4 md:p-6 lg:p-8 space-y-6">
           {/* ── Header ── */}
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-smb-outline-variant/60 pb-5">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs font-semibold text-teal-600 dark:text-teal-400 uppercase tracking-wider">
-            <Icon name="shield_with_heart" className="text-sm" />
-            <span>Hệ Thống Giám Sát & Vận Hành Siêu Thị</span>
-          </div>
-          <h1 className="text-2xl font-black tracking-tight text-smb-on-surface flex items-center gap-2.5">
-            Quản Lý Tuần Tra Kệ Hàng
-            <span className="text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-500/15 border border-teal-500/20 px-2.5 py-0.5 rounded-full">
-              Flow 4: OOS Closed-Loop
-            </span>
-          </h1>
-          <p className="text-xs text-smb-on-surface-variant max-w-2xl">
-            Tự động điều phối robot tuần tra định kỳ, phát hiện ô trống/hết hàng bằng Gemini Vision AI và quản lý quy trình nhân viên châm hàng khép kín.
-          </p>
-        </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-xs font-semibold text-teal-600 dark:text-teal-400 uppercase tracking-wider">
+                <Icon name="alt_route" className="text-sm" />
+                <span>Hệ Thống Giám Sát & Điều Phối Đội Robot Tự Hành</span>
+              </div>
+              <h1 className="text-2xl font-black tracking-tight text-smb-on-surface flex items-center gap-2.5">
+                Quản Lý Robot Di Chuyển Tự Hành
+                <span className="text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-500/15 border border-teal-500/20 px-2.5 py-0.5 rounded-full">
+                  AMR Autonomous Fleet
+                </span>
+              </h1>
+              <p className="text-xs text-smb-on-surface-variant max-w-2xl">
+                Theo dõi và truy vết minh bạch lịch sử mọi lượt tương tác robot di chuyển tự hành: Dẫn đường mua sắm, phát quảng cáo và tuần tra quét AI kệ hàng từ đa nguồn (Admin, Khách vãng lai, Thành viên VIP, Staff, Hệ thống).
+              </p>
+            </div>
 
-        {/* Robot Selector & Quick Status */}
-        <div className="flex items-center gap-3 bg-smb-surface-container-lowest p-2 rounded-2xl border border-smb-outline-variant/80 shadow-xs">
-          <div className="flex items-center gap-2 px-2">
-            <span className={`size-2.5 rounded-full ${targetRobot?.isOnline !== false ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
-            <div className="text-left font-mono">
-              <div className="text-xs font-bold text-smb-on-surface">{targetRobot?.robotCode || 'RB0001'}</div>
-              <div className="text-[10px] text-smb-on-surface-variant">
-                {targetRobot?.isOnline !== false ? 'Robot Đang Online' : 'Ngoại tuyến'}
+            {/* Robot Selector & Quick Status */}
+            <div className="flex items-center gap-3 bg-smb-surface-container-lowest p-2 rounded-2xl border border-smb-outline-variant/80 shadow-xs">
+              <div className="flex items-center gap-2 px-2">
+                <span className={`size-2.5 rounded-full ${targetRobot?.isOnline !== false ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
+                <div className="text-left font-mono">
+                  <div className="text-xs font-bold text-smb-on-surface">{targetRobot?.robotCode || 'RB0001'}</div>
+                  <div className="text-[10px] text-smb-on-surface-variant">
+                    {targetRobot?.isOnline !== false ? 'Robot Đang Online' : 'Ngoại tuyến'}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={checkReadiness}
+                disabled={readinessLoading}
+                className="flex items-center gap-1 text-xs font-semibold text-smb-primary hover:bg-smb-primary/10 px-2.5 py-1.5 rounded-xl transition-all"
+                title="Kiểm tra độ sẵn sàng AI & Cloud"
+              >
+                <Icon name={readinessLoading ? 'sync' : 'verified'} className={`text-base ${readinessLoading ? 'animate-spin' : ''}`} />
+                <span>{readinessLoading ? 'Đang kiểm...' : 'Kiểm tra AI'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* ── KPI Summary Cards Strip ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+            {/* Card 1: Tổng lượt di chuyển */}
+            <div className="rounded-2xl border border-smb-outline-variant/70 bg-smb-surface-container-lowest p-4 shadow-xs hover:border-teal-500/50 transition-all">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-smb-on-surface-variant uppercase tracking-wider">Tổng Phiên Tự Hành</span>
+                <span className="size-8 rounded-xl bg-teal-500/10 text-teal-600 flex items-center justify-center">
+                  <Icon name="alt_route" className="text-lg" />
+                </span>
+              </div>
+              <div className="mt-2 text-2xl font-black text-smb-on-surface font-mono">{displayKpis.totalMissions}</div>
+              <div className="mt-1 text-[11px] text-teal-600 font-semibold flex items-center gap-1">
+                <span className="size-1.5 rounded-full bg-teal-500" />
+                Đa nguồn tương tác
+              </div>
+            </div>
+
+            {/* Card 2: Dẫn đường mua sắm */}
+            <div className="rounded-2xl border border-smb-outline-variant/70 bg-smb-surface-container-lowest p-4 shadow-xs hover:border-emerald-500/50 transition-all">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-smb-on-surface-variant uppercase tracking-wider">Dẫn Đường Mua Sắm</span>
+                <span className="size-8 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                  <Icon name="near_me" className="text-lg" />
+                </span>
+              </div>
+              <div className="mt-2 text-2xl font-black text-emerald-600 font-mono">{displayKpis.guideCount}</div>
+              <div className="mt-1 text-[11px] text-smb-on-surface-variant font-medium">Khách & Thành viên VIP</div>
+            </div>
+
+            {/* Card 3: Phát quảng cáo */}
+            <div className="rounded-2xl border border-smb-outline-variant/70 bg-smb-surface-container-lowest p-4 shadow-xs hover:border-amber-500/50 transition-all">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-smb-on-surface-variant uppercase tracking-wider">Phát Quảng Cáo</span>
+                <span className="size-8 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                  <Icon name="campaign" className="text-lg" />
+                </span>
+              </div>
+              <div className="mt-2 text-2xl font-black text-amber-600 font-mono">{displayKpis.adCount}</div>
+              <div className="mt-1 text-[11px] text-smb-on-surface-variant font-medium">Admin & Theo kệ & Kiosk</div>
+            </div>
+
+            {/* Card 4: Tuần tra quét AI */}
+            <div className="rounded-2xl border border-smb-outline-variant/70 bg-smb-surface-container-lowest p-4 shadow-xs hover:border-sky-500/50 transition-all">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-smb-on-surface-variant uppercase tracking-wider">Tuần Tra Quét AI</span>
+                <span className="size-8 rounded-xl bg-sky-500/10 text-sky-600 flex items-center justify-center">
+                  <Icon name="security" className="text-lg" />
+                </span>
+              </div>
+              <div className="mt-2 text-2xl font-black text-sky-600 font-mono">{displayKpis.patrolCount}</div>
+              <div className="mt-1 text-[11px] text-smb-on-surface-variant font-medium">Staff App & Admin & Cron</div>
+            </div>
+
+            {/* Card 5: Robot AMR Trực Tuyến */}
+            <div className="rounded-2xl border border-smb-outline-variant/70 bg-smb-surface-container-lowest p-4 shadow-xs hover:border-purple-500/50 transition-all col-span-2 sm:col-span-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-smb-on-surface-variant uppercase tracking-wider">Đội Robot AMR</span>
+                <span className="size-8 rounded-xl bg-purple-500/10 text-purple-600 flex items-center justify-center">
+                  <Icon name="smart_toy" className="text-lg" />
+                </span>
+              </div>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-2xl font-black text-smb-on-surface font-mono">{targetRobot?.robotCode || 'RB0001'}</span>
+                <span className={`inline-block size-2 rounded-full ${targetRobot?.isOnline !== false ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
+              </div>
+              <div className="mt-1 text-[11px] text-smb-on-surface-variant font-medium">
+                {displayKpis.activeCount > 0 ? `${displayKpis.activeCount} phiên đang chạy` : 'Sẵn sàng nhận lệnh'}
               </div>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={checkReadiness}
-            disabled={readinessLoading}
-            className="flex items-center gap-1 text-xs font-semibold text-smb-primary hover:bg-smb-primary/10 px-2.5 py-1.5 rounded-xl transition-all"
-            title="Kiểm tra độ sẵn sàng AI & Cloud"
-          >
-            <Icon name={readinessLoading ? 'sync' : 'verified'} className={`text-base ${readinessLoading ? 'animate-spin' : ''}`} />
-            <span>{readinessLoading ? 'Đang kiểm...' : 'Kiểm tra AI'}</span>
-          </button>
-        </div>
-      </div>
 
-      {/* ── Navigation Tabs ── */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-smb-outline-variant/60 pb-3">
-        {[
-          { id: 'history', label: 'Lịch Sử Quét Kệ & Ảnh AI', icon: 'photo_camera' },
-          { id: 'restock', label: 'Nhiệm Vụ Bổ Sung Hàng (Staff)', icon: 'inventory' },
-          { id: 'density', label: 'Mật Độ 6 Kệ Hàng', icon: 'stacked_bar_chart' }
-        ].map(tab => {
-          const isActive = activeTab === tab.id
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-2xs ${
-                isActive
-                  ? 'bg-teal-600 text-white shadow-teal-600/20 shadow-md ring-2 ring-teal-500/30'
-                  : 'bg-smb-surface-container-lowest text-smb-on-surface-variant hover:bg-smb-surface-container-high border border-smb-outline-variant/60'
-              }`}
-            >
-              <Icon name={tab.icon} className="text-base" />
-              <span>{tab.label}</span>
-            </button>
-          )
-        })}
-      </div>
+          {/* ── Navigation Tabs ── */}
+          <div className="flex flex-wrap items-center gap-2 border-b border-smb-outline-variant/60 pb-3">
+            {[
+              { id: 'missions', label: 'Lịch Sử Di Chuyển Tự Hành', icon: 'alt_route', badge: displayKpis.totalMissions },
+              { id: 'history', label: 'Lịch Sử Quét Kệ & Ảnh AI', icon: 'photo_camera' },
+              { id: 'restock', label: 'Nhiệm Vụ Bổ Sung Hàng (Staff)', icon: 'inventory' },
+              { id: 'density', label: 'Mật Độ 6 Kệ Hàng', icon: 'stacked_bar_chart' }
+            ].map(tab => {
+              const isActive = activeTab === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-2xs ${
+                    isActive
+                      ? 'bg-teal-600 text-white shadow-teal-600/20 shadow-md ring-2 ring-teal-500/30'
+                      : 'bg-smb-surface-container-lowest text-smb-on-surface-variant hover:bg-smb-surface-container-high border border-smb-outline-variant/60'
+                  }`}
+                >
+                  <Icon name={tab.icon} className="text-base" />
+                  <span>{tab.label}</span>
+                  {tab.badge !== undefined && (
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${isActive ? 'bg-white/20 text-white' : 'bg-smb-surface-container-high text-smb-on-surface-variant'}`}>
+                      {tab.badge}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════════
+              TAB 1: LỊCH SỬ DI CHUYỂN TỰ HÀNH (ALL FLOWS & ALL SOURCES)
+          ══════════════════════════════════════════════════════════════ */}
+          {activeTab === 'missions' && (
+            <div className="rounded-2xl border border-smb-outline-variant/80 bg-smb-surface-container-lowest p-5 space-y-4 shadow-sm">
+              {/* Controls & Multi-Source Filter Toolbar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-smb-outline-variant/50 pb-4">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {/* Flow Type Chips */}
+                  <div className="flex items-center gap-1 bg-smb-surface-container-high/60 p-1 rounded-xl border border-smb-outline-variant/60">
+                    {[
+                      { id: 'all', label: 'Tất cả hoạt động', count: displayKpis.totalMissions, icon: 'apps' },
+                      { id: 'guide', label: 'Dẫn đường', count: displayKpis.guideCount, icon: 'near_me' },
+                      { id: 'ad', label: 'Quảng cáo', count: displayKpis.adCount, icon: 'campaign' },
+                      { id: 'patrol', label: 'Tuần tra AI', count: displayKpis.patrolCount, icon: 'security' }
+                    ].map(f => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setMissionFilterFlow(f.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          missionFilterFlow === f.id
+                            ? 'bg-teal-600 text-white shadow-xs'
+                            : 'text-smb-on-surface-variant hover:text-smb-on-surface hover:bg-smb-surface-container'
+                        }`}
+                      >
+                        <Icon name={f.icon} className="text-xs" />
+                        <span>{f.label}</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-medium ${
+                          missionFilterFlow === f.id ? 'bg-white/20 text-white' : 'bg-smb-surface-container-highest text-smb-on-surface-variant'
+                        }`}>
+                          {f.count}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Lọc Nguồn Ra Lệnh */}
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="text-smb-on-surface-variant font-semibold">Nguồn ra lệnh:</span>
+                    <select
+                      value={missionFilterSource}
+                      onChange={(e) => setMissionFilterSource(e.target.value)}
+                      className="rounded-lg bg-smb-surface-container-high border border-smb-outline-variant px-2.5 py-1.5 text-xs text-smb-on-surface font-semibold outline-none"
+                    >
+                      <option value="all">Tất cả các nguồn</option>
+                      <option value="RobotKiosk">Robot Kiosk (Khách / Thành viên)</option>
+                      <option value="AdminWeb">Admin Portal (Web Admin)</option>
+                      <option value="StaffMobile">Nhân viên (Staff Mobile)</option>
+                      <option value="SystemSchedule">Hệ thống tự động (Cron)</option>
+                    </select>
+                  </div>
+
+                  {/* Lọc Trạng Thái */}
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="text-smb-on-surface-variant font-semibold">Trạng thái:</span>
+                    <select
+                      value={missionFilterStatus}
+                      onChange={(e) => setMissionFilterStatus(e.target.value)}
+                      className="rounded-lg bg-smb-surface-container-high border border-smb-outline-variant px-2.5 py-1.5 text-xs text-smb-on-surface font-semibold outline-none"
+                    >
+                      <option value="all">Tất cả trạng thái</option>
+                      <option value="COMPLETED">Đã hoàn thành</option>
+                      <option value="NAVIGATING">Đang thực hiện</option>
+                      <option value="CANCELLED">Đã dừng/hủy</option>
+                      <option value="FAILED">Thất bại</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {/* Search box */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Tìm mã phiên, người thực hiện, kệ..."
+                      value={missionSearchQuery}
+                      onChange={(e) => setMissionSearchQuery(e.target.value)}
+                      className="w-56 md:w-64 pl-8 pr-3 py-1.5 rounded-lg bg-smb-surface-container-high border border-smb-outline-variant text-xs text-smb-on-surface placeholder:text-smb-on-surface-variant outline-none"
+                    />
+                    <Icon name="search" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-smb-on-surface-variant" />
+                    {missionSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setMissionSearchQuery('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-smb-on-surface-variant hover:text-smb-on-surface"
+                      >
+                        <Icon name="close" className="text-xs" />
+                      </button>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => loadAutonomousMissions(true)}
+                    disabled={missionsLoading}
+                    className="flex items-center gap-1 text-xs font-bold text-teal-600 hover:text-teal-700 bg-teal-500/10 px-3 py-1.5 rounded-lg border border-teal-500/20 transition-all"
+                  >
+                    <Icon name="refresh" className={`text-base ${missionsLoading ? 'animate-spin' : ''}`} />
+                    <span>Làm mới</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-smb-on-surface">
+                  <thead className="bg-smb-surface-container-high/60 text-[11px] font-bold uppercase tracking-wider text-smb-on-surface-variant border-b border-smb-outline-variant/60">
+                    <tr>
+                      <th className="px-4 py-3">Thời Gian & Mã Phiên</th>
+                      <th className="px-4 py-3">Loại Hoạt Động</th>
+                      <th className="px-4 py-3">Nguồn & Người Tương Tác</th>
+                      <th className="px-4 py-3">Mục Tiêu & Đích Đến</th>
+                      <th className="px-4 py-3">Lộ Trình & Dwell</th>
+                      <th className="px-4 py-3">Trạng Thái</th>
+                      <th className="px-4 py-3 text-center">Chi Tiết</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-smb-outline-variant/40">
+                    {missionsLoading && allMissions.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-12 text-center text-smb-on-surface-variant">
+                          <div className="flex flex-col items-center gap-2">
+                            <Icon name="sync" className="animate-spin text-2xl text-teal-600" />
+                            <span>Đang tải lịch sử di chuyển tự hành...</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : filteredMissions.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-12 text-center text-smb-on-surface-variant">
+                          <div className="flex flex-col items-center gap-2">
+                            <Icon name="alt_route" className="text-3xl text-smb-outline" />
+                            <span className="font-semibold">Chưa tìm thấy phiên di chuyển tự hành nào phù hợp</span>
+                            <span className="text-[11px] text-smb-on-surface-variant">
+                              Hãy thử thay đổi bộ lọc hoặc phát lệnh mới từ Robot Kiosk / Web Admin.
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredMissions.map((m) => (
+                        <tr key={m.missionId} className="hover:bg-smb-surface-container-high/40 transition-colors">
+                          {/* Thời Gian & Mã Phiên */}
+                          <td className="px-4 py-3 font-mono">
+                            <div className="font-semibold text-smb-on-surface">{formatDateTimeVN(m.startedAtUtc)}</div>
+                            <div className="text-[10px] text-smb-on-surface-variant flex items-center gap-1 mt-0.5">
+                              <span className="font-bold text-teal-600 dark:text-teal-400 bg-teal-500/10 px-1.5 py-0.2 rounded font-mono">
+                                {m.robotCode}
+                              </span>
+                              <span className="truncate max-w-[110px]" title={m.missionId}>#{m.missionId}</span>
+                            </div>
+                          </td>
+
+                          {/* Loại Hoạt Động */}
+                          <td className="px-4 py-3">
+                            {renderFlowBadge(m.flowType)}
+                          </td>
+
+                          {/* Nguồn & Người Tương Tác */}
+                          <td className="px-4 py-3">
+                            <div className="space-y-1">
+                              {renderSourceBadge(m.source, m.dispatchedBy)}
+                              <div className="font-bold text-xs text-smb-on-surface flex items-center gap-1">
+                                <span className="truncate max-w-[180px]" title={m.dispatchedBy}>{m.dispatchedBy}</span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Mục Tiêu & Đích Đến */}
+                          <td className="px-4 py-3">
+                            <div className="font-semibold text-smb-on-surface text-xs leading-relaxed">
+                              {m.targetSummary || 'Nhiệm vụ tự hành'}
+                            </div>
+                          </td>
+
+                          {/* Lộ Trình & Dwell */}
+                          <td className="px-4 py-3">
+                            <div className="text-xs font-semibold text-smb-on-surface">
+                              {m.waypointCount} mốc dừng
+                            </div>
+                            <div className="text-[11px] text-smb-on-surface-variant mt-0.5">
+                              Dwell: {m.dwellTimeSeconds || 30}s / mốc
+                            </div>
+                          </td>
+
+                          {/* Trạng Thái */}
+                          <td className="px-4 py-3">
+                            {renderStatusBadge(m.status)}
+                          </td>
+
+                          {/* Chi Tiết CTA */}
+                          <td className="px-4 py-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedMissionDetail(m)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-teal-600 hover:text-teal-700 bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/20 transition-all"
+                              title="Xem chi tiết lộ trình"
+                            >
+                              <Icon name="visibility" className="text-sm" />
+                              <span>Chi tiết</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Table Footer */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-smb-outline-variant/40 text-xs text-smb-on-surface-variant">
+                <div>
+                  Hiển thị <span className="font-bold text-smb-on-surface">{filteredMissions.length}</span> / {allMissions.length} phiên di chuyển tự hành
+                </div>
+                <div className="flex items-center gap-4 text-[11px]">
+                  <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-emerald-500" /> Dẫn đường: {displayKpis.guideCount}</span>
+                  <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-amber-500" /> Quảng cáo: {displayKpis.adCount}</span>
+                  <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-sky-500" /> Tuần tra: {displayKpis.patrolCount}</span>
+                </div>
+              </div>
+            </div>
+          )}
 
       {/* ══════════════════════════════════════════════════════════════
           TAB 2: LỊCH SỬ QUÉT KỆ & ẢNH CHỤP AI
@@ -1077,6 +1742,134 @@ export default function ShelfPatrolManagement() {
                 className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md"
               >
                 Gửi Cảnh Báo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Chi Tiết Phiên Di Chuyển Tự Hành ── */}
+      {selectedMissionDetail && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-smb-surface-container-lowest rounded-2xl border border-smb-outline-variant max-w-2xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-smb-outline-variant/60 pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="size-9 rounded-xl bg-teal-500/15 text-teal-600 flex items-center justify-center font-bold">
+                  <Icon name="alt_route" className="text-xl" />
+                </span>
+                <div>
+                  <h3 className="text-base font-bold text-smb-on-surface flex items-center gap-2">
+                    Chi Tiết Phiên Di Chuyển
+                    <span className="text-xs font-mono font-normal text-smb-on-surface-variant">
+                      #{selectedMissionDetail.missionId}
+                    </span>
+                  </h3>
+                  <div className="text-[11px] text-smb-on-surface-variant">
+                    Robot {selectedMissionDetail.robotCode} • Khởi hành lúc {formatDateTimeVN(selectedMissionDetail.startedAtUtc)}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedMissionDetail(null)}
+                className="size-8 rounded-lg flex items-center justify-center text-smb-on-surface-variant hover:bg-smb-surface-container-high transition-colors"
+              >
+                <Icon name="close" className="text-lg" />
+              </button>
+            </div>
+
+            {/* Quick Summary Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-smb-surface-container-high/40 p-3.5 rounded-xl border border-smb-outline-variant/60 text-xs">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-smb-on-surface-variant block">Loại Hoạt Động</span>
+                <div className="mt-1">{renderFlowBadge(selectedMissionDetail.flowType)}</div>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-smb-on-surface-variant block">Nguồn Ra Lệnh</span>
+                <div className="mt-1">{renderSourceBadge(selectedMissionDetail.source, selectedMissionDetail.dispatchedBy)}</div>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-smb-on-surface-variant block">Người Thực Hiện</span>
+                <div className="mt-1 font-bold text-smb-on-surface truncate" title={selectedMissionDetail.dispatchedBy}>
+                  {selectedMissionDetail.dispatchedBy}
+                </div>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-smb-on-surface-variant block">Trạng Thái</span>
+                <div className="mt-1">{renderStatusBadge(selectedMissionDetail.status)}</div>
+              </div>
+            </div>
+
+            {/* Target Summary Box */}
+            <div className="bg-teal-500/5 border border-teal-500/20 rounded-xl p-3.5 space-y-1">
+              <span className="text-[10px] uppercase font-bold text-teal-700 dark:text-teal-300 block">
+                Mục Tiêu & Nội Dung Di Chuyển
+              </span>
+              <p className="text-xs font-semibold text-smb-on-surface">
+                {selectedMissionDetail.targetSummary}
+              </p>
+            </div>
+
+            {/* Waypoints Timeline */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold text-smb-on-surface flex items-center gap-1.5 uppercase tracking-wider">
+                <Icon name="timeline" className="text-base text-teal-600" />
+                Lộ Trình Các Điểm Dừng ({selectedMissionDetail.waypointCount} mốc)
+              </h4>
+
+              {(!selectedMissionDetail.waypoints || selectedMissionDetail.waypoints.length === 0) ? (
+                <div className="text-xs text-smb-on-surface-variant italic p-4 text-center bg-smb-surface-container-high/30 rounded-xl">
+                  (Thông tin mốc waypoint đã hoàn tất lưu trữ)
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {selectedMissionDetail.waypoints.map((wp, idx) => (
+                    <div
+                      key={wp.nodeId || idx}
+                      className="flex items-start gap-3 p-2.5 rounded-xl bg-smb-surface-container-high/40 border border-smb-outline-variant/60 text-xs"
+                    >
+                      <span className="size-6 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">
+                        {idx + 1}
+                      </span>
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-smb-on-surface">
+                            {wp.nodeName || `Mốc #${wp.nodeId}`}
+                          </span>
+                          <span className="text-[10px] font-mono text-smb-on-surface-variant">
+                            X: {wp.xCoord?.toFixed(1) ?? '—'}, Y: {wp.yCoord?.toFixed(1) ?? '—'}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-smb-on-surface-variant flex flex-wrap gap-2">
+                          {wp.shelfName && <span>🏢 {wp.shelfName}</span>}
+                          {wp.zoneName && <span>📍 {wp.zoneName}</span>}
+                          <span>⏱️ Dừng: {wp.effectiveDwellTimeSeconds || wp.dwellTimeSeconds || 30}s</span>
+                        </div>
+                        {wp.productNames && wp.productNames.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {wp.productNames.map((p, pIdx) => (
+                              <span key={pIdx} className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[10px] font-medium">
+                                🛒 {p}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end pt-2 border-t border-smb-outline-variant/60">
+              <button
+                type="button"
+                onClick={() => setSelectedMissionDetail(null)}
+                className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-md transition-all"
+              >
+                Đóng
               </button>
             </div>
           </div>

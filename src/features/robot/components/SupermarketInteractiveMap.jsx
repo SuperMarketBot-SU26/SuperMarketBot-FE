@@ -348,7 +348,7 @@ export default function SupermarketInteractiveMap({
   const robotSvgPos = useMemo(() => {
     if (!robotPose) {
       // Mặc định robot đang ở Trạm Sạc nếu không có tọa độ
-      return { x: 270, y: 2090, heading: 0, isDocked: true }
+      return { x: 270, y: 2090, heading: 0, isDocked: true, rawX: 0.27, rawY: 2.09 }
     }
 
     const rx = typeof robotPose.xCoord === 'number' ? robotPose.xCoord : typeof robotPose.x === 'number' ? robotPose.x : null
@@ -360,25 +360,64 @@ export default function SupermarketInteractiveMap({
     else if (typeof robotPose.headingRad === 'number') heading = (robotPose.headingRad * 180) / Math.PI
 
     if (rx !== null && ry !== null) {
-      if (rx >= 0 && rx <= 3.0 && ry >= 0 && ry <= 3.0) {
+      // 1. Trường hợp tọa độ SVG pixel sẵn (0..3000)
+      if (rx > 50 || ry > 50) {
+        const x = Math.max(80, Math.min(2920, rx))
+        const y = Math.max(80, Math.min(2920, ry))
         return {
-          x: rx * 1000,
-          y: ry * 1000,
+          x,
+          y,
           heading,
-          isDocked: Math.hypot(rx * 1000 - 270, ry * 1000 - 2090) < 150,
+          isDocked: Math.hypot(x - 270, y - 2090) < 180,
+          rawX: rx / 1000,
+          rawY: ry / 1000,
         }
       }
-      if (rx >= -1.6 && rx <= 1.6 && ry >= -1.6 && ry <= 1.6) {
+
+      // 2. Trường hợp Robot tại Trạm Sạc / Dock khởi tạo SLAM (quanh điểm gốc 0,0 hoặc 0.26, -0.11)
+      if (rx >= -0.6 && rx <= 0.6 && ry >= -0.6 && ry <= 0.4) {
+        const x = Math.max(80, Math.min(680, 270 + (rx - 0.26) * 600))
+        const y = Math.max(1800, Math.min(2600, 2090 + (ry - (-0.11)) * 600))
         return {
-          x: ((rx + 1.5) / 3.0) * 3000,
-          y: ((1.5 - ry) / 3.0) * 3000,
+          x,
+          y,
           heading,
-          isDocked: false,
+          isDocked: true,
+          rawX: rx,
+          rawY: ry,
+        }
+      }
+
+      // 3. Hệ tọa độ chuẩn Siêu Thị 3m x 3m (X: 0..3.0m, Y: 0..3.0m)
+      if (rx >= 0 && rx <= 3.0 && ry >= 0 && ry <= 3.0) {
+        const x = Math.max(80, Math.min(2920, rx * 1000))
+        const y = Math.max(80, Math.min(2920, ry * 1000))
+        return {
+          x,
+          y,
+          heading,
+          isDocked: Math.hypot(x - 270, y - 2090) < 180,
+          rawX: rx,
+          rawY: ry,
+        }
+      }
+
+      // 4. Hệ ROS SLAM tâm (0,0) trong khoảng [-1.5, 1.5]
+      if (rx >= -1.6 && rx <= 1.6 && ry >= -1.6 && ry <= 1.6) {
+        const x = Math.max(80, Math.min(2920, ((rx + 1.5) / 3.0) * 3000))
+        const y = Math.max(80, Math.min(2920, ((1.5 - ry) / 3.0) * 3000))
+        return {
+          x,
+          y,
+          heading,
+          isDocked: Math.hypot(x - 270, y - 2090) < 180,
+          rawX: rx,
+          rawY: ry,
         }
       }
     }
 
-    return { x: 270, y: 2090, heading: 0, isDocked: true }
+    return { x: 270, y: 2090, heading: 0, isDocked: true, rawX: rx ?? 0.27, rawY: ry ?? 2.09 }
   }, [robotPose])
 
   // Danh sách điểm tọa độ Waypoint đã phân giải
@@ -1178,7 +1217,7 @@ export default function SupermarketInteractiveMap({
                 {robotCode} · {robotSvgPos.isDocked ? '⚡ Đang Sạc' : missionStatus}
               </text>
               <text x="0" y="22" fill="#059669" fontSize="24" fontFamily="monospace" fontWeight="700" textAnchor="middle">
-                ({(robotSvgPos.x / 1000).toFixed(2)}m, {(robotSvgPos.y / 1000).toFixed(2)}m)
+                ({(robotSvgPos.rawX ?? robotSvgPos.x / 1000).toFixed(2)}m, {(robotSvgPos.rawY ?? robotSvgPos.y / 1000).toFixed(2)}m)
               </text>
             </g>
           </g>
