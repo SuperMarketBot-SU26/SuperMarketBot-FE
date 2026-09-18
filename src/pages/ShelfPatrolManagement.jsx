@@ -243,7 +243,7 @@ export default function ShelfPatrolManagement() {
   const [previewImage, setPreviewImage] = useState(null)
 
   // ─── Tab 3: Restock Tasks & Staff History State ───
-  const [restockSubTab, setRestockSubTab] = useState('pending') // 'pending' | 'history'
+  const [restockSubTab, setRestockSubTab] = useState('history') // 'history' | 'density'
   const [tasks, setTasks] = useState([])
   const [restockHistory, setRestockHistory] = useState([])
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -369,11 +369,10 @@ export default function ShelfPatrolManagement() {
     if (activeTab === 'missions') loadAutonomousMissions()
     else if (activeTab === 'history') loadScanHistory()
     else if (activeTab === 'restock') {
-      loadRestockTasks()
       loadRestockHistory()
+      loadDensities()
     }
-    else if (activeTab === 'density') loadDensities()
-  }, [activeTab, loadAutonomousMissions, loadScanHistory, loadRestockTasks, loadRestockHistory, loadDensities])
+  }, [activeTab, loadAutonomousMissions, loadScanHistory, loadRestockHistory, loadDensities])
 
   const guideCount = useMemo(() => allMissions.filter(m => (m.flowType || '').toLowerCase() === 'guide').length, [allMissions])
   const adCount = useMemo(() => allMissions.filter(m => (m.flowType || '').toLowerCase() === 'ad').length, [allMissions])
@@ -441,6 +440,14 @@ export default function ShelfPatrolManagement() {
         </span>
       )
     }
+    if (source === 'RobotSystem') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20">
+          <Icon name="smart_toy" className="text-xs" />
+          Robot Tự Hành
+        </span>
+      )
+    }
     const isVip = dispatchedBy && (dispatchedBy.includes('VIP') || dispatchedBy.includes('Member'));
     if (isVip) {
       return (
@@ -452,11 +459,12 @@ export default function ShelfPatrolManagement() {
     }
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20">
-        <Icon name="groups" className="text-xs" />
-        Khách Vãng Lai
+        <Icon name="shopping_cart" className="text-xs" />
+        Khách Mua Sắm
       </span>
     )
   }
+
 
   const renderFlowBadge = (flowType) => {
     const f = (flowType || '').toLowerCase()
@@ -484,12 +492,21 @@ export default function ShelfPatrolManagement() {
         </span>
       )
     }
+    if (f === 'return') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20">
+          <Icon name="home" className="text-xs" />
+          Trở Về Trạm
+        </span>
+      )
+    }
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-gray-500/10 text-gray-600">
         {flowType}
       </span>
     )
   }
+
 
   const renderStatusBadge = (status) => {
     const s = (status || '').toUpperCase()
@@ -794,8 +811,7 @@ export default function ShelfPatrolManagement() {
             {[
               { id: 'missions', label: 'Lịch Sử Di Chuyển Tự Hành', icon: 'alt_route', badge: displayKpis.totalMissions },
               { id: 'history', label: 'Lịch Sử Quét Kệ & Ảnh AI', icon: 'photo_camera' },
-              { id: 'restock', label: 'Nhiệm Vụ Bổ Sung Hàng (Staff)', icon: 'inventory' },
-              { id: 'density', label: 'Mật Độ 6 Kệ Hàng', icon: 'stacked_bar_chart' }
+              { id: 'restock', label: 'Lịch Sử Châm Hàng', icon: 'history' },
             ].map(tab => {
               const isActive = activeTab === tab.id
               return (
@@ -1221,20 +1237,22 @@ export default function ShelfPatrolManagement() {
         </div>
       )}
 
+
       {/* ══════════════════════════════════════════════════════════════
-          TAB 3: NHIỆM VỤ BỔ SUNG HÀNG & LỊCH SỬ STAFF (STAFF RESTOCK)
+          TAB 3: LỊCH SỬ CHÂM HÀNG (ADMIN VIEW — history + density sub-tabs)
       ══════════════════════════════════════════════════════════════ */}
       {activeTab === 'restock' && (
         <div className="rounded-2xl border border-smb-outline-variant/80 bg-smb-surface-container-lowest p-5 space-y-4 shadow-sm">
+          {/* Header + Sub-tab Switcher */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-smb-outline-variant/50 pb-4">
             <div>
               <h2 className="text-sm font-bold text-smb-on-surface">
-                {restockSubTab === 'pending' ? 'Danh Sách Nhiệm Vụ Cần Châm Hàng' : 'Lịch Sử Bổ Sung Hàng Của Nhân Viên'}
+                {restockSubTab === 'history' ? 'Nhật Ký Châm Hàng Của Nhân Viên' : 'Tình Trạng & Mật Độ 6 Kệ Hàng'}
               </h2>
               <p className="text-[11px] text-smb-on-surface-variant">
-                {restockSubTab === 'pending'
-                  ? 'Các ô hàng bị phát hiện trống qua Camera Robot hoặc báo cáo OOS khẩn cấp'
-                  : 'Ghi nhận chi tiết thời gian, vị trí kệ, sản phẩm và kết quả châm hàng của nhân viên'}
+                {restockSubTab === 'history'
+                  ? 'Ghi nhận chi tiết thời gian, vị trí kệ, sản phẩm và kết quả châm hàng của nhân viên'
+                  : 'Được tổng hợp từ các lần quét camera AI của Robot (Tag ArUco #1 đến #6)'}
               </p>
             </div>
 
@@ -1242,38 +1260,15 @@ export default function ShelfPatrolManagement() {
             <div className="flex items-center gap-1.5 p-1 bg-smb-surface-container/40 rounded-xl border border-smb-outline-variant/60">
               <button
                 type="button"
-                onClick={() => setRestockSubTab('pending')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  restockSubTab === 'pending'
-                    ? 'bg-rose-600 text-white shadow-xs'
-                    : 'text-smb-on-surface-variant hover:text-smb-on-surface hover:bg-smb-surface-container'
-                }`}
-              >
-                <Icon name="assignment" className="text-sm" />
-                <span>Nhiệm Vụ Chờ Châm</span>
-                {tasks.length > 0 && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                    restockSubTab === 'pending' ? 'bg-white/20 text-white' : 'bg-rose-500/10 text-rose-600'
-                  }`}>
-                    {tasks.length}
-                  </span>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setRestockSubTab('history')
-                  loadRestockHistory()
-                }}
+                onClick={() => setRestockSubTab('history')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   restockSubTab === 'history'
                     ? 'bg-emerald-600 text-white shadow-xs'
                     : 'text-smb-on-surface-variant hover:text-smb-on-surface hover:bg-smb-surface-container'
                 }`}
               >
-                <Icon name="history" className="text-sm" />
-                <span>Lịch Sử Đã Châm Hàng</span>
+                <Icon name="receipt_long" className="text-sm" />
+                <span>Nhật Ký Châm Hàng</span>
                 {restockHistory.length > 0 && (
                   <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
                     restockSubTab === 'history' ? 'bg-white/20 text-white' : 'bg-emerald-500/10 text-emerald-600'
@@ -1282,24 +1277,27 @@ export default function ShelfPatrolManagement() {
                   </span>
                 )}
               </button>
+
+              <button
+                type="button"
+                onClick={() => setRestockSubTab('density')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  restockSubTab === 'density'
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'text-smb-on-surface-variant hover:text-smb-on-surface hover:bg-smb-surface-container'
+                }`}
+              >
+                <Icon name="stacked_bar_chart" className="text-sm" />
+                <span>Mật Độ Kệ Hàng</span>
+              </button>
             </div>
 
             <div className="flex items-center gap-2">
-              {restockSubTab === 'pending' && (
-                <button
-                  type="button"
-                  onClick={() => setShowReportOosModal(true)}
-                  className="flex items-center gap-1 text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20 transition-all"
-                >
-                  <Icon name="warning" className="text-sm" />
-                  Báo Kệ Hết Hàng
-                </button>
-              )}
               <button
                 type="button"
                 onClick={() => {
-                  if (restockSubTab === 'pending') loadRestockTasks()
-                  else loadRestockHistory()
+                  if (restockSubTab === 'history') loadRestockHistory()
+                  else loadDensities()
                 }}
                 disabled={loading || historyLoading}
                 className="flex items-center gap-1 text-xs font-bold text-teal-600 hover:text-teal-700 bg-teal-500/10 px-3 py-1.5 rounded-lg border border-teal-500/20 transition-all"
@@ -1310,69 +1308,7 @@ export default function ShelfPatrolManagement() {
             </div>
           </div>
 
-          {/* Sub-tab 1: Pending Tasks Grid */}
-          {restockSubTab === 'pending' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {tasks.length === 0 ? (
-                <div className="col-span-full py-12 text-center text-smb-on-surface-variant space-y-2">
-                  <Icon name="check_circle" className="text-4xl text-emerald-500" />
-                  <div className="text-sm font-bold text-smb-on-surface">Tất cả kệ hàng đều đầy đủ!</div>
-                  <p className="text-xs">Không có nhiệm vụ bổ sung hàng nào đang chờ xử lý.</p>
-                </div>
-              ) : (
-                tasks.map(task => (
-                  <div
-                    key={task.taskId || task.id}
-                    className="rounded-xl border border-smb-outline-variant/80 bg-smb-surface-container/20 p-4 space-y-3 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
-                        {task.priority || 'Ưu Tiên Cao'}
-                      </span>
-                      <span className="text-[10px] font-mono text-smb-on-surface-variant">
-                        {formatDateTimeVN(task.createdAt)}
-                      </span>
-                    </div>
-
-                    <div>
-                      <h3 className="text-xs font-bold text-smb-on-surface">
-                        {task.productName || `Sản phẩm #${task.productId || '—'}`}
-                      </h3>
-                      <p className="text-[11px] text-teal-600 dark:text-teal-400 font-medium">
-                        Vị trí: {task.location || `Khu vực: ${task.zoneName || 'Zone'} • Lối đi ${task.aisleId || ''} • Kệ ${task.shelfId || ''}`}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs bg-smb-surface-container-lowest p-2 rounded-lg border border-smb-outline-variant/40 font-mono">
-                      <span className="text-smb-on-surface-variant">Số lượng thiếu:</span>
-                      <span className="font-bold text-rose-600">-{task.missingQuantity || 1} cái</span>
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-1 border-t border-smb-outline-variant/40">
-                      <button
-                        type="button"
-                        onClick={() => setCompletingTask(task)}
-                        className="flex-1 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1"
-                      >
-                        <Icon name="check" className="text-sm" />
-                        Xác Nhận Đã Châm
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteTask(task.taskId || task.id)}
-                        className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-500/15 border border-rose-500/30 transition-all"
-                        title="Bỏ qua nhiệm vụ này"
-                      >
-                        <Icon name="delete" className="text-base" />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-
-          {/* Sub-tab 2: Restock History Table */}
+          {/* Sub-tab: Nhật Ký Châm Hàng */}
           {restockSubTab === 'history' && (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-smb-on-surface">
@@ -1469,151 +1405,101 @@ export default function ShelfPatrolManagement() {
               </table>
             </div>
           )}
-        </div>
-      )}
 
-      {/* ══════════════════════════════════════════════════════════════
-          TAB 4: MẬT ĐỘ 6 KỆ HÀNG
-      ══════════════════════════════════════════════════════════════ */}
-      {activeTab === 'density' && (
-        <div className="rounded-2xl border border-smb-outline-variant/80 bg-smb-surface-container-lowest p-5 space-y-4 shadow-sm">
-          <div className="flex items-center justify-between border-b border-smb-outline-variant/50 pb-3">
-            <div>
-              <h2 className="text-sm font-bold text-smb-on-surface">Tình Trạng & Mật Độ 6 Kệ Hàng Siêu Thị</h2>
-              <p className="text-[11px] text-smb-on-surface-variant">
-                Được tổng hợp từ các lần quét camera AI của Robot (Tag ArUco #1 đến #6)
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={loadDensities}
-              disabled={loading}
-              className="flex items-center gap-1 text-xs font-bold text-teal-600 hover:text-teal-700 bg-teal-500/10 px-3 py-1.5 rounded-lg border border-teal-500/20 transition-all"
-            >
-              <Icon name="refresh" className={`text-base ${loading ? 'animate-spin' : ''}`} />
-              Cập nhật
-            </button>
-          </div>
+          {/* Sub-tab: Mật Độ Kệ Hàng */}
+          {restockSubTab === 'density' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {densities.length === 0 ? (
+                <div className="col-span-full py-12 text-center text-smb-on-surface-variant space-y-2">
+                  <Icon name="stacked_bar_chart" className="text-4xl text-gray-400" />
+                  <div className="text-sm font-bold text-smb-on-surface">Chưa có dữ liệu mật độ kệ hàng</div>
+                  <p className="text-xs">Hãy cho Robot tuần tra để cập nhật dữ liệu mới nhất.</p>
+                </div>
+              ) : densities.map((shelf, idx) => {
+                const scanTime = shelf.scannedAt || shelf.lastScannedAt
+                const hasScanned = !!(scanTime || shelf.latestScanId)
+                const occRate = hasScanned
+                  ? Math.round(Number(shelf.densityPercentage ?? shelf.occupancyRatePct ?? 100))
+                  : null
+                const emptyRate = hasScanned
+                  ? Math.round(Number(shelf.emptyPercentage ?? (100 - (occRate ?? 0))))
+                  : null
+                const isSufficient = hasScanned ? (shelf.needsRestock === false || (!shelf.needsRestock && (occRate ?? 0) >= 70)) : true
+                const displayAisle = shelf.aisleName || (shelf.aisleId ? `Lối đi ${shelf.aisleId}` : 'Khu Tiêu Chuẩn')
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {densities.map((shelf, idx) => {
-              const scanTime = shelf.scannedAt || shelf.lastScannedAt
-              const hasScanned = !!(scanTime || shelf.latestScanId)
-              const occRate = hasScanned
-                ? Math.round(Number(shelf.densityPercentage ?? shelf.occupancyRatePct ?? 100))
-                : null
-              const emptyRate = hasScanned
-                ? Math.round(Number(shelf.emptyPercentage ?? (100 - (occRate ?? 0))))
-                : null
-              const isSufficient = hasScanned ? (shelf.needsRestock === false || (!shelf.needsRestock && (occRate ?? 0) >= 70)) : true
-              const displayAisle = shelf.aisleName || (shelf.aisleId ? `Lối đi ${shelf.aisleId}` : 'Khu Tiêu Chuẩn')
-
-              return (
-                <div
-                  key={shelf.shelfId || idx}
-                  className="rounded-2xl border border-smb-outline-variant bg-smb-surface-container/20 p-4 space-y-3.5 hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="size-8 rounded-xl bg-teal-500/15 text-teal-600 flex items-center justify-center font-bold text-xs">
-                        #{shelf.shelfId || idx + 1}
+                return (
+                  <div
+                    key={shelf.shelfId || idx}
+                    className="rounded-2xl border border-smb-outline-variant bg-smb-surface-container/20 p-4 space-y-3.5 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="size-8 rounded-xl bg-teal-500/15 text-teal-600 flex items-center justify-center font-bold text-xs">
+                          #{shelf.shelfId || idx + 1}
+                        </div>
+                        <div>
+                          <h3 className="text-xs font-bold text-smb-on-surface">{shelf.shelfName || `Kệ Hàng #${idx + 1}`}</h3>
+                          <p className="text-[10px] text-smb-on-surface-variant font-mono">
+                            {shelf.zoneName || 'Khu Vực Tiêu Chuẩn'} • {displayAisle}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="text-xs font-bold text-smb-on-surface">{shelf.shelfName || `Kệ Hàng #${idx + 1}`}</h3>
-                        <p className="text-[10px] text-smb-on-surface-variant font-mono">
-                          {shelf.zoneName || 'Khu Vực Tiêu Chuẩn'} • {displayAisle}
-                        </p>
-                      </div>
-                    </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      !hasScanned
-                        ? 'bg-slate-500/15 text-slate-600 dark:text-slate-400'
-                        : isSufficient
-                        ? 'bg-emerald-500/15 text-emerald-600'
-                        : 'bg-rose-500/15 text-rose-600'
-                    }`}>
-                      {!hasScanned ? 'Chưa Quét' : isSufficient ? 'Đủ Hàng' : 'Thiếu Hàng'}
-                    </span>
-                  </div>
-
-                  {/* Progress bar */}
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs font-mono">
-                      <span className="text-smb-on-surface-variant text-[11px]">Mật độ lấp đầy:</span>
-                      <span className="font-bold text-smb-on-surface">
-                        {hasScanned ? `${occRate}%` : 'Chưa có dữ liệu'}
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        !hasScanned
+                          ? 'bg-slate-500/15 text-slate-600 dark:text-slate-400'
+                          : isSufficient
+                          ? 'bg-emerald-500/15 text-emerald-600'
+                          : 'bg-rose-500/15 text-rose-600'
+                      }`}>
+                        {!hasScanned ? 'Chưa Quét' : isSufficient ? 'Đủ Hàng' : 'Thiếu Hàng'}
                       </span>
                     </div>
-                    <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          !hasScanned
-                            ? 'bg-slate-300 dark:bg-slate-600'
-                            : (occRate ?? 0) >= 70
-                            ? 'bg-emerald-500'
-                            : (occRate ?? 0) >= 40
-                            ? 'bg-amber-500'
-                            : 'bg-rose-500'
-                        }`}
-                        style={{ width: `${hasScanned ? (occRate ?? 0) : 0}%` }}
-                      />
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-[11px] font-mono bg-smb-surface-container-lowest p-2.5 rounded-xl border border-smb-outline-variant/40">
-                    <div>
-                      <div className="text-smb-on-surface-variant text-[10px]">Tỷ Lệ Trống</div>
-                      <div className="font-bold text-rose-600 dark:text-rose-400">
-                        {hasScanned ? `${emptyRate}%` : '—'}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs font-mono">
+                        <span className="text-smb-on-surface-variant text-[11px]">Mật độ lấp đầy:</span>
+                        <span className="font-bold text-smb-on-surface">
+                          {hasScanned ? `${occRate}%` : 'Chưa có dữ liệu'}
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            !hasScanned
+                              ? 'bg-slate-300 dark:bg-slate-600'
+                              : (occRate ?? 0) >= 70
+                              ? 'bg-emerald-500'
+                              : (occRate ?? 0) >= 40
+                              ? 'bg-amber-500'
+                              : 'bg-rose-500'
+                          }`}
+                          style={{ width: `${hasScanned ? (occRate ?? 0) : 0}%` }}
+                        />
                       </div>
                     </div>
-                    <div>
-                      <div className="text-smb-on-surface-variant text-[10px]">Lần Quét Gần Nhất</div>
-                      <div className="font-bold text-smb-on-surface text-[10px] leading-tight">
-                        {hasScanned ? formatDateTimeVN(scanTime) : 'Chưa quét'}
+
+                    <div className="grid grid-cols-2 gap-2 text-[11px] font-mono bg-smb-surface-container-lowest p-2.5 rounded-xl border border-smb-outline-variant/40">
+                      <div>
+                        <div className="text-smb-on-surface-variant text-[10px]">Tỷ Lệ Trống</div>
+                        <div className="font-bold text-rose-600 dark:text-rose-400">
+                          {hasScanned ? `${emptyRate}%` : '—'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-smb-on-surface-variant text-[10px]">Lần Quét Gần Nhất</div>
+                        <div className="font-bold text-smb-on-surface text-[10px] leading-tight">
+                          {hasScanned ? formatDateTimeVN(scanTime) : 'Chưa quét'}
+                        </div>
                       </div>
                     </div>
                   </div>
-
-                  <button
-                    type="button"
-                    disabled={dispatching}
-                    onClick={async () => {
-                      if (!shelf.nodeId) {
-                        toast.error('Kệ này chưa được gán Node trên bản đồ')
-                        return
-                      }
-                      const shelfLabel = shelf.shelfName || `Kệ #${shelf.shelfId}`
-                      const confirmed = window.confirm(
-                        `Bạn muốn phát lệnh tuần tra ngay "${shelfLabel}"?\n\nRobot ${targetRobot?.robotCode || 'RB0001'} sẽ lập tức di chuyển tới kệ này, chụp ảnh và phân tích AI.`
-                      )
-                      if (!confirmed) return
-
-                      setDispatching(true)
-                      try {
-                        await dispatchPatrolMission({
-                          robotCode: targetRobot?.robotCode || 'RB0001',
-                          flowType: 'patrol',
-                          nodeIds: [shelf.nodeId]
-                        })
-                        toast.success(`Đã phát lệnh tuần tra "${shelfLabel}" thành công!`)
-                      } catch (err) {
-                        toast.error(err?.response?.data?.message || err?.message || 'Phát lệnh tuần tra thất bại')
-                      } finally {
-                        setDispatching(false)
-                      }
-                    }}
-                    className="w-full py-2 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-400 font-bold text-xs border border-teal-500/30 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
-                  >
-                    <Icon name="radar" className="text-sm" />
-                    <span>Tuần tra ngay kệ này</span>
-                  </button>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
+
         </main>
       </div>
 
