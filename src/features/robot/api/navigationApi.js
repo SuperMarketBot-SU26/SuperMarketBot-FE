@@ -298,3 +298,40 @@ export const syncStandardZoneNames = async () => {
   return res.data
 }
 
+/**
+ * [DEMO HỘI ĐỒNG] Simulate low battery (<15%, default 12%).
+ * Robot will lock screen, trigger voice alert, and auto-navigate to dock.
+ * @param {string} robotCode
+ * @param {{ batteryPct?: number, autoReturn?: boolean, reason?: string }} payload
+ */
+export const simulateLowBattery = async (robotCode, payload = {}) => {
+  const res = await client.post(
+    `${ROBOTS_ENDPOINT}/${encodeURIComponent(robotCode)}/simulate-low-battery`,
+    payload
+  )
+  return res.data
+}
+
+/**
+ * [DEMO HỘI ĐỒNG] Reset robot battery to 100% and unlock kiosk screen.
+ * @param {string} robotCode
+ */
+export const resetBattery = async (robotCode) => {
+  const res = await client.post(
+    `${ROBOTS_ENDPOINT}/${encodeURIComponent(robotCode)}/reset-battery`
+  )
+  return res.data
+}
+
+/**
+ * [REALTIME 2D MAP] Lấy layout sơ đồ 2D siêu thị đồng bộ từ Backend.
+ * @param {number} floorId
+ */
+export const getStoreMapLayout = async (floorId = 1) => {
+  const res = await client.get(`/api/v1/maps/active/store-layout`, {
+    params: { floorId },
+  })
+  return res.data
+}
+
+

@@ -18,18 +18,22 @@ function getFriendlyLocationName(pose) {
   const x = pose.xCoord
   const y = pose.yCoord
 
-  // Khoảng cách tới Trạm Sạc (x: 0.27, y: 2.09)
-  const distDock = Math.hypot(x - 0.27, y - 2.09)
-  if (distDock < 0.5) return 'Trạm Sạc (Khu trung tâm)'
+  // Khoảng cách tới Trạm Sạc (x: 1.07, y: 0.13)
+  const distDock = Math.hypot(x - 1.07, y - 0.13)
+  if (distDock < 0.5) return 'Trạm Sạc (Dock Sạc ⚡)'
 
-  // 6 Kệ hàng chính thức trong siêu thị
+  // Khoảng cách tới Quầy Thu Ngân (x: 0.23, y: 0.42)
+  const distCashier = Math.hypot(x - 0.23, y - 0.42)
+  if (distCashier < 0.5) return 'Quầy Thu Ngân (POS Checkout 💳)'
+
+  // 6 Kệ hàng chính thức trong siêu thị (Khớp 100% bản đồ SLAM thực tế)
   const shelfPositions = [
-    { id: 1, name: 'Kệ 1 - Đồ Ăn Vặt & Bánh Kẹo', x: 0.85, y: 1.28 },
-    { id: 2, name: 'Kệ 2 - Nước Giải Khát & Đồ Uống', x: 0.88, y: 0.78 },
-    { id: 3, name: 'Kệ 3 - Thực Phẩm Tươi Sống', x: 2.13, y: 0.78 },
-    { id: 4, name: 'Kệ 4 - Mì Ăn Liền & Đóng Gói', x: 1.50, y: 1.60 },
-    { id: 5, name: 'Kệ 5 - Đồ Gia Dụng & Tiện Ích', x: 1.50, y: 2.20 },
-    { id: 6, name: 'Kệ 6 - Gia Vị & Trà', x: 2.50, y: 1.60 },
+    { id: 1, name: 'Kệ 1 - Đồ Ăn Vặt & Bánh Kẹo', x: 1.55, y: 0.15 },
+    { id: 2, name: 'Kệ 2 - Nước Giải Khát & Đồ Uống', x: 2.25, y: 0.15 },
+    { id: 3, name: 'Kệ 3 - Thực Phẩm Tươi Sống', x: 2.55, y: 1.10 },
+    { id: 4, name: 'Kệ 4 - Mì Ăn Liền & Đóng Gói', x: 1.45, y: 2.48 },
+    { id: 5, name: 'Kệ 5 - Đồ Gia Dụng & Tiện Ích', x: 0.35, y: 2.48 },
+    { id: 6, name: 'Kệ 6 - Gia Vị & Trà', x: 0.60, y: 1.10 },
   ]
 
   let closest = null

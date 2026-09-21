@@ -1168,6 +1168,16 @@
                             });
                             const target = (window.allShelves || []).find(s => s.shelfId == selectedShelfId);
                             if (target) target.nodeId = wp.id;
+
+                            // Bắn sự kiện realtime cho Web Admin và các tab khác
+                            try {
+                                if (window.parent && window.parent !== window) {
+                                    window.parent.postMessage({ type: 'MAP_LAYOUT_UPDATED', shelfId: selectedShelfId, nodeId: wp.id }, '*');
+                                }
+                                window.dispatchEvent(new CustomEvent('mapLayoutUpdated', { detail: { shelfId: selectedShelfId, nodeId: wp.id } }));
+                            } catch (err) {
+                                console.warn("Failed to post MAP_LAYOUT_UPDATED:", err);
+                            }
                         } else {
                             console.warn("Lỗi khi gán kệ trên máy chủ:", res.status);
                         }
@@ -2544,6 +2554,16 @@ free_thresh: 0.196
                 toast.style.background = '#10b981';
                 toast.classList.add('show');
                 setTimeout(() => toast.classList.remove('show'), 3000);
+
+                // Bắn sự kiện realtime cho Web Admin và các tab khác
+                try {
+                    if (window.parent && window.parent !== window) {
+                        window.parent.postMessage({ type: 'MAP_LAYOUT_UPDATED' }, '*');
+                    }
+                    window.dispatchEvent(new CustomEvent('mapLayoutUpdated'));
+                } catch (err) {
+                    console.warn("Failed to post MAP_LAYOUT_UPDATED:", err);
+                }
             } catch (err) {
                 console.error(err);
                 alert("❌ Lỗi khi lưu điểm dừng lên máy chủ: " + err.message);

@@ -180,10 +180,15 @@ export function useRobotFleet({ pollMs = 5000 } = {}) {
       setTick((t) => t + 1)
     }
 
+    const handleMapLayout = (payload) => {
+      window.dispatchEvent(new CustomEvent('mapLayoutUpdated', { detail: payload }))
+    }
+
     connection.on('telemetry', handleTelemetry)
     connection.on('ReceiveTelemetry', handleTelemetry)
     connection.on('navigationStatus', handleNavStatus)
     connection.on('ReceiveNavigationStatus', handleNavStatus)
+    connection.on('mapLayoutUpdated', handleMapLayout)
     connection.on('status', () => {})
     connection.on('robotLog', () => {})
     connection.on('zoneEntered', () => {})
@@ -199,6 +204,7 @@ export function useRobotFleet({ pollMs = 5000 } = {}) {
         signalrConnectionRef.current.off('ReceiveTelemetry')
         signalrConnectionRef.current.off('navigationStatus')
         signalrConnectionRef.current.off('ReceiveNavigationStatus')
+        signalrConnectionRef.current.off('mapLayoutUpdated')
         signalrConnectionRef.current.off('status')
         signalrConnectionRef.current.off('robotLog')
         signalrConnectionRef.current.off('zoneEntered')

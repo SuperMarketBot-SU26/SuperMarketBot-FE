@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { getStoreMapLayout } from '../api/navigationApi'
 
 /**
  * THÔNG SỐ KHÔNG GIAN BẢN ĐỒ SIÊU THỊ 3m x 3m
@@ -29,7 +30,7 @@ export function getShelfNameLines(name) {
   return [name]
 }
 
-// 6 Kệ hàng chính thức theo đặc tả kỹ thuật và dữ liệu thực tế từ Database
+// 6 Kệ hàng chính thức theo đặc tả kỹ thuật và dữ liệu thực tế từ Database (Khớp 100% bản đồ SLAM)
 export const OFFICIAL_SHELVES = [
   {
     id: 1,
@@ -37,20 +38,20 @@ export const OFFICIAL_SHELVES = [
     aisle: 'A01',
     name: 'Đồ Ăn Vặt & Snack',
     icon: '🍪',
-    type: 'vertical',
-    x: 80,
-    y: 850,
-    w: 380,
-    h: 850,
+    type: 'horizontal',
+    x: 1550,
+    y: 150,
+    w: 650,
+    h: 360,
     color: '#0284c7', // Sky Blue A01
-    approachPoint: { x: 850, y: 1275 },
+    approachPoint: { x: 1865, y: 550 },
     products: [
       "Snack Khoai Tây O'Star Vị Tảo Biển",
       'Snack Swing Bò Bít Tết New York',
       "Snack O'Star Phô Mai Trứng Muối",
       "Snack Khoai Tây O'Star Tảo Đậm",
     ],
-    description: 'Dãy A01 · Kệ dọc bên trái phía trên quầy thu ngân',
+    description: 'Dãy A01 · Kệ ngang hành lang trên bên phải trạm sạc',
   },
   {
     id: 2,
@@ -59,19 +60,19 @@ export const OFFICIAL_SHELVES = [
     name: 'Nước Giải Khát & Đồ Uống',
     icon: '🥤',
     type: 'horizontal',
-    x: 450,
-    y: 80,
-    w: 850,
-    h: 380,
+    x: 2250,
+    y: 150,
+    w: 650,
+    h: 360,
     color: '#0284c7', // Sky Blue A01
-    approachPoint: { x: 875, y: 780 },
+    approachPoint: { x: 2446, y: 550 },
     products: [
       'Bia Heineken Silver Lon 330ml',
       'Nước Tinh Khiết Number 1 Chai 500ml',
       'Bia Nobilis Lon 250ml',
       'Lốc 50 Ly Nhựa Tiện Lợi',
     ],
-    description: 'Dãy A01 · Kệ ngang phía trên bên trái',
+    description: 'Dãy A01 · Kệ ngang góc trên bên phải',
   },
   {
     id: 3,
@@ -79,20 +80,20 @@ export const OFFICIAL_SHELVES = [
     aisle: 'B01',
     name: 'Thực Phẩm Tươi Sống',
     icon: '🥩',
-    type: 'horizontal',
-    x: 1700,
-    y: 80,
-    w: 850,
-    h: 380,
+    type: 'vertical',
+    x: 2550,
+    y: 1100,
+    w: 360,
+    h: 850,
     color: '#059669', // Emerald Green B01
-    approachPoint: { x: 2125, y: 780 },
+    approachPoint: { x: 2200, y: 1500 },
     products: [
       'Phi Lê Cá Hồi Na Uy Tươi Sống',
       'Thịt Bò Tươi Sạch Fillet 500g',
       'Thịt Ba Chỉ Heo Tươi Sạch 500g',
       'Dưa Leo Baby Giòn Ngọt 500g',
     ],
-    description: 'Dãy B01 · Kệ ngang phía trên bên phải',
+    description: 'Dãy B01 · Kệ dọc bên phải giáp tường',
   },
   {
     id: 4,
@@ -100,20 +101,20 @@ export const OFFICIAL_SHELVES = [
     aisle: 'B01',
     name: 'Mì Ăn Liền & Đóng Gói',
     icon: '🍜',
-    type: 'vertical',
-    x: 2540,
-    y: 850,
-    w: 380,
-    h: 850,
+    type: 'horizontal',
+    x: 1450,
+    y: 2480,
+    w: 850,
+    h: 360,
     color: '#059669', // Emerald Green B01
-    approachPoint: { x: 2140, y: 1275 },
+    approachPoint: { x: 1875, y: 2150 },
     products: [
       'Mì Koreno Jumbo Vị Bò Cay 1kg',
       'Mì Ly Life Cup Sườn Cay 65g',
       'Cháo Thịt Bằm Gấu Đỏ Gói 50g',
       'Mì Ý Spaghetti Barilla 500g',
     ],
-    description: 'Dãy B01 · Kệ dọc bên phải giáp tường',
+    description: 'Dãy B01 · Kệ ngang dọc tường đáy bên phải',
   },
   {
     id: 5,
@@ -121,20 +122,20 @@ export const OFFICIAL_SHELVES = [
     aisle: 'C01',
     name: 'Đồ Gia Dụng & Tiện Ích',
     icon: '🧴',
-    type: 'vertical',
-    x: 2470,
-    y: 1900,
-    w: 450,
-    h: 950,
+    type: 'horizontal',
+    x: 350,
+    y: 2480,
+    w: 850,
+    h: 360,
     color: '#d97706', // Warm Amber C01
-    approachPoint: { x: 2050, y: 2375 },
+    approachPoint: { x: 775, y: 2150 },
     products: [
       'Khăn Ướt Dịu Nhẹ Hình Gấu 80 Tờ',
       'Khăn Ướt Em Bé Bumbo Gói 100 Tờ',
       'Màng Bọc Thực Phẩm PE 400m',
       'Thố Inox Giữ Nhiệt Có Nắp Đậy',
     ],
-    description: 'Dãy C01 · Kệ dọc lớn góc dưới bên phải',
+    description: 'Dãy C01 · Kệ ngang dọc tường đáy bên trái',
   },
   {
     id: 6,
@@ -142,51 +143,51 @@ export const OFFICIAL_SHELVES = [
     aisle: 'C01',
     name: 'Gia Vị & Trà',
     icon: '🧂',
-    type: 'vertical',
-    x: 1350,
-    y: 1950,
-    w: 380,
-    h: 950,
+    type: 'horizontal',
+    x: 600,
+    y: 1100,
+    w: 850,
+    h: 360,
     color: '#d97706', // Warm Amber C01
-    approachPoint: { x: 950, y: 2425 },
+    approachPoint: { x: 1025, y: 1500 },
     products: [
       'Trà Hương Lài Ngọc An Gói 300g',
       'Trà Thảo Mộc Thiên Thảo Dưỡng Nhan',
       'Bột Nêm Gà Cao Cấp Hũ Vàng 250g',
       'Nước Tương Chin-su Tỏi Ớt 330ml',
     ],
-    description: 'Dãy C01 · Kệ dọc trung tâm lối vào siêu thị',
+    description: 'Dãy C01 · Kệ ngang vách ngăn trung tâm',
   },
 ]
 
-// Khu vực chức năng
+// Khu vực chức năng (Khớp 100% bản đồ SLAM)
 export const FUNCTIONAL_AREAS = {
   cashier: {
     id: 'cashier',
     name: 'Quầy Thu Ngân (POS)',
     icon: '💳',
     x: 80,
-    y: 2300,
-    w: 600,
-    h: 580,
+    y: 120,
+    w: 550,
+    h: 500,
     color: '#475569',
   },
   dock: {
     id: 'dock',
     name: 'Trạm Sạc Robot (Dock)',
     icon: '⚡',
-    cx: 270,
-    cy: 2090,
-    r: 90,
-    approachPoint: { x: 270, y: 2090 },
+    cx: 1070,
+    cy: 220,
+    r: 140,
+    approachPoint: { x: 1068, y: 370 },
   },
   entrance: {
     id: 'entrance',
     name: 'Cửa Vào Siêu Thị',
-    x: 800,
-    y: 2940,
-    w: 450,
-    h: 60,
+    x: 0,
+    y: 1550,
+    w: 180,
+    h: 500,
     label: 'CỬA VÀO ➔',
     color: '#10b981',
   },
@@ -195,13 +196,15 @@ export const FUNCTIONAL_AREAS = {
 /**
  * Phân giải tọa độ Waypoint trên bản đồ 3m x 3m SVG
  */
-export function resolveWaypointSvgPos(wp, index = 0) {
+export function resolveWaypointSvgPos(wp, index = 0, shelfList = OFFICIAL_SHELVES) {
   if (!wp) return { x: 1500, y: 1500 }
+
+  const shelves = shelfList && shelfList.length > 0 ? shelfList : OFFICIAL_SHELVES
 
   // 1. Phân giải qua shelfId
   const shelfId = wp.shelfId ?? wp.ShelfId
   if (typeof shelfId === 'number' && shelfId >= 1 && shelfId <= 6) {
-    const shelf = OFFICIAL_SHELVES.find((s) => s.id === shelfId)
+    const shelf = shelves.find((s) => s.id === shelfId)
     if (shelf) {
       // Thêm độ lệch nhẹ nếu có nhiều mốc trùng kệ
       const offsetX = ((index * 23) % 40) - 20
@@ -212,34 +215,39 @@ export function resolveWaypointSvgPos(wp, index = 0) {
 
   // 2. Phân giải qua tên kệ
   const shelfName = String(wp.shelfName || wp.nodeName || '').toLowerCase()
-  for (const s of OFFICIAL_SHELVES) {
+  for (const s of shelves) {
     if (shelfName.includes(`kệ ${s.id}`) || shelfName.includes(`k${s.id}`)) {
       return s.approachPoint
     }
   }
 
   // 3. Phân giải Trạm Sạc / Dock
-  if (shelfName.includes('sạc') || shelfName.includes('dock') || wp.nodeId === 10029 || wp.nodeId === 7) {
+  if (shelfName.includes('sạc') || shelfName.includes('dock') || wp.nodeId === 8 || wp.nodeId === 10029) {
     return FUNCTIONAL_AREAS.dock.approachPoint
   }
 
-  // 4. Phân giải qua tọa độ thực xCoord, yCoord
+  // 4. Phân giải Quầy Thu Ngân (POS)
+  if (shelfName.includes('thu ngân') || shelfName.includes('cashier') || wp.nodeId === 7) {
+    return { x: 226, y: 420 }
+  }
+
+  // 5. Phân giải qua tọa độ thực xCoord, yCoord
   const rawX = typeof wp.xCoord === 'number' ? wp.xCoord : typeof wp.x === 'number' ? wp.x : null
   const rawY = typeof wp.yCoord === 'number' ? wp.yCoord : typeof wp.y === 'number' ? wp.y : null
 
   if (rawX !== null && rawY !== null) {
+    // Nếu trong khoảng ROS SLAM [-2.5, 0.5]
+    if (rawY <= 0.5 && rawY >= -2.5) {
+      return {
+        x: Math.max(80, Math.min(2920, rawX * 1000)),
+        y: Math.max(80, Math.min(2920, (0.50 - rawY) * 1000)),
+      }
+    }
     // Nếu trong khoảng 0..3.0m (Hệ SVG chuẩn)
     if (rawX >= 0 && rawX <= 3.0 && rawY >= 0 && rawY <= 3.0) {
       return {
         x: Math.max(80, Math.min(2920, rawX * 1000)),
         y: Math.max(80, Math.min(2920, rawY * 1000)),
-      }
-    }
-    // Nếu trong khoảng [-1.5, 1.5] (Hệ ROS SLAM gốc tại tâm)
-    if (rawX >= -1.6 && rawX <= 1.6 && rawY >= -1.6 && rawY <= 1.6) {
-      return {
-        x: Math.max(80, Math.min(2920, ((rawX + 1.5) / 3.0) * 3000)),
-        y: Math.max(80, Math.min(2920, ((1.5 - rawY) / 3.0) * 3000)),
       }
     }
   }
@@ -257,11 +265,95 @@ export default function SupermarketInteractiveMap({
   flowType = 'ad',
   onSelectShelf = null,
 }) {
+  const [liveShelves, setLiveShelves] = useState(OFFICIAL_SHELVES)
   const [selectedShelf, setSelectedShelf] = useState(null)
   const [zoomLevel, setZoomLevel] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [showGrid, setShowGrid] = useState(true)
+
+  const fetchStoreLayout = useCallback(async () => {
+    try {
+      const data = await getStoreMapLayout(1)
+      if (data && Array.isArray(data.shelves) && data.shelves.length > 0) {
+        const mapped = data.shelves.map((s) => {
+          const fallback = OFFICIAL_SHELVES.find((f) => f.id === s.shelfId) || {}
+          const w = Math.round((s.width ?? 0.38) * 1000)
+          const h = Math.round((s.height ?? 0.85) * 1000)
+          const x = Math.round((s.mapX ?? 0) * 1000)
+          const y = Math.round((s.mapY ?? 0) * 1000)
+          const isHoriz = w > h
+
+          let approachPoint = fallback.approachPoint
+          if (isHoriz) {
+            // Đối với kệ ở đáy (y > 2000), robot tiếp cận từ phía trên (y - 320)
+            // Đối với kệ ở đỉnh (y < 1000), robot tiếp cận từ phía dưới (y + h + 320)
+            const approachY = y > 2000 ? Math.round(y - 320) : Math.round(y + h + 320)
+            approachPoint = {
+              x: Math.round(x + w / 2),
+              y: approachY,
+            }
+          } else {
+            // Đối với kệ ở bên phải (x > 2000), robot tiếp cận từ bên trái (x - 350)
+            // Đối với kệ ở bên trái (x < 1000), robot tiếp cận từ bên phải (x + w + 350)
+            const approachX = x > 2000 ? Math.round(x - 350) : Math.round(x + w + 350)
+            approachPoint = {
+              x: approachX,
+              y: Math.round(y + h / 2),
+            }
+          }
+
+          return {
+            ...fallback,
+            id: s.shelfId,
+            tag: `#${s.arucoTag || s.shelfId}`,
+            aisle: s.aisleCode || fallback.aisle || 'A01',
+            name: s.shelfName || fallback.name,
+            icon: s.icon || fallback.icon || '📦',
+            type: isHoriz ? 'horizontal' : 'vertical',
+            x,
+            y,
+            w,
+            h,
+            color: s.themeColor || fallback.color || '#0284c7',
+            approachPoint,
+            products: s.sampleProducts && s.sampleProducts.length > 0 ? s.sampleProducts : (fallback.products || []),
+            description: fallback.description || `${s.aisleName || s.zoneName}`,
+            nodeId: s.nodeId,
+          }
+        })
+        setLiveShelves(mapped)
+        setSelectedShelf((prev) => {
+          if (!prev) return null
+          return mapped.find((item) => item.id === prev.id) || prev
+        })
+      }
+    } catch (err) {
+      console.warn('[SupermarketInteractiveMap] Error loading store layout:', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchStoreLayout()
+
+    const handleUpdate = () => {
+      fetchStoreLayout()
+    }
+
+    const handleMessage = (event) => {
+      if (event.data?.type === 'MAP_LAYOUT_UPDATED') {
+        fetchStoreLayout()
+      }
+    }
+
+    window.addEventListener('mapLayoutUpdated', handleUpdate)
+    window.addEventListener('message', handleMessage)
+
+    return () => {
+      window.removeEventListener('mapLayoutUpdated', handleUpdate)
+      window.removeEventListener('message', handleMessage)
+    }
+  }, [fetchStoreLayout])
 
   const containerRef = useRef(null)
   const dragStartRef = useRef({ x: 0, y: 0 })
@@ -344,11 +436,11 @@ export default function SupermarketInteractiveMap({
     }
   }, [handleResetView])
 
-  // Tọa độ thực của Robot trên SVG
+  // Tọa độ thực của Robot trên SVG (Khớp 100% với bản đồ SLAM)
   const robotSvgPos = useMemo(() => {
     if (!robotPose) {
-      // Mặc định robot đang ở Trạm Sạc nếu không có tọa độ
-      return { x: 270, y: 2090, heading: 0, isDocked: true, rawX: 0.27, rawY: 2.09 }
+      // Mặc định robot đang ở Trạm Sạc nếu không có tọa độ (Node 8: 1.07m, 0.13m)
+      return { x: 1070, y: 220, heading: 0, isDocked: true, rawX: 1.07, rawY: 0.13 }
     }
 
     const rx = typeof robotPose.xCoord === 'number' ? robotPose.xCoord : typeof robotPose.x === 'number' ? robotPose.x : null
@@ -368,62 +460,37 @@ export default function SupermarketInteractiveMap({
           x,
           y,
           heading,
-          isDocked: Math.hypot(x - 270, y - 2090) < 180,
+          isDocked: Math.hypot(x - 1070, y - 220) < 250,
           rawX: rx / 1000,
           rawY: ry / 1000,
         }
       }
 
-      // 2. Trường hợp Robot tại Trạm Sạc / Dock khởi tạo SLAM (quanh điểm gốc 0,0 hoặc 0.26, -0.11)
-      if (rx >= -0.6 && rx <= 0.6 && ry >= -0.6 && ry <= 0.4) {
-        const x = Math.max(80, Math.min(680, 270 + (rx - 0.26) * 600))
-        const y = Math.max(1800, Math.min(2600, 2090 + (ry - (-0.11)) * 600))
-        return {
-          x,
-          y,
-          heading,
-          isDocked: true,
-          rawX: rx,
-          rawY: ry,
-        }
-      }
+      // 2. Chuyển đổi trực tiếp từ hệ ROS SLAM sang SVG (mapX = rosX, mapY = 0.50 - rosY)
+      let svgX = rx * 1000
+      let svgY = ry <= 0.5 && ry >= -2.5 ? (0.50 - ry) * 1000 : ry * 1000
+      svgX = Math.max(80, Math.min(2920, svgX))
+      svgY = Math.max(80, Math.min(2920, svgY))
 
-      // 3. Hệ tọa độ chuẩn Siêu Thị 3m x 3m (X: 0..3.0m, Y: 0..3.0m)
-      if (rx >= 0 && rx <= 3.0 && ry >= 0 && ry <= 3.0) {
-        const x = Math.max(80, Math.min(2920, rx * 1000))
-        const y = Math.max(80, Math.min(2920, ry * 1000))
-        return {
-          x,
-          y,
-          heading,
-          isDocked: Math.hypot(x - 270, y - 2090) < 180,
-          rawX: rx,
-          rawY: ry,
-        }
-      }
+      const isDocked = Math.hypot(svgX - 1070, svgY - 220) < 250
 
-      // 4. Hệ ROS SLAM tâm (0,0) trong khoảng [-1.5, 1.5]
-      if (rx >= -1.6 && rx <= 1.6 && ry >= -1.6 && ry <= 1.6) {
-        const x = Math.max(80, Math.min(2920, ((rx + 1.5) / 3.0) * 3000))
-        const y = Math.max(80, Math.min(2920, ((1.5 - ry) / 3.0) * 3000))
-        return {
-          x,
-          y,
-          heading,
-          isDocked: Math.hypot(x - 270, y - 2090) < 180,
-          rawX: rx,
-          rawY: ry,
-        }
+      return {
+        x: svgX,
+        y: svgY,
+        heading,
+        isDocked,
+        rawX: rx,
+        rawY: ry,
       }
     }
 
-    return { x: 270, y: 2090, heading: 0, isDocked: true, rawX: rx ?? 0.27, rawY: ry ?? 2.09 }
+    return { x: 1070, y: 220, heading: 0, isDocked: true, rawX: rx ?? 1.07, rawY: ry ?? 0.13 }
   }, [robotPose])
 
   // Danh sách điểm tọa độ Waypoint đã phân giải
   const resolvedWaypoints = useMemo(() => {
     return (waypoints || []).map((wp, idx) => {
-      const pos = resolveWaypointSvgPos(wp, idx)
+      const pos = resolveWaypointSvgPos(wp, idx, liveShelves)
       return {
         ...wp,
         svgX: pos.x,
@@ -431,7 +498,7 @@ export default function SupermarketInteractiveMap({
         index: idx,
       }
     })
-  }, [waypoints])
+  }, [waypoints, liveShelves])
 
   // Chuỗi tọa độ cho đường nối Polyline
   const polylinePoints = useMemo(() => {
@@ -615,9 +682,16 @@ export default function SupermarketInteractiveMap({
           )}
 
           {/* 3. VÙNG AMBIENT 3 DÃY A, B, C */}
-          <rect x="0" y="0" width="1500" height="1500" fill="url(#grad-zone-a)" />
-          <rect x="1500" y="0" width="1500" height="1500" fill="url(#grad-zone-b)" />
-          <rect x="800" y="1500" width="2200" height="1500" fill="url(#grad-zone-c)" />
+          <rect x="0" y="0" width="3000" height="900" fill="url(#grad-zone-a)" />
+          <rect x="1400" y="900" width="1600" height="2100" fill="url(#grad-zone-b)" />
+          <rect x="0" y="900" width="1400" height="2100" fill="url(#grad-zone-c)" />
+
+          {/* TƯỜNG RANH GIỚI SIÊU THỊ VỚI CỬA VÀO BÊN TRÁI */}
+          <line x1="0" y1="0" x2="3000" y2="0" stroke="#334155" strokeWidth="24" strokeLinecap="round" />
+          <line x1="3000" y1="0" x2="3000" y2="3000" stroke="#334155" strokeWidth="24" strokeLinecap="round" />
+          <line x1="0" y1="3000" x2="3000" y2="3000" stroke="#334155" strokeWidth="24" strokeLinecap="round" />
+          <line x1="0" y1="0" x2="0" y2="1500" stroke="#334155" strokeWidth="24" strokeLinecap="round" />
+          <line x1="0" y1="2050" x2="0" y2="3000" stroke="#334155" strokeWidth="24" strokeLinecap="round" />
 
           {/* 4. KHU VỰC CHỨC NĂNG: QUẦY THU NGÂN (CASHIER POS) */}
           <g className="cursor-pointer">
@@ -644,17 +718,17 @@ export default function SupermarketInteractiveMap({
             />
             <text
               x={FUNCTIONAL_AREAS.cashier.x + FUNCTIONAL_AREAS.cashier.w / 2}
-              y={FUNCTIONAL_AREAS.cashier.y + 240}
-              fontSize="90"
+              y={FUNCTIONAL_AREAS.cashier.y + 200}
+              fontSize="80"
               textAnchor="middle"
             >
               💳
             </text>
             <text
               x={FUNCTIONAL_AREAS.cashier.x + FUNCTIONAL_AREAS.cashier.w / 2}
-              y={FUNCTIONAL_AREAS.cashier.y + 360}
+              y={FUNCTIONAL_AREAS.cashier.y + 300}
               fill="#0f172a"
-              fontSize="44"
+              fontSize="38"
               fontWeight="800"
               textAnchor="middle"
             >
@@ -662,9 +736,9 @@ export default function SupermarketInteractiveMap({
             </text>
             <text
               x={FUNCTIONAL_AREAS.cashier.x + FUNCTIONAL_AREAS.cashier.w / 2}
-              y={FUNCTIONAL_AREAS.cashier.y + 430}
+              y={FUNCTIONAL_AREAS.cashier.y + 360}
               fill="#64748b"
-              fontSize="34"
+              fontSize="28"
               textAnchor="middle"
               fontFamily="monospace"
               fontWeight="600"
@@ -704,7 +778,7 @@ export default function SupermarketInteractiveMap({
             </text>
             <text
               x={FUNCTIONAL_AREAS.dock.cx}
-              y={FUNCTIONAL_AREAS.dock.cy + 160}
+              y={FUNCTIONAL_AREAS.dock.cy + 180}
               fill="#047857"
               fontSize="34"
               fontWeight="800"
@@ -729,14 +803,15 @@ export default function SupermarketInteractiveMap({
             />
             <text
               x={FUNCTIONAL_AREAS.entrance.x + FUNCTIONAL_AREAS.entrance.w / 2}
-              y={FUNCTIONAL_AREAS.entrance.y + 45}
+              y={FUNCTIONAL_AREAS.entrance.y + FUNCTIONAL_AREAS.entrance.h / 2}
               fill="#047857"
-              fontSize="36"
+              fontSize="34"
               fontWeight="800"
               textAnchor="middle"
+              transform={`rotate(-90, ${FUNCTIONAL_AREAS.entrance.x + FUNCTIONAL_AREAS.entrance.w / 2}, ${FUNCTIONAL_AREAS.entrance.y + FUNCTIONAL_AREAS.entrance.h / 2})`}
               letterSpacing="2"
             >
-              CỬA VÀO SIÊU THỊ ➔
+              ➔ CỬA VÀO
             </text>
           </g>
 
@@ -768,7 +843,7 @@ export default function SupermarketInteractiveMap({
           )}
 
           {/* 8. 6 KỆ HÀNG CHÍNH THỨC */}
-          {OFFICIAL_SHELVES.map((shelf) => {
+          {liveShelves.map((shelf) => {
             const isTarget = activeShelfId === shelf.id
             const isSelected = selectedShelf?.id === shelf.id
             const cx = shelf.x + shelf.w / 2

@@ -21,6 +21,8 @@ export {
   planRoute,
   getPolylineRoute,
   setNodeBlocked,
+  simulateLowBattery,
+  resetBattery,
 } from './navigationApi'
 
 /**

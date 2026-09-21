@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { toast } from 'react-toastify'
 import { statusPalette } from '../utils/robotHelpers'
-import { getRobot, getRobotPose } from '../api/robotApi'
+import { getRobot, getRobotPose, simulateLowBattery, resetBattery } from '../api/robotApi'
 import { DualBatteryIndicator } from './DualBatteryIndicator'
 
 function Icon({ name, className = '' }) {
@@ -713,9 +713,27 @@ function AutonomousTab({
     }
   }, [adMode, selectedAdShelfIds, adDuration, map?.floorId])
 
+  const hasAutoCancelledAdRef = useRef(false)
+
+  const handleCancelAd = useCallback(async (reason = 'Admin stopped ad session') => {
+    if (!selectedRobot) return
+    setCancellingAd(true)
+    try {
+      await cancelRobotNavigation(selectedRobot, reason)
+      toast.info('Đã gửi lệnh dừng phiên quảng cáo!')
+      const state = await getRobotMissionState(selectedRobot)
+      setMissionState(state)
+    } catch (e) {
+      toast.error(e?.message || 'Không thể hủy phiên quảng cáo')
+    } finally {
+      setCancellingAd(false)
+    }
+  }, [selectedRobot])
+
   // Bộ đếm ngược thời gian phiên quảng cáo trực tiếp (giảm từng giây)
   useEffect(() => {
     if (!isAdRunning || !missionState) {
+      hasAutoCancelledAdRef.current = false
       setLiveAdCountdown({ remaining: 0, total: 0, percent: 0, currentShelfRemaining: 0 })
       return
     }
@@ -741,27 +759,21 @@ function AutonomousTab({
         percent,
         currentShelfRemaining,
       })
+
+      // Khi hết giờ, tự động dừng phiên quảng cáo để robot quay về trạng thái sẵn sàng
+      if (remaining <= 0 && isAdRunning) {
+        if (!hasAutoCancelledAdRef.current) {
+          hasAutoCancelledAdRef.current = true
+          toast.info('Thời lượng quảng cáo đã hết! Đang tự động kết thúc phiên...')
+          handleCancelAd('Ad session duration timer completed')
+        }
+      }
     }
 
     updateTimer()
     const interval = setInterval(updateTimer, 1000)
     return () => clearInterval(interval)
-  }, [isAdRunning, missionState])
-
-  const handleCancelAd = async () => {
-    if (!selectedRobot) return
-    setCancellingAd(true)
-    try {
-      await cancelRobotNavigation(selectedRobot)
-      toast.info('Đã gửi lệnh dừng phiên quảng cáo!')
-      const state = await getRobotMissionState(selectedRobot)
-      setMissionState(state)
-    } catch (e) {
-      toast.error(e?.message || 'Không thể hủy phiên quảng cáo')
-    } finally {
-      setCancellingAd(false)
-    }
-  }
+  }, [isAdRunning, missionState, handleCancelAd])
 
 
   const handleDispatch = async (flowType, extra = {}) => {
@@ -2499,6 +2511,56 @@ function RobotsTab({
     }
   }
 
+  const handleSimulateLowBattery = async () => {
+    if (!selectedRobot) return
+    if (!window.confirm(`[DEMO HỘI ĐỒNG] Bạn có chắc muốn kích hoạt mô phỏng PIN YẾU (<15%) cho Robot ${selectedRobot}?\n\nRobot sẽ tự động hủy nhiệm vụ, khóa toàn màn hình cảnh báo, phát âm thanh và tự quay về Trạm Sạc.`)) return
+    setCtrlLoading(true)
+    setCtrlMsg(null)
+    try {
+      const data = await simulateLowBattery(selectedRobot, {
+        batteryPct: 12,
+        autoReturn: true,
+        reason: 'Demo Hội đồng: Pin robot < 15% kích hoạt khóa màn hình và tự động về trạm sạc'
+      })
+      const msg = `⚠️ [DEMO PIN YẾU] Robot ${selectedRobot} pin 12%! Đang tự động quay về trạm sạc #${data?.dockNodeId ?? 'Dock'}. Màn hình tablet đã khóa cảnh báo.`
+      setCtrlMsg({ type: 'warning', text: msg })
+      toast.warning(msg, { autoClose: 7000 })
+      if (onMissionDispatched) {
+        onMissionDispatched({
+          robotCode: selectedRobot,
+          flowType: 'return',
+          status: 'LOW_BATTERY_RETURN',
+          currentWaypointIndex: 0,
+          dispatchedAt: Date.now(),
+        })
+      }
+    } catch (e) {
+      const err = `❌ Lỗi mô phỏng pin yếu: ${e?.response?.data?.message || e?.message}`
+      setCtrlMsg({ type: 'error', text: err })
+      toast.error(err)
+    } finally {
+      setCtrlLoading(false)
+    }
+  }
+
+  const handleResetBattery = async () => {
+    if (!selectedRobot) return
+    setCtrlLoading(true)
+    setCtrlMsg(null)
+    try {
+      await resetBattery(selectedRobot)
+      const msg = `⚡ [KHÔI PHỤC PIN] Robot ${selectedRobot} đã phục hồi 100% pin. Đã mở khóa màn hình tablet!`
+      setCtrlMsg({ type: 'success', text: msg })
+      toast.success(msg)
+    } catch (e) {
+      const err = `❌ Lỗi khôi phục pin: ${e?.response?.data?.message || e?.message}`
+      setCtrlMsg({ type: 'error', text: err })
+      toast.error(err)
+    } finally {
+      setCtrlLoading(false)
+    }
+  }
+
 
 
   return (
@@ -2754,6 +2816,39 @@ function RobotsTab({
                 <Icon name="flag" className="text-[16px]" />
                 Về vị trí xuất phát
               </button>
+            </div>
+
+            {/* ── Demo Hội Đồng: Mô phỏng Pin Yếu & Khôi Phục Pin ── */}
+            <div className="pt-2 border-t border-smb-outline-variant/60 space-y-1.5">
+              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                <span className="flex items-center gap-1">
+                  <Icon name="science" className="text-[14px]" />
+                  Kịch Bản Demo Hội Đồng (Pin &lt; 15%)
+                </span>
+                <span className="text-[9px] text-smb-on-surface-variant font-normal">Auto Dock + Khóa Màn Hình</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={ctrlLoading || !selectedRobot}
+                  onClick={handleSimulateLowBattery}
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-700 hover:to-rose-700 py-2.5 px-2 text-[11px] font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
+                  title="Mô phỏng pin robot tụt xuống 12%: Màn hình Android khóa cứng, phát âm thanh cảnh báo, tự động quay về trạm sạc"
+                >
+                  <Icon name="battery_alert" className="text-[16px] animate-bounce" />
+                  🪫 Demo Pin Yếu &lt;15%
+                </button>
+                <button
+                  type="button"
+                  disabled={ctrlLoading || !selectedRobot}
+                  onClick={handleResetBattery}
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 py-2.5 px-2 text-[11px] font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
+                  title="Khôi phục pin robot về 100%, trạng thái Idle và mở khóa màn hình tablet"
+                >
+                  <Icon name="battery_charging_full" className="text-[16px]" />
+                  ⚡ Khôi Phục 100%
+                </button>
+              </div>
             </div>
 
             <StatusBadge msg={ctrlMsg} />
