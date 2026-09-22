@@ -384,7 +384,7 @@ export default function ShelfPatrolManagement() {
     guideCount: missionKpis.guideCount || guideCount,
     adCount: missionKpis.adCount || adCount,
     patrolCount: missionKpis.patrolCount || patrolCount,
-    batteryCount: missionKpis.batteryCount || allMissions.filter(m => (m.flowType || '').toLowerCase() === 'battery').length,
+    batteryCount: missionKpis.batteryCount || allMissions.filter(m => ['battery', 'return'].includes((m.flowType || '').toLowerCase())).length,
     activeCount: missionKpis.activeCount || allMissions.filter(m => ['DISPATCHED', 'NAVIGATING', 'ARRIVED'].includes((m.status || '').toUpperCase())).length
   }), [missionKpis, totalMissionsCount, guideCount, adCount, patrolCount, allMissions])
 
@@ -392,7 +392,13 @@ export default function ShelfPatrolManagement() {
     return allMissions.filter(m => {
       // 1. Flow Filter
       if (missionFilterFlow !== 'all') {
-        if ((m.flowType || '').toLowerCase() !== missionFilterFlow.toLowerCase()) return false
+        const f = (m.flowType || '').toLowerCase()
+        const targetF = missionFilterFlow.toLowerCase()
+        if (targetF === 'battery') {
+          if (f !== 'battery' && f !== 'return') return false
+        } else if (f !== targetF) {
+          return false
+        }
       }
       // 2. Source Filter
       if (missionFilterSource !== 'all') {
