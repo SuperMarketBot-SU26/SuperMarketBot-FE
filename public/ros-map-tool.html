@@ -595,6 +595,7 @@
             <button onclick="zoomMap(0.8)" class="map-hud-btn" title="Thu nhỏ bản đồ (hoặc lăn chuột)">🔍 −</button>
             <button onclick="fitMapToScreen()" class="map-hud-btn" title="Căn bản đồ vừa vặn trung tâm màn hình">🎯 Vừa Khung</button>
             <button onclick="toggleMapTheme()" id="btn-map-theme" class="map-hud-btn" title="Đổi màu nền CAD Tối / Sáng">🌓 Đổi Nền CAD</button>
+            <button onclick="toggleShelvesLayer()" id="btn-toggle-shelves" class="map-hud-btn" title="Bật/Tắt hiển thị 6 Khối Kệ Hàng Siêu Thị" style="color: #16a34a; font-weight: 700;">🏬 Hiện Kệ Hàng</button>
         </div>
 
         <!-- Layer 1: Bản đồ gốc (sẽ bị scale mờ/pixelate) -->
@@ -2202,6 +2203,152 @@ free_thresh: 0.196
         }
 
         /** ==========================================
+         * 6 KỆ HÀNG SIÊU THỊ VẬT LÝ CỐ ĐỊNH (STATIC FIXTURES)
+         * Tách bạch hoàn toàn khỏi điểm dừng (Waypoints):
+         * Kệ đứng yên cố định trên vết LiDAR sàn, Waypoint tự do di chuyển
+         * ========================================== */
+        window.showShelves = true;
+
+        function toggleShelvesLayer() {
+            window.showShelves = !window.showShelves;
+            const btn = document.getElementById('btn-toggle-shelves');
+            if (btn) {
+                if (window.showShelves) {
+                    btn.style.color = '#16a34a';
+                    btn.innerText = '🏬 Hiện Kệ Hàng';
+                } else {
+                    btn.style.color = '#94a3b8';
+                    btn.innerText = '🏬 Ẩn Kệ Hàng';
+                }
+            }
+            renderUI();
+        }
+
+        const DEFAULT_SHELF_FIXTURES = [
+            { id: 1, tag: 1, name: 'Kệ 1 - Đồ Ăn Vặt', rosX: 1.50, rosY: 0.35, width: 0.65, height: 0.36, color: '#2563eb', bg: 'rgba(37, 99, 235, 0.22)', border: '#2563eb' },
+            { id: 2, tag: 2, name: 'Kệ 2 - Nước Giải Khát', rosX: 2.25, rosY: 0.35, width: 0.65, height: 0.36, color: '#2563eb', bg: 'rgba(37, 99, 235, 0.22)', border: '#2563eb' },
+            { id: 3, tag: 3, name: 'Kệ 3 - Thực Phẩm Tươi', rosX: 2.55, rosY: -0.60, width: 0.36, height: 0.85, color: '#16a34a', bg: 'rgba(22, 163, 74, 0.22)', border: '#16a34a' },
+            { id: 4, tag: 4, name: 'Kệ 4 - Mì Ăn Liền', rosX: 1.45, rosY: -1.98, width: 0.85, height: 0.36, color: '#16a34a', bg: 'rgba(22, 163, 74, 0.22)', border: '#16a34a' },
+            { id: 5, tag: 5, name: 'Kệ 5 - Đồ Gia Dụng', rosX: 0.35, rosY: -1.98, width: 0.85, height: 0.36, color: '#d97706', bg: 'rgba(217, 119, 6, 0.22)', border: '#d97706' },
+            { id: 6, tag: 6, name: 'Kệ 6 - Gia Vị & Trà', rosX: 0.60, rosY: -0.60, width: 0.85, height: 0.36, color: '#d97706', bg: 'rgba(217, 119, 6, 0.22)', border: '#d97706' },
+        ];
+
+        function drawShelfFixtures(ctx) {
+            if (!window.showShelves) return;
+
+            const shelves = (window.storeShelves && window.storeShelves.length > 0)
+                ? window.storeShelves
+                : DEFAULT_SHELF_FIXTURES;
+
+            shelves.forEach(shelf => {
+                const rosX = shelf.rosX !== undefined ? shelf.rosX : (shelf.mapX !== undefined ? shelf.mapX : 0);
+                const rosY = shelf.rosY !== undefined ? shelf.rosY : (shelf.mapY !== undefined ? (0.50 - shelf.mapY) : 0);
+                const w = shelf.width || 0.65;
+                const h = shelf.height || 0.36;
+
+                // Tọa độ pixel trên map
+                const pTL = mapToPixel(rosX, rosY);
+                const pBR = mapToPixel(rosX + w, rosY - h);
+
+                // Tọa độ màn hình (zoom & pan)
+                const sTL = pixelToScreen(pTL.x, pTL.y);
+                const sBR = pixelToScreen(pBR.x, pBR.y);
+
+                const boxX = Math.min(sTL.x, sBR.x);
+                const boxY = Math.min(sTL.y, sBR.y);
+                const boxW = Math.abs(sBR.x - sTL.x);
+                const boxH = Math.abs(sBR.y - sTL.y);
+
+                const color = shelf.color || shelf.themeColor || '#16a34a';
+                const bg = shelf.bg || shelf.themeBg || 'rgba(22, 163, 74, 0.22)';
+
+                ctx.save();
+
+                // 1. Vẽ khối hình chữ nhật Kệ hàng (Physical Fixture)
+                ctx.beginPath();
+                if (ctx.roundRect) {
+                    ctx.roundRect(boxX, boxY, boxW, boxH, 6);
+                } else {
+                    ctx.rect(boxX, boxY, boxW, boxH);
+                }
+                ctx.fillStyle = bg;
+                ctx.fill();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // 2. Viền góc kỹ thuật CAD (Technical corner brackets)
+                const bLen = Math.min(8, Math.min(boxW, boxH) / 3);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                // Top-Left
+                ctx.beginPath(); ctx.moveTo(boxX, boxY + bLen); ctx.lineTo(boxX, boxY); ctx.lineTo(boxX + bLen, boxY); ctx.stroke();
+                // Top-Right
+                ctx.beginPath(); ctx.moveTo(boxX + boxW - bLen, boxY); ctx.lineTo(boxX + boxW, boxY); ctx.lineTo(boxX + boxW, boxY + bLen); ctx.stroke();
+                // Bottom-Left
+                ctx.beginPath(); ctx.moveTo(boxX, boxY + boxH - bLen); ctx.lineTo(boxX, boxY + boxH); ctx.lineTo(boxX + bLen, boxY + boxH); ctx.stroke();
+                // Bottom-Right
+                ctx.beginPath(); ctx.moveTo(boxX + boxW - bLen, boxY + boxH); ctx.lineTo(boxX + boxW, boxY + boxH); ctx.lineTo(boxX + boxW, boxY + boxH - bLen); ctx.stroke();
+
+                // 3. Nhãn Kệ Hàng
+                const sId = shelf.shelfId || shelf.id;
+                const label = `🏬 Kệ ${sId}`;
+
+                ctx.font = 'bold 10.5px sans-serif';
+                const textMetrics = ctx.measureText(label);
+                const badgeW = textMetrics.width + 12;
+                const badgeH = 18;
+                const badgeX = boxX + (boxW - badgeW) / 2;
+                const badgeY = boxY + (boxH - badgeH) / 2;
+
+                ctx.beginPath();
+                if (ctx.roundRect) {
+                    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4);
+                } else {
+                    ctx.rect(badgeX, badgeY, badgeW, badgeH);
+                }
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+                ctx.fill();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(label, badgeX + badgeW / 2, badgeY + badgeH / 2);
+
+                // 4. Đường nét đứt nối từ Kệ tới Approach Waypoint tương ứng
+                const targetNodeId = shelf.nodeId !== undefined ? shelf.nodeId : sId;
+                const mappedWp = waypoints.find(w => w.id && Number(w.id) === Number(targetNodeId));
+                if (mappedWp) {
+                    const wpPixel = mapToPixel(mappedWp.x, mappedWp.y);
+                    const wpScreen = pixelToScreen(wpPixel.x, wpPixel.y);
+
+                    const shelfCenterX = boxX + boxW / 2;
+                    const shelfCenterY = boxY + boxH / 2;
+
+                    ctx.beginPath();
+                    ctx.moveTo(shelfCenterX, shelfCenterY);
+                    ctx.lineTo(wpScreen.x, wpScreen.y);
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 1.5;
+                    ctx.setLineDash([4, 4]);
+                    ctx.stroke();
+                    ctx.setLineDash([]); // reset
+
+                    // Chấm tròn nhỏ ở trung điểm
+                    ctx.beginPath();
+                    ctx.arc((shelfCenterX + wpScreen.x) / 2, (shelfCenterY + wpScreen.y) / 2, 2.5, 0, Math.PI * 2);
+                    ctx.fillStyle = color;
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            });
+        }
+
+        /** ==========================================
          * HIỂN THỊ UI VECTOR (Luôn sắc nét)
          * ========================================== */
         function renderUI() {
@@ -2215,12 +2362,23 @@ free_thresh: 0.196
             ctxUI.font = 'bold 12px sans-serif';
             ctxUI.fillText('Tọa độ gốc (0,0)', originScreen.x + 8, originScreen.y - 8);
 
+            // Vẽ các khối Kệ Hàng Siêu Thị (Static Fixtures trên sàn)
+            drawShelfFixtures(ctxUI);
+
             // Vẽ Waypoints đã lưu
             waypoints.forEach((wp, index) => {
                 const px = mapToPixel(wp.x, wp.y);
                 const screenPx = pixelToScreen(px.x, px.y);
                 const isThisDragging = (draggingWpIndex === index && isWpMoved);
-                drawWaypoint(ctxUI, screenPx, wp.heading, wp.name || `Điểm dừng ${index + 1}`, false, isThisDragging, wp);
+
+                let displayName = wp.name || `Điểm dừng ${index + 1}`;
+                const mappedShelf = (window.allShelves || []).find(s => wp.id && Number(s.nodeId) === Number(wp.id));
+                if (mappedShelf) {
+                    const cleanName = (mappedShelf.shelfName || '').replace(/^Kệ\s*\d+\s*[-:]\s*/i, '');
+                    displayName = `[Kệ ${mappedShelf.shelfId}] ${cleanName || wp.name}`;
+                }
+
+                drawWaypoint(ctxUI, screenPx, wp.heading, displayName, false, isThisDragging, wp);
             });
 
             // Vẽ Waypoint ĐANG KÉO NHÁP (Draft)
@@ -2641,18 +2799,32 @@ free_thresh: 0.196
         window.currentMapHeight = 0;
         window.currentMapEdges = [];
         window.allShelves = [];
+        window.storeShelves = [];
 
         async function fetchAllShelves() {
             try {
                 const baseUrl = window.SMB_ENV?.BE_URL !== undefined ? window.SMB_ENV.BE_URL : 'http://localhost:5000';
-                const response = await fetch(baseUrl + '/api/v1/shelves', {
-                    headers: getFetchHeaders()
-                });
-                if (response.ok) {
-                    window.allShelves = await response.json();
+                const headers = getFetchHeaders();
+
+                const [shelvesRes, layoutRes] = await Promise.allSettled([
+                    fetch(baseUrl + '/api/v1/shelves', { headers }),
+                    fetch(baseUrl + '/api/v1/maps/active/store-layout', { headers })
+                ]);
+
+                if (shelvesRes.status === 'fulfilled' && shelvesRes.value.ok) {
+                    window.allShelves = await shelvesRes.value.json();
                 }
+
+                if (layoutRes.status === 'fulfilled' && layoutRes.value.ok) {
+                    const layoutData = await layoutRes.value.json();
+                    if (layoutData && Array.isArray(layoutData.shelves)) {
+                        window.storeShelves = layoutData.shelves;
+                    }
+                }
+
+                renderUI();
             } catch (e) {
-                console.warn('Cannot fetch shelves:', e);
+                console.warn('Cannot fetch shelves/layout:', e);
             }
         }
 

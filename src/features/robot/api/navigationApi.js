@@ -299,8 +299,8 @@ export const syncStandardZoneNames = async () => {
 }
 
 /**
- * [DEMO HỘI ĐỒNG] Simulate low battery (<15%, default 12%).
- * Robot will lock screen, trigger voice alert, and auto-navigate to dock.
+ * [ENERGY SAFETY] Simulate low battery (<15%, default 12%).
+ * Robot will lock screen, trigger voice alert, notify staff, and auto-navigate to dock.
  * @param {string} robotCode
  * @param {{ batteryPct?: number, autoReturn?: boolean, reason?: string }} payload
  */
@@ -313,7 +313,7 @@ export const simulateLowBattery = async (robotCode, payload = {}) => {
 }
 
 /**
- * [DEMO HỘI ĐỒNG] Reset robot battery to 100% and unlock kiosk screen.
+ * [ENERGY SAFETY] Reset robot battery to 100% and unlock kiosk screen.
  * @param {string} robotCode
  */
 export const resetBattery = async (robotCode) => {

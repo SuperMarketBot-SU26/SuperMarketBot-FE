@@ -2513,29 +2513,29 @@ function RobotsTab({
 
   const handleSimulateLowBattery = async () => {
     if (!selectedRobot) return
-    if (!window.confirm(`[DEMO HỘI ĐỒNG] Bạn có chắc muốn kích hoạt mô phỏng PIN YẾU (<15%) cho Robot ${selectedRobot}?\n\nRobot sẽ tự động hủy nhiệm vụ, khóa toàn màn hình cảnh báo, phát âm thanh và tự quay về Trạm Sạc.`)) return
+    if (!window.confirm(`Bạn có chắc muốn kích hoạt cảnh báo PIN YẾU (<15%) cho Robot ${selectedRobot}?\n\nRobot sẽ tự động hủy nhiệm vụ, khóa toàn màn hình cảnh báo, thông báo đến App nhân viên và tự quay về Trạm Sạc.`)) return
     setCtrlLoading(true)
     setCtrlMsg(null)
     try {
       const data = await simulateLowBattery(selectedRobot, {
         batteryPct: 12,
         autoReturn: true,
-        reason: 'Demo Hội đồng: Pin robot < 15% kích hoạt khóa màn hình và tự động về trạm sạc'
+        reason: 'Pin robot < 15% kích hoạt khóa màn hình, cảnh báo nhân viên và tự động về trạm sạc'
       })
-      const msg = `⚠️ [DEMO PIN YẾU] Robot ${selectedRobot} pin 12%! Đang tự động quay về trạm sạc #${data?.dockNodeId ?? 'Dock'}. Màn hình tablet đã khóa cảnh báo.`
+      const msg = `⚠️ Báo động Pin yếu: Robot ${selectedRobot} (12%)! Đang tự động quay về trạm sạc #${data?.dockNodeId ?? 'Dock'} và gửi cảnh báo đến nhân viên.`
       setCtrlMsg({ type: 'warning', text: msg })
       toast.warning(msg, { autoClose: 7000 })
       if (onMissionDispatched) {
         onMissionDispatched({
           robotCode: selectedRobot,
-          flowType: 'return',
+          flowType: 'battery',
           status: 'LOW_BATTERY_RETURN',
           currentWaypointIndex: 0,
           dispatchedAt: Date.now(),
         })
       }
     } catch (e) {
-      const err = `❌ Lỗi mô phỏng pin yếu: ${e?.response?.data?.message || e?.message}`
+      const err = `❌ Lỗi kích hoạt cảnh báo pin yếu: ${e?.response?.data?.message || e?.message}`
       setCtrlMsg({ type: 'error', text: err })
       toast.error(err)
     } finally {
@@ -2818,14 +2818,14 @@ function RobotsTab({
               </button>
             </div>
 
-            {/* ── Demo Hội Đồng: Mô phỏng Pin Yếu & Khôi Phục Pin ── */}
+            {/* ── Quy Trình An Toàn Năng Lượng: Báo Động Pin Yếu & Khôi Phục Pin ── */}
             <div className="pt-2 border-t border-smb-outline-variant/60 space-y-1.5">
               <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
                 <span className="flex items-center gap-1">
-                  <Icon name="science" className="text-[14px]" />
-                  Kịch Bản Demo Hội Đồng (Pin &lt; 15%)
+                  <Icon name="battery_alert" className="text-[14px]" />
+                  Quy Trình An Toàn Năng Lượng (Pin &lt; 15%)
                 </span>
-                <span className="text-[9px] text-smb-on-surface-variant font-normal">Auto Dock + Khóa Màn Hình</span>
+                <span className="text-[9px] text-smb-on-surface-variant font-normal">Auto Dock + Cảnh Báo Staff</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -2833,10 +2833,10 @@ function RobotsTab({
                   disabled={ctrlLoading || !selectedRobot}
                   onClick={handleSimulateLowBattery}
                   className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-700 hover:to-rose-700 py-2.5 px-2 text-[11px] font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
-                  title="Mô phỏng pin robot tụt xuống 12%: Màn hình Android khóa cứng, phát âm thanh cảnh báo, tự động quay về trạm sạc"
+                  title="Kích hoạt báo động pin robot tụt xuống 12%: Màn hình Android khóa cứng, phát âm thanh cảnh báo, thông báo Staff và tự quay về trạm sạc"
                 >
                   <Icon name="battery_alert" className="text-[16px] animate-bounce" />
-                  🪫 Demo Pin Yếu &lt;15%
+                  🪫 Báo Động Pin Yếu (&lt;15%)
                 </button>
                 <button
                   type="button"
@@ -2846,7 +2846,7 @@ function RobotsTab({
                   title="Khôi phục pin robot về 100%, trạng thái Idle và mở khóa màn hình tablet"
                 >
                   <Icon name="battery_charging_full" className="text-[16px]" />
-                  ⚡ Khôi Phục 100%
+                  ⚡ Khôi Phục Pin 100%
                 </button>
               </div>
             </div>

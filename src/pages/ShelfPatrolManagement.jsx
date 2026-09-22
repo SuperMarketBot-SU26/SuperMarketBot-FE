@@ -384,6 +384,7 @@ export default function ShelfPatrolManagement() {
     guideCount: missionKpis.guideCount || guideCount,
     adCount: missionKpis.adCount || adCount,
     patrolCount: missionKpis.patrolCount || patrolCount,
+    batteryCount: missionKpis.batteryCount || allMissions.filter(m => (m.flowType || '').toLowerCase() === 'battery').length,
     activeCount: missionKpis.activeCount || allMissions.filter(m => ['DISPATCHED', 'NAVIGATING', 'ARRIVED'].includes((m.status || '').toUpperCase())).length
   }), [missionKpis, totalMissionsCount, guideCount, adCount, patrolCount, allMissions])
 
@@ -440,11 +441,11 @@ export default function ShelfPatrolManagement() {
         </span>
       )
     }
-    if (source === 'RobotSystem') {
+    if (source === 'RobotSystem' || source === 'RobotIncident') {
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20">
-          <Icon name="smart_toy" className="text-xs" />
-          Robot Tự Hành
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20">
+          <Icon name="battery_alert" className="text-xs text-rose-600" />
+          Báo Động Pin
         </span>
       )
     }
@@ -492,6 +493,14 @@ export default function ShelfPatrolManagement() {
         </span>
       )
     }
+    if (f === 'battery') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/25">
+          <Icon name="battery_alert" className="text-xs text-rose-500" />
+          Năng Lượng & Sạc
+        </span>
+      )
+    }
     if (f === 'return') {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20">
@@ -515,6 +524,22 @@ export default function ShelfPatrolManagement() {
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
           <Icon name="check_circle" className="text-xs text-emerald-500" />
           Hoàn Thành
+        </span>
+      )
+    }
+    if (s === 'CHARGING') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+          <Icon name="battery_charging_full" className="text-xs text-emerald-500" />
+          Đang Sạc (Đã Xử Lý)
+        </span>
+      )
+    }
+    if (s === 'LOW_BATTERY_RETURN' || s === 'PENDING') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 animate-pulse">
+          <Icon name="battery_alert" className="text-xs text-rose-500" />
+          {s === 'PENDING' ? 'Chờ Cắm Sạc' : 'Về Trạm Sạc'}
         </span>
       )
     }
@@ -851,7 +876,8 @@ export default function ShelfPatrolManagement() {
                       { id: 'all', label: 'Tất cả hoạt động', count: displayKpis.totalMissions, icon: 'apps' },
                       { id: 'guide', label: 'Dẫn đường', count: displayKpis.guideCount, icon: 'near_me' },
                       { id: 'ad', label: 'Quảng cáo', count: displayKpis.adCount, icon: 'campaign' },
-                      { id: 'patrol', label: 'Tuần tra AI', count: displayKpis.patrolCount, icon: 'security' }
+                      { id: 'patrol', label: 'Tuần tra AI', count: displayKpis.patrolCount, icon: 'security' },
+                      { id: 'battery', label: 'Năng lượng & Sạc', count: displayKpis.batteryCount || 0, icon: 'battery_charging_full' }
                     ].map(f => (
                       <button
                         key={f.id}

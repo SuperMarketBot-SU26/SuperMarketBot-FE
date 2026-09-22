@@ -39,7 +39,7 @@ export const OFFICIAL_SHELVES = [
     name: 'Đồ Ăn Vặt & Snack',
     icon: '🍪',
     type: 'horizontal',
-    x: 1550,
+    x: 1500,
     y: 150,
     w: 650,
     h: 360,
