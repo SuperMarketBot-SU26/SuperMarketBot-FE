@@ -149,38 +149,53 @@ export const publishNavigate = async (payload) => {
 /* backward-compatible alias used by older code */
 export const navigate = (payload) => navigateRobot(payload)
 
+export function normalizeRobotCode(robot) {
+  if (!robot) return 'RB0001'
+  if (typeof robot === 'string') {
+    const trimmed = robot.trim()
+    if (!trimmed || trimmed.includes('[object')) return 'RB0001'
+    return trimmed
+  }
+  return robot.robotCode || robot.code || robot.id || 'RB0001'
+}
+
 /* ── Emergency stop & Navigation Control ─────────────────────────────────── */
 
 /**
  * Cancel current navigation / emergency stop.
  *
- * @param {string} robotCode
+ * @param {string|object} robotCode
  * @param {string} [reason]
  */
 export const cancelRobotNavigation = async (robotCode, reason = 'Admin cancelled') => {
-  const res = await client.post(`${V1_NAV_ENDPOINT}/robots/${encodeURIComponent(robotCode)}/cancel`, null, {
+  const code = normalizeRobotCode(robotCode)
+  const res = await client.post(`${V1_NAV_ENDPOINT}/robots/${encodeURIComponent(code)}/cancel`, null, {
     params: { reason },
   })
   return res.data
 }
 
 export const pauseRobotNavigation = async (robotCode) => {
-  const res = await client.post(`${V1_NAV_ENDPOINT}/robots/${encodeURIComponent(robotCode)}/pause`)
+  const code = normalizeRobotCode(robotCode)
+  const res = await client.post(`${V1_NAV_ENDPOINT}/robots/${encodeURIComponent(code)}/pause`)
   return res.data
 }
 
 export const resumeRobotNavigation = async (robotCode) => {
-  const res = await client.post(`${V1_NAV_ENDPOINT}/robots/${encodeURIComponent(robotCode)}/resume`)
+  const code = normalizeRobotCode(robotCode)
+  const res = await client.post(`${V1_NAV_ENDPOINT}/robots/${encodeURIComponent(code)}/resume`)
   return res.data
 }
 
 export const getRobotMissionState = async (robotCode) => {
-  const res = await client.get(`/api/v1/robot-operations/missions/${encodeURIComponent(robotCode)}/active`)
+  const code = normalizeRobotCode(robotCode)
+  const res = await client.get(`/api/v1/robot-operations/missions/${encodeURIComponent(code)}/active`)
   return res.data
 }
 
 export const emergencyStopRobot = async (robotCode) => {
-  const res = await client.post(`${V1_NAV_ENDPOINT}/robots/${encodeURIComponent(robotCode)}/estop`)
+  const code = normalizeRobotCode(robotCode)
+  const res = await client.post(`${V1_NAV_ENDPOINT}/robots/${encodeURIComponent(code)}/estop`)
   return res.data
 }
 
@@ -193,11 +208,12 @@ export const cancelNavigation = (robotCode) => cancelRobotNavigation(robotCode)
  * Get robot's current pose (x, y, heading).
  * Used by the map overlay to animate robot icon.
  *
- * @param {string} robotCode
+ * @param {string|object} robotCode
  * @returns {Promise<{ robotCode, xCoord, yCoord, headingYawDeg, lastUpdatedAt }>}
  */
 export const getRobotPose = async (robotCode) => {
-  const res = await client.get(`${ROBOTS_ENDPOINT}/${encodeURIComponent(robotCode)}/pose`)
+  const code = normalizeRobotCode(robotCode)
+  const res = await client.get(`${ROBOTS_ENDPOINT}/${encodeURIComponent(code)}/pose`)
   return res.data
 }
 
@@ -210,7 +226,7 @@ export const getRobotPose = async (robotCode) => {
  */
 export const getRobots = async () => {
   const res = await client.get(ROBOTS_ENDPOINT)
-  return res.data ?? []
+  return res.data
 }
 
 /**
@@ -231,19 +247,24 @@ export const getRobotStatusValues = async () => {
  * @param {{ robotCode: string, commandType: string, payloadJson?: string }} payload
  */
 export const publishRobotCommand = async (payload) => {
-  const res = await client.post(`${ROBOTS_ENDPOINT}/command`, payload)
+  const safePayload = {
+    ...payload,
+    robotCode: normalizeRobotCode(payload?.robotCode),
+  }
+  const res = await client.post(`${ROBOTS_ENDPOINT}/command`, safePayload)
   return res.data
 }
 
 /**
  * Update a robot's operational status.
  *
- * @param {string} robotCode
+ * @param {string|object} robotCode
  * @param {{ status: string }} payload — valid values: "Power_Off" | "Idle" | "Moving" | "Interacting" | "Offline_Charging"
  */
 export const updateRobotStatus = async (robotCode, payload) => {
+  const code = normalizeRobotCode(robotCode)
   const res = await client.post(
-    `${ROBOTS_ENDPOINT}/${encodeURIComponent(robotCode)}/status`,
+    `${ROBOTS_ENDPOINT}/${encodeURIComponent(code)}/status`,
     payload
   )
   return res.data

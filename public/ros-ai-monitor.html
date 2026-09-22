@@ -822,8 +822,8 @@
 
             try {
                 const clientId = 'web_admin_' + Math.random().toString(16).substring(2, 8);
-                // HiveMQ Cloud WebSocket on port 8884 with SSL
-                mqttClient = new Paho.MQTT.Client('60922debd474446a84747b871c4a8182.s1.eu.hivemq.cloud', 8884, '/mqtt', clientId);
+                // EMQX Cloud WebSocket on port 8084 with SSL
+                mqttClient = new Paho.MQTT.Client('l07702d7.ala.asia-southeast1.emqxsl.com', 8084, '/mqtt', clientId);
 
                 mqttClient.onConnectionLost = (responseObject) => {
                     console.warn("MQTT Connection lost:", responseObject.errorMessage);
@@ -841,12 +841,12 @@
                     password: 'Passsep490',
                     timeout: 10,
                     onSuccess: () => {
-                        console.log("MQTT Client connected successfully to HiveMQ Cloud!");
+                        console.log("MQTT Client connected successfully to EMQX Cloud!");
                         isMqttConnected = true;
                         statusEl.style.color = '#10b981';
                         statusEl.style.background = 'rgba(16,185,129,0.1)';
                         statusEl.style.borderColor = 'rgba(16,185,129,0.3)';
-                        statusEl.innerText = 'Đã kết nối (HiveMQ)';
+                        statusEl.innerText = 'Đã kết nối (EMQX Cloud)';
                     },
                     onFailure: (err) => {
                         console.warn("MQTT Connection failed:", err);
