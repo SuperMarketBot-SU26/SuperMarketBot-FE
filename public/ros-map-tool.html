@@ -134,6 +134,12 @@
             border-color: #a7f3d0;
         }
 
+        @keyframes pulseRadar {
+            0% { transform: scale(0.92); opacity: 0.6; }
+            50% { transform: scale(1.15); opacity: 1; }
+            100% { transform: scale(0.92); opacity: 0.6; }
+        }
+
         .card {
             background: #ffffff;
             border: 1px solid var(--border-subtle);
@@ -679,9 +685,12 @@
             <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
                 Hình ảnh trực tiếp từ camera mặt trước của xe.
             </div>
-            <div style="width: 100%; aspect-ratio: 16/9; background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <div style="width: 100%; aspect-ratio: 16/9; background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; position: relative;">
                 <img id="camera-stream-img" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;" />
                 <span id="camera-placeholder" style="color: #64748b; font-size: 13px; font-weight: 500;">Chưa bật camera quan sát</span>
+                <div id="camera-aruco-badge" style="display: none; position: absolute; top: 8px; left: 8px; background: rgba(15, 23, 42, 0.85); color: #34d399; font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 6px; border: 1px solid #059669; backdrop-filter: blur(4px); z-index: 5;">
+                    🎯 <span id="camera-aruco-text">TAG #4</span>
+                </div>
             </div>
             <div class="data-row" style="margin-top: 10px;">
                 <label style="font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-secondary);">
@@ -690,6 +699,74 @@
             </div>
             <div style="margin-top: 12px; border-top: 1px dashed var(--border-subtle); padding-top: 12px;">
                 <a href="/ros-ai-monitor.html" class="btn btn-purple btn-full" target="_blank" style="text-decoration: none;">🧠 Mở Màn Hình AI Nhận Diện Sản Phẩm</a>
+            </div>
+        </div>
+
+        <!-- 7. HIỆU CHỈNH TỌA ĐỘ KỆ TỰ ĐỘNG (AMCL + ARUCO) -->
+        <div class="card" id="card-auto-shelf-calibration" style="margin-top: 8px; border: 1.5px solid #059669; background: #f0fdf4;">
+            <div class="card-title" style="color: #047857; display: flex; align-items: center; justify-content: space-between;">
+                <span>7. HIỆU CHỈNH TỌA ĐỘ KỆ TỰ ĐỘNG</span>
+                <span id="calib-mode-pill" style="font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: rgba(5, 150, 105, 0.15); color: #047857;">AMCL + ARUCO</span>
+            </div>
+            <div style="font-size: 12px; color: #334155; margin-bottom: 10px; line-height: 1.4;">
+                Tự động gán vị trí và góc nhìn thực tế của Robot vào Node của Kệ hàng qua nhận diện ArUco Marker.
+            </div>
+
+            <!-- Trạng thái 1: Chưa bật AMCL -->
+            <div id="calib-state-no-amcl" style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px; margin-bottom: 8px;">
+                <div style="display: flex; align-items: flex-start; gap: 8px;">
+                    <span style="font-size: 16px;">⚠️</span>
+                    <div style="font-size: 12px; color: #92400e;">
+                        <strong>Chỉ khả dụng ở chế độ AMCL</strong><br>
+                        Tọa độ SLAM liên tục bị drift khi quét. Hãy khởi động chế độ <strong>🧭 Dẫn Đường Tự Hành</strong> để lấy tọa độ chuẩn.
+                    </div>
+                </div>
+                <button onclick="startRobotOS('amcl')" class="btn btn-primary btn-full" style="margin-top: 8px; padding: 7px 10px; font-size: 12px; background: #16a34a;">
+                    🧭 Khởi Động AMCL Ngay
+                </button>
+            </div>
+
+            <!-- Trạng thái 2: Đang chạy AMCL nhưng chưa thấy Tag -->
+            <div id="calib-state-searching" style="display: none; background: #ffffff; border: 1px dashed #6ee7b7; border-radius: 8px; padding: 12px; text-align: center; margin-bottom: 8px;">
+                <div class="pulse-radar" style="display: inline-block; font-size: 22px; animation: pulseRadar 1.5s infinite;">🔍</div>
+                <div style="font-size: 12px; font-weight: 700; color: #065f46; margin-top: 5px;">Đang tìm kiếm ArUco Tag trên kệ hàng...</div>
+                <div style="font-size: 11px; color: #64748b; margin-top: 3px;">Lái xe đứng đối diện kệ ở cự ly quan sát tối ưu (0.5m – 1.2m).</div>
+            </div>
+
+            <!-- Trạng thái 3: Đã phát hiện ArUco Tag -->
+            <div id="calib-state-detected" style="display: none; background: #ffffff; border: 1.5px solid #10b981; border-radius: 8px; padding: 12px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px dashed #bbf7d0; padding-bottom: 6px;">
+                    <div>
+                        <div style="font-size: 11px; color: #047857; text-transform: uppercase; font-weight: 700;">🏷️ Kệ phát hiện</div>
+                        <div id="calib-shelf-title" style="font-size: 13.5px; font-weight: 800; color: #0f172a; margin-top: 2px;">
+                            [TAG #4] Kệ 4 - Mì Ăn Liền
+                        </div>
+                    </div>
+                    <span id="calib-tag-pill" style="font-size: 11px; font-weight: 700; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; padding: 3px 8px; border-radius: 12px;">
+                        Tag #4
+                    </span>
+                </div>
+
+                <div class="data-row" style="margin-bottom: 4px;">
+                    <span style="font-size: 11.5px; color: #64748b;">Node CSDL hiện tại:</span>
+                    <span class="value" id="calib-node-info" style="font-size: 11.5px; color: #0284c7;">Node #10024</span>
+                </div>
+                <div class="data-row" style="margin-bottom: 4px;">
+                    <span style="font-size: 11.5px; color: #64748b;">Tọa độ cũ Node:</span>
+                    <span class="value" id="calib-old-coords" style="font-size: 11.5px; color: #64748b;">X: 2.100, Y: 1.450 (0°)</span>
+                </div>
+                <div class="data-row" style="margin-bottom: 4px; background: #f0fdf4; padding: 4px 6px; border-radius: 6px;">
+                    <span style="font-size: 11.5px; font-weight: 600; color: #166534;">🤖 Vị trí Robot AMCL:</span>
+                    <span class="value" id="calib-robot-coords" style="font-size: 11.5px; color: #15803d;">X: 2.345, Y: 1.621 (92.5°)</span>
+                </div>
+                <div class="data-row" style="margin-bottom: 8px;">
+                    <span style="font-size: 11.5px; color: #64748b;">Độ lệch vị trí:</span>
+                    <span class="value" id="calib-delta-dist" style="font-size: 11.5px; color: #d97706;">Δ = 0.29m</span>
+                </div>
+
+                <button id="btn-apply-calibration" onclick="executeAutoShelfCalibration()" class="btn btn-primary btn-full" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); font-weight: 700; padding: 9px; font-size: 12px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);">
+                    ⚡ CẬP NHẬT TỌA ĐỘ NODE KỆ THEO XE
+                </button>
             </div>
         </div>
     </div>
@@ -896,6 +973,28 @@
         let draftWaypoint = null; // Biến lưu tạm waypoint đang kéo hướng
         let pgmImageData = null;
         let latestScan = null;
+        let draggingWpIndex = -1;
+        let isWpMoved = false;
+        let calibPulseWpIndex = null;
+        let calibPulseStartTime = 0;
+
+        window.showShelves = true;
+        window.allShelves = [];
+        window.storeShelves = [];
+        window.currentMapId = null;
+        window.currentMapName = "Supermarket Map";
+        window.currentMapWidth = 0;
+        window.currentMapHeight = 0;
+        window.currentMapEdges = [];
+
+        const DEFAULT_SHELF_FIXTURES = [
+            { id: 1, tag: 1, name: 'Kệ 1 - Đồ Ăn Vặt', rosX: 1.50, rosY: 0.35, width: 0.65, height: 0.36, color: '#2563eb', bg: 'rgba(37, 99, 235, 0.22)', border: '#2563eb' },
+            { id: 2, tag: 2, name: 'Kệ 2 - Nước Giải Khát', rosX: 2.25, rosY: 0.35, width: 0.65, height: 0.36, color: '#2563eb', bg: 'rgba(37, 99, 235, 0.22)', border: '#2563eb' },
+            { id: 3, tag: 3, name: 'Kệ 3 - Thực Phẩm Tươi', rosX: 2.55, rosY: -0.60, width: 0.36, height: 0.85, color: '#16a34a', bg: 'rgba(22, 163, 74, 0.22)', border: '#16a34a' },
+            { id: 4, tag: 4, name: 'Kệ 4 - Mì Ăn Liền', rosX: 1.45, rosY: -1.98, width: 0.85, height: 0.36, color: '#16a34a', bg: 'rgba(22, 163, 74, 0.22)', border: '#16a34a' },
+            { id: 5, tag: 5, name: 'Kệ 5 - Đồ Gia Dụng', rosX: 0.35, rosY: -1.98, width: 0.85, height: 0.36, color: '#d97706', bg: 'rgba(217, 119, 6, 0.22)', border: '#d97706' },
+            { id: 6, tag: 6, name: 'Kệ 6 - Gia Vị & Trà', rosX: 0.60, rosY: -0.60, width: 0.85, height: 0.36, color: '#d97706', bg: 'rgba(217, 119, 6, 0.22)', border: '#d97706' },
+        ];
 
         // --- CSS Transform Variables cho PAN & ZOOM ---
         let scale = 1.0;
@@ -1270,8 +1369,6 @@
         let isDragging = false;
         let startClientX, startClientY;
         let startTranslateX, startTranslateY;
-        let draggingWpIndex = -1;
-        let isWpMoved = false;
         let wpDragStartClientX = 0;
         let wpDragStartClientY = 0;
 
@@ -1434,12 +1531,34 @@
                     else if (data.mode && data.mode !== 'unknown') modeLabel = ` [${data.mode.toUpperCase()}]`;
                     statusEl.innerText = `Đang hoạt động${modeLabel}`;
                     statusEl.style.color = '#10b981';
+
+                    window.currentBootMode = data.mode;
+                    sessionStorage.setItem('currentBootMode', data.mode);
+
+                    // Tự động chuyển pose topic sang /amcl_pose nếu đang chạy AMCL
+                    if (data.mode === 'amcl') {
+                        const poseSelect = document.getElementById('ros-pose-topic');
+                        if (poseSelect && poseSelect.value !== '/amcl_pose') {
+                            poseSelect.value = '/amcl_pose';
+                            if (typeof subscribeToRobotPose === 'function') {
+                                subscribeToRobotPose();
+                            }
+                        }
+                    }
+                    if (typeof updateAutoShelfCalibrationUI === 'function') {
+                        updateAutoShelfCalibrationUI();
+                    }
                 } else if (data.status === 'starting') {
                     statusEl.innerText = 'Đang khởi động...';
                     statusEl.style.color = '#f59e0b';
                 } else {
                     statusEl.innerText = 'Đã dừng';
                     statusEl.style.color = '#ef4444';
+                    window.currentBootMode = null;
+                    sessionStorage.removeItem('currentBootMode');
+                    if (typeof updateAutoShelfCalibrationUI === 'function') {
+                        updateAutoShelfCalibrationUI();
+                    }
                 }
             } catch (err) {
                 const statusEl = document.getElementById('val-agent-status');
@@ -1793,6 +1912,7 @@ free_thresh: 0.196
                 });
 
                 subscribeToRobotPose();
+                subscribeToShelfAnalysis();
 
                 const rosoutSubscriber = new ROSLIB.Topic({
                     ros: ros,
@@ -2207,8 +2327,6 @@ free_thresh: 0.196
          * Tách bạch hoàn toàn khỏi điểm dừng (Waypoints):
          * Kệ đứng yên cố định trên vết LiDAR sàn, Waypoint tự do di chuyển
          * ========================================== */
-        window.showShelves = true;
-
         function toggleShelvesLayer() {
             window.showShelves = !window.showShelves;
             const btn = document.getElementById('btn-toggle-shelves');
@@ -2223,15 +2341,6 @@ free_thresh: 0.196
             }
             renderUI();
         }
-
-        const DEFAULT_SHELF_FIXTURES = [
-            { id: 1, tag: 1, name: 'Kệ 1 - Đồ Ăn Vặt', rosX: 1.50, rosY: 0.35, width: 0.65, height: 0.36, color: '#2563eb', bg: 'rgba(37, 99, 235, 0.22)', border: '#2563eb' },
-            { id: 2, tag: 2, name: 'Kệ 2 - Nước Giải Khát', rosX: 2.25, rosY: 0.35, width: 0.65, height: 0.36, color: '#2563eb', bg: 'rgba(37, 99, 235, 0.22)', border: '#2563eb' },
-            { id: 3, tag: 3, name: 'Kệ 3 - Thực Phẩm Tươi', rosX: 2.55, rosY: -0.60, width: 0.36, height: 0.85, color: '#16a34a', bg: 'rgba(22, 163, 74, 0.22)', border: '#16a34a' },
-            { id: 4, tag: 4, name: 'Kệ 4 - Mì Ăn Liền', rosX: 1.45, rosY: -1.98, width: 0.85, height: 0.36, color: '#16a34a', bg: 'rgba(22, 163, 74, 0.22)', border: '#16a34a' },
-            { id: 5, tag: 5, name: 'Kệ 5 - Đồ Gia Dụng', rosX: 0.35, rosY: -1.98, width: 0.85, height: 0.36, color: '#d97706', bg: 'rgba(217, 119, 6, 0.22)', border: '#d97706' },
-            { id: 6, tag: 6, name: 'Kệ 6 - Gia Vị & Trà', rosX: 0.60, rosY: -0.60, width: 0.85, height: 0.36, color: '#d97706', bg: 'rgba(217, 119, 6, 0.22)', border: '#d97706' },
-        ];
 
         function drawShelfFixtures(ctx) {
             if (!window.showShelves) return;
@@ -2381,6 +2490,35 @@ free_thresh: 0.196
                 drawWaypoint(ctxUI, screenPx, wp.heading, displayName, false, isThisDragging, wp);
             });
 
+            // Vẽ Radar Pulse Effect tại Waypoint vừa hiệu chỉnh (nếu có)
+            if (calibPulseWpIndex !== null && calibPulseWpIndex < waypoints.length) {
+                const elapsed = Date.now() - calibPulseStartTime;
+                if (elapsed < 2200) {
+                    const pwp = waypoints[calibPulseWpIndex];
+                    const px = mapToPixel(pwp.x, pwp.y);
+                    const spx = pixelToScreen(px.x, px.y);
+                    const progress = elapsed / 2200;
+                    const radius = 12 + progress * 48;
+                    const alpha = Math.max(0, 1 - progress);
+
+                    ctxUI.save();
+                    ctxUI.beginPath();
+                    ctxUI.arc(spx.x, spx.y, radius, 0, Math.PI * 2);
+                    ctxUI.strokeStyle = `rgba(16, 185, 129, ${alpha})`;
+                    ctxUI.lineWidth = 3.5 * alpha;
+                    ctxUI.stroke();
+
+                    ctxUI.beginPath();
+                    ctxUI.arc(spx.x, spx.y, radius * 0.55, 0, Math.PI * 2);
+                    ctxUI.strokeStyle = `rgba(52, 211, 153, ${alpha * 0.8})`;
+                    ctxUI.lineWidth = 2 * alpha;
+                    ctxUI.stroke();
+                    ctxUI.restore();
+                } else {
+                    calibPulseWpIndex = null;
+                }
+            }
+
             // Vẽ Waypoint ĐANG KÉO NHÁP (Draft)
             if (draftWaypoint) {
                 const px = mapToPixel(draftWaypoint.x, draftWaypoint.y);
@@ -2487,6 +2625,9 @@ free_thresh: 0.196
                         document.getElementById('live-rx').innerText = robotMapX.toFixed(3);
                         document.getElementById('live-ry').innerText = robotMapY.toFixed(3);
                         renderUI();
+                        if (typeof updateAutoShelfCalibrationUI === 'function') {
+                            updateAutoShelfCalibrationUI();
+                        }
                     }
                     lastDrawTime = now;
                 }
@@ -2630,6 +2771,370 @@ free_thresh: 0.196
         }
 
         document.getElementById('ros-pose-topic').addEventListener('change', subscribeToRobotPose);
+
+        /** ==========================================
+         * 7. HIỆU CHỈNH TỌA ĐỘ KỆ TỰ ĐỘNG (AMCL + ARUCO)
+         * ========================================== */
+        let shelfAnalysisSubscriber = null;
+        let lastDetectedArUco = null; // { tagId, shelfId, shelfCategory, timestamp }
+
+        function subscribeToShelfAnalysis() {
+            if (!ros) return;
+            if (shelfAnalysisSubscriber) {
+                shelfAnalysisSubscriber.unsubscribe();
+                shelfAnalysisSubscriber = null;
+            }
+            try {
+                shelfAnalysisSubscriber = new ROSLIB.Topic({
+                    ros: ros,
+                    name: '/shelf/analysis',
+                    messageType: 'std_msgs/msg/String'
+                });
+                shelfAnalysisSubscriber.subscribe(function (message) {
+                    try {
+                        const data = typeof message.data === 'string' ? JSON.parse(message.data) : message.data;
+                        handleShelfAnalysisData(data);
+                    } catch (e) {
+                        console.warn('Lỗi parse /shelf/analysis payload:', e);
+                    }
+                });
+                console.log("[AutoCalibration] Đã đăng ký topic /shelf/analysis");
+            } catch (err) {
+                console.warn("[AutoCalibration] Không thể đăng ký /shelf/analysis:", err);
+            }
+        }
+
+        function handleShelfAnalysisData(data) {
+            if (!data) return;
+
+            const tagId = data.arucoTagId || (data.tagDetected ? data.shelfId : null);
+            const hasTag = Boolean(data.tagDetected || (tagId && tagId >= 1 && tagId <= 6));
+
+            if (hasTag && tagId >= 1 && tagId <= 6) {
+                lastDetectedArUco = {
+                    tagId: Number(tagId),
+                    shelfId: Number(data.shelfId || tagId),
+                    shelfCategory: data.shelfCategory || `Kệ ${tagId}`,
+                    timestamp: Date.now()
+                };
+                updateArUcoBadgeOnCamera(lastDetectedArUco);
+            }
+            updateAutoShelfCalibrationUI();
+        }
+
+        function updateArUcoBadgeOnCamera(info) {
+            const badge = document.getElementById('camera-aruco-badge');
+            const badgeText = document.getElementById('camera-aruco-text');
+            if (!badge || !badgeText) return;
+
+            if (info && (Date.now() - info.timestamp < 3500)) {
+                badgeText.innerText = `TAG #${info.tagId} - ${info.shelfCategory.replace(/\[.*?\]\s*/g, '')}`;
+                badge.style.display = 'block';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        function isAmclModeActive() {
+            return window.currentBootMode === 'amcl' || sessionStorage.getItem('currentBootMode') === 'amcl';
+        }
+
+        function updateAutoShelfCalibrationUI() {
+            const stateNoAmcl = document.getElementById('calib-state-no-amcl');
+            const stateSearching = document.getElementById('calib-state-searching');
+            const stateDetected = document.getElementById('calib-state-detected');
+            const badgeMode = document.getElementById('calib-mode-pill');
+
+            if (!stateNoAmcl || !stateSearching || !stateDetected) return;
+
+            const amclActive = isAmclModeActive();
+
+            if (badgeMode) {
+                badgeMode.innerText = amclActive ? 'AMCL CHUẨN ĐỊNH VỊ' : 'CHƯA BẬT AMCL';
+                badgeMode.style.background = amclActive ? 'rgba(5, 150, 105, 0.15)' : '#fee2e2';
+                badgeMode.style.color = amclActive ? '#047857' : '#b91c1c';
+            }
+
+            if (!amclActive) {
+                stateNoAmcl.style.display = 'block';
+                stateSearching.style.display = 'none';
+                stateDetected.style.display = 'none';
+                updateArUcoBadgeOnCamera(null);
+                return;
+            }
+
+            stateNoAmcl.style.display = 'none';
+
+            // Kiểm tra tính mới của ArUco Detection (trong vòng 3.5 giây)
+            const isTagFresh = lastDetectedArUco && (Date.now() - lastDetectedArUco.timestamp < 3500);
+
+            if (!isTagFresh) {
+                stateSearching.style.display = 'block';
+                stateDetected.style.display = 'none';
+                updateArUcoBadgeOnCamera(null);
+                return;
+            }
+
+            // Đang có Tag ArUco và AMCL hoạt động
+            stateSearching.style.display = 'none';
+            stateDetected.style.display = 'block';
+            updateArUcoBadgeOnCamera(lastDetectedArUco);
+
+            const shelfId = lastDetectedArUco.shelfId;
+            const tagId = lastDetectedArUco.tagId;
+            const shelf = (window.allShelves || []).find(s => s.shelfId == shelfId) || {
+                shelfId: shelfId,
+                shelfName: lastDetectedArUco.shelfCategory
+            };
+
+            // Tiêu đề & Tag Pill
+            const titleEl = document.getElementById('calib-shelf-title');
+            if (titleEl) {
+                titleEl.innerText = `[TAG #${tagId}] ${shelf.shelfName || `Kệ ${shelfId}`}`;
+            }
+            const tagPillEl = document.getElementById('calib-tag-pill');
+            if (tagPillEl) {
+                tagPillEl.innerText = `Tag #${tagId}`;
+            }
+
+            // Tra cứu Waypoint hiện tại
+            let currentWp = null;
+            if (shelf.nodeId) {
+                currentWp = waypoints.find(w => w.id === shelf.nodeId || w.nodeId === shelf.nodeId);
+            }
+            if (!currentWp) {
+                currentWp = waypoints.find(w => w.name && w.name.includes(`Kệ ${shelfId}`));
+            }
+
+            const nodeInfoEl = document.getElementById('calib-node-info');
+            if (nodeInfoEl) {
+                if (currentWp) {
+                    nodeInfoEl.innerText = currentWp.id ? `Node #${currentWp.id}` : `Node chưa lưu ID ("${currentWp.name}")`;
+                    nodeInfoEl.style.color = '#0284c7';
+                } else {
+                    nodeInfoEl.innerText = 'Chưa có Node (Sẽ tự động tạo)';
+                    nodeInfoEl.style.color = '#d97706';
+                }
+            }
+
+            const oldCoordsEl = document.getElementById('calib-old-coords');
+            if (oldCoordsEl) {
+                if (currentWp) {
+                    const headingDeg = ((currentWp.heading || 0) * 180 / Math.PI).toFixed(1);
+                    oldCoordsEl.innerText = `X: ${currentWp.x.toFixed(3)}m, Y: ${currentWp.y.toFixed(3)}m (${headingDeg}°)`;
+                } else {
+                    oldCoordsEl.innerText = 'Chưa thiết lập';
+                }
+            }
+
+            const robotCoordsEl = document.getElementById('calib-robot-coords');
+            if (robotCoordsEl) {
+                const rYawDeg = (robotHeading * 180 / Math.PI).toFixed(1);
+                robotCoordsEl.innerText = `X: ${robotMapX.toFixed(3)}m, Y: ${robotMapY.toFixed(3)}m (${rYawDeg}°)`;
+            }
+
+            const deltaEl = document.getElementById('calib-delta-dist');
+            if (deltaEl) {
+                if (currentWp) {
+                    const dist = Math.hypot(robotMapX - currentWp.x, robotMapY - currentWp.y);
+                    deltaEl.innerText = `Δ = ${dist.toFixed(3)} m`;
+                    deltaEl.style.color = dist > 0.3 ? '#d97706' : '#16a34a';
+                } else {
+                    deltaEl.innerText = 'Tạo điểm mới';
+                    deltaEl.style.color = '#059669';
+                }
+            }
+
+            const btnApply = document.getElementById('btn-apply-calibration');
+            if (btnApply) {
+                btnApply.innerText = `⚡ CẬP NHẬT TỌA ĐỘ NODE KỆ ${shelfId} THEO XE`;
+            }
+        }
+
+        async function executeAutoShelfCalibration() {
+            if (!lastDetectedArUco) {
+                alert("⚠️ Chưa phát hiện ArUco Tag nào trước camera của xe!");
+                return;
+            }
+            if (!isAmclModeActive()) {
+                alert("⚠️ Chức năng này CHỈ KHẢ DỤNG khi Robot đang chạy ở chế độ AMCL (Dẫn Đường Tự Hành) để đảm bảo độ chính xác!");
+                return;
+            }
+            if (isNaN(robotMapX) || isNaN(robotMapY)) {
+                alert("⚠️ Chưa nhận được tọa độ định vị hợp lệ từ /amcl_pose!");
+                return;
+            }
+
+            const shelfId = lastDetectedArUco.shelfId;
+            const tagId = lastDetectedArUco.tagId;
+            const shelf = (window.allShelves || []).find(s => s.shelfId == shelfId) || {
+                shelfId: shelfId,
+                shelfName: `Kệ ${shelfId}`
+            };
+
+            const btn = document.getElementById('btn-apply-calibration');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ Đang lưu tọa độ vào CSDL...';
+            btn.disabled = true;
+
+            try {
+                // 1. Cập nhật hoặc tạo Waypoint trong mảng local
+                let targetWpIndex = -1;
+                if (shelf.nodeId) {
+                    targetWpIndex = waypoints.findIndex(w => w.id === shelf.nodeId || w.nodeId === shelf.nodeId);
+                }
+                if (targetWpIndex === -1) {
+                    targetWpIndex = waypoints.findIndex(w => w.name && w.name.includes(`Kệ ${shelfId}`));
+                }
+
+                let targetWp = null;
+                if (targetWpIndex >= 0) {
+                    targetWp = waypoints[targetWpIndex];
+                    targetWp.x = Number(robotMapX.toFixed(3));
+                    targetWp.y = Number(robotMapY.toFixed(3));
+                    targetWp.heading = Number(robotHeading.toFixed(4));
+                    targetWp.nodeType = 'Shelf';
+                    targetWp.role = 'shelf';
+                    if (!targetWp.name || targetWp.name.startsWith('Node ')) {
+                        targetWp.name = shelf.shelfName || `Kệ ${shelfId}`;
+                    }
+                } else {
+                    targetWp = {
+                        id: shelf.nodeId || undefined,
+                        name: shelf.shelfName || `Kệ ${shelfId}`,
+                        x: Number(robotMapX.toFixed(3)),
+                        y: Number(robotMapY.toFixed(3)),
+                        heading: Number(robotHeading.toFixed(4)),
+                        nodeType: 'Shelf',
+                        role: 'shelf',
+                        isBlocked: false
+                    };
+                    waypoints.push(targetWp);
+                    targetWpIndex = waypoints.length - 1;
+                }
+
+                // 2. Gửi API lưu điểm dừng lên máy chủ
+                const baseUrl = window.SMB_ENV?.BE_URL !== undefined ? window.SMB_ENV.BE_URL : 'http://localhost:5000';
+                if (!window.currentMapId) {
+                    window.currentMapId = 1;
+                }
+
+                const nodesDto = waypoints.map((wp, i) => ({
+                    nodeId: wp.id || 0,
+                    xCoord: wp.x,
+                    yCoord: wp.y,
+                    nodeName: wp.name || `Node ${i + 1}`,
+                    nodeType: wp.nodeType || 'Waypoint',
+                    nodeRole: wp.role || 'shelf',
+                    isBlocked: wp.isBlocked || false,
+                    headingYaw: (wp.heading !== undefined && !isNaN(wp.heading)) ? Number(wp.heading) : null
+                }));
+
+                const headers = getFetchHeaders();
+                headers['Content-Type'] = 'application/json';
+
+                const saveRes = await fetch(`${baseUrl}/api/v1/maps/${window.currentMapId}/waypoints`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(nodesDto)
+                });
+
+                if (!saveRes.ok) {
+                    let errText = saveRes.statusText;
+                    try {
+                        const errJson = await saveRes.json();
+                        errText = errJson.message || errText;
+                    } catch (e) {}
+                    throw new Error(`Lưu Waypoints thất bại: HTTP ${saveRes.status} - ${errText}`);
+                }
+
+                // 3. Nếu Shelf chưa liên kết Node hoặc Node mới tạo, lấy ID và map lại
+                let assignedNodeId = targetWp.id;
+                if (!assignedNodeId) {
+                    try {
+                        const mapRes = await fetch(`${baseUrl}/api/v1/maps/active?floorId=1`, { headers: getFetchHeaders() });
+                        if (mapRes.ok) {
+                            const mapData = await mapRes.json();
+                            if (mapData.nodes && Array.isArray(mapData.nodes)) {
+                                const matched = mapData.nodes.find(n =>
+                                    Math.abs(n.xCoord - targetWp.x) < 0.05 &&
+                                    Math.abs(n.yCoord - targetWp.y) < 0.05
+                                );
+                                if (matched) {
+                                    assignedNodeId = matched.nodeId;
+                                    targetWp.id = matched.nodeId;
+                                }
+                            }
+                        }
+                    } catch (err) {
+                        console.warn("Could not refetch active map:", err);
+                    }
+                }
+
+                if (assignedNodeId) {
+                    try {
+                        const mapShelfRes = await fetch(`${baseUrl}/api/v1/shelves/${shelfId}/map-node/${assignedNodeId}`, {
+                            method: 'PUT',
+                            headers: getFetchHeaders()
+                        });
+                        if (mapShelfRes.ok) {
+                            shelf.nodeId = assignedNodeId;
+                            (window.allShelves || []).forEach(s => {
+                                if (s.shelfId == shelfId) s.nodeId = assignedNodeId;
+                            });
+                        }
+                    } catch (err) {
+                        console.warn("Error mapping shelf node:", err);
+                    }
+                }
+
+                // 4. Radar pulse visual feedback trên Canvas 2D
+                calibPulseWpIndex = targetWpIndex;
+                calibPulseStartTime = Date.now();
+                animatePulseRadar();
+
+                // 5. Toast thông báo trực quan
+                const toast = document.getElementById('toast');
+                toast.innerText = `✅ Đã lưu tọa độ thực tế cho Kệ ${shelfId} (Tag #${tagId}) vào CSDL!`;
+                toast.style.background = '#059669';
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 3500);
+
+                // 6. Bắn sự kiện realtime cho Web Admin và các tab khác
+                try {
+                    if (window.parent && window.parent !== window) {
+                        window.parent.postMessage({ type: 'MAP_LAYOUT_UPDATED', shelfId: shelfId, nodeId: assignedNodeId }, '*');
+                    }
+                    window.dispatchEvent(new CustomEvent('mapLayoutUpdated', { detail: { shelfId: shelfId, nodeId: assignedNodeId } }));
+                } catch (err) {
+                    console.warn("PostMessage error:", err);
+                }
+
+                renderUI();
+                updateAutoShelfCalibrationUI();
+
+            } catch (err) {
+                console.error("Calibration error:", err);
+                alert("❌ Lỗi khi cập nhật tọa độ kệ: " + err.message);
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        function animatePulseRadar() {
+            if (calibPulseWpIndex === null) return;
+            renderUI();
+            if (Date.now() - calibPulseStartTime < 2200) {
+                requestAnimationFrame(animatePulseRadar);
+            } else {
+                calibPulseWpIndex = null;
+                renderUI();
+            }
+        }
+
+        // Kiểm tra định kỳ trạng thái hiệu chỉnh mỗi giây
+        setInterval(updateAutoShelfCalibrationUI, 1000);
 
         /** ==========================================
          * XUẤT FILE YAML (EXPORT MISSION)
@@ -2792,14 +3297,6 @@ free_thresh: 0.196
                 btn.disabled = false;
             }
         }
-
-        window.currentMapId = null;
-        window.currentMapName = "Supermarket Map";
-        window.currentMapWidth = 0;
-        window.currentMapHeight = 0;
-        window.currentMapEdges = [];
-        window.allShelves = [];
-        window.storeShelves = [];
 
         async function fetchAllShelves() {
             try {

@@ -608,6 +608,36 @@
             </div>
         </div>
 
+        <!-- CARD HIỆU CHỈNH TỌA ĐỘ KỆ TỰ ĐỘNG (AMCL + ARUCO) -->
+        <div class="card" id="card-calib-monitor" style="border: 1.5px solid #059669; background: #ffffff;">
+            <div style="color: #047857; font-size: 0.82rem; margin-bottom: 8px; text-transform: uppercase; font-weight: 800; letter-spacing: 0.05em; display: flex; align-items: center; justify-content: space-between;">
+                <span style="display: flex; align-items: center; gap: 6px;"><span>📍</span> Hiệu Chỉnh Tọa Độ Kệ</span>
+                <span id="ai-calib-badge" style="font-size: 10px; padding: 2px 6px; background: #ecfdf5; border-radius: 4px; border: 1px solid #a7f3d0; color: #059669; font-weight: 700;">AMCL</span>
+            </div>
+            
+            <div id="ai-calib-status-text" style="font-size: 0.82rem; color: #64748b; margin-bottom: 8px; line-height: 1.4;">
+                Đang chờ nhận diện ArUco Marker từ camera và tọa độ AMCL...
+            </div>
+
+            <div id="ai-calib-details" style="display: none; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; font-size: 0.82rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="color: #64748b;">Kệ nhận dạng:</span>
+                    <strong id="ai-calib-shelf-name" style="color: #047857;">[TAG #4] Kệ 4</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: #64748b;">Robot AMCL:</span>
+                    <strong id="ai-calib-pose" style="color: #0284c7; font-family: monospace;">X: 0.00, Y: 0.00</strong>
+                </div>
+            </div>
+
+            <button id="btn-ai-calib-save" onclick="saveShelfCalibrationFromAiMonitor()" disabled class="btn-primary" style="width: 100%; justify-content: center; font-size: 0.82rem; padding: 9px; opacity: 0.5; cursor: not-allowed;">
+                ⚡ Lưu Tọa Độ Thực Vào CSDL
+            </button>
+            <a href="/ros-map-tool.html" target="_blank" style="display: block; text-align: center; font-size: 0.78rem; color: #059669; margin-top: 6px; text-decoration: none; font-weight: 600;">
+                🗺️ Mở Bản Đồ 2D & Điểm Dừng
+            </a>
+        </div>
+
         <div class="card" style="flex: 1; display: flex; flex-direction: column;">
             <div style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 10px; text-transform: uppercase; font-weight: 800; letter-spacing: 0.05em;">Đối tượng Đang nhận diện</div>
             <div id="objects-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem; padding-right: 4px;">
@@ -967,6 +997,14 @@
                     messageType: 'std_msgs/msg/String'
                 });
                 densityReportTopic.subscribe(handleDensityReportPayload);
+
+                // 5. Subscribe to AMCL Pose for Auto Shelf Calibration
+                amclPoseTopic = new ROSLIB.Topic({
+                    ros: ros,
+                    name: '/amcl_pose',
+                    messageType: 'geometry_msgs/PoseWithCovarianceStamped'
+                });
+                amclPoseTopic.subscribe(handleAmclPosePayload);
 
                 // Update Status Pill
                 updateScanStatus('idle', 'Sẵn sàng canh góc');
@@ -1422,6 +1460,18 @@
                     shelfSelect.value = String(data.shelfId);
                 }
 
+                // Cập nhật thông tin nhận dạng ArUco cho tính năng Hiệu chỉnh Tọa độ
+                const calibTagId = data.arucoTagId || (data.tagDetected ? data.shelfId : null);
+                if (calibTagId && calibTagId >= 1 && calibTagId <= 6) {
+                    lastArUcoForCalib = {
+                        tagId: Number(calibTagId),
+                        shelfId: Number(data.shelfId || calibTagId),
+                        shelfCategory: data.shelfCategory || `Kệ ${calibTagId}`,
+                        timestamp: Date.now()
+                    };
+                }
+                updateAiMonitorCalibrationUI();
+
                 // --- TIER INFO ---
                 let tiersHtml = '';
                 if (data.isMultiTier) {
@@ -1522,6 +1572,211 @@
                 console.error("Failed to parse JSON payload:", e);
             }
         }
+        // ============================================================
+        // TÍNH NĂNG: HIỆU CHỈNH TỌA ĐỘ KỆ TỰ ĐỘNG (AMCL + ARUCO) TRÊN AI MONITOR
+        // ============================================================
+        let amclPoseTopic = null;
+        let currentRobotPose = null; // { x, y, yaw, timestamp }
+        let lastArUcoForCalib = null; // { tagId, shelfId, shelfCategory, timestamp }
+
+        function handleAmclPosePayload(msg) {
+            if (!msg?.pose?.pose) return;
+            const pos = msg.pose.pose.position;
+            const q = msg.pose.pose.orientation;
+            const yaw = q ? Math.atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z)) : 0;
+            currentRobotPose = {
+                x: pos.x,
+                y: pos.y,
+                yaw: yaw,
+                timestamp: Date.now()
+            };
+            updateAiMonitorCalibrationUI();
+        }
+
+        function updateAiMonitorCalibrationUI() {
+            const statusText = document.getElementById('ai-calib-status-text');
+            const detailsBox = document.getElementById('ai-calib-details');
+            const shelfNameEl = document.getElementById('ai-calib-shelf-name');
+            const poseEl = document.getElementById('ai-calib-pose');
+            const btnSave = document.getElementById('btn-ai-calib-save');
+            const badge = document.getElementById('ai-calib-badge');
+
+            if (!statusText || !detailsBox || !btnSave) return;
+
+            const isPoseFresh = currentRobotPose && (Date.now() - currentRobotPose.timestamp < 4000);
+            const isTagFresh = lastArUcoForCalib && (Date.now() - lastArUcoForCalib.timestamp < 4000);
+
+            if (isPoseFresh && badge) {
+                badge.innerText = 'AMCL CHUẨN';
+                badge.style.background = '#ecfdf5';
+                badge.style.color = '#059669';
+                badge.style.borderColor = '#a7f3d0';
+            } else if (badge) {
+                badge.innerText = 'CHỜ POSE';
+                badge.style.background = '#fffbeb';
+                badge.style.color = '#d97706';
+                badge.style.borderColor = '#fde68a';
+            }
+
+            if (isPoseFresh && isTagFresh) {
+                statusText.style.display = 'none';
+                detailsBox.style.display = 'block';
+
+                shelfNameEl.innerText = `[TAG #${lastArUcoForCalib.tagId}] ${lastArUcoForCalib.shelfCategory}`;
+                const yawDeg = (currentRobotPose.yaw * 180 / Math.PI).toFixed(1);
+                poseEl.innerText = `X: ${currentRobotPose.x.toFixed(2)}m, Y: ${currentRobotPose.y.toFixed(2)}m (${yawDeg}°)`;
+
+                btnSave.disabled = false;
+                btnSave.style.opacity = '1';
+                btnSave.style.cursor = 'pointer';
+                btnSave.innerText = `⚡ Lưu Tọa Độ Kệ ${lastArUcoForCalib.shelfId}`;
+            } else {
+                detailsBox.style.display = 'none';
+                statusText.style.display = 'block';
+
+                if (!isPoseFresh && !isTagFresh) {
+                    statusText.innerText = 'Đang chờ nhận diện ArUco Marker từ camera và tọa độ /amcl_pose...';
+                } else if (!isPoseFresh) {
+                    statusText.innerText = `Đã thấy [TAG #${lastArUcoForCalib.tagId}]. Đang chờ tín hiệu /amcl_pose...`;
+                } else {
+                    statusText.innerText = 'Đã có tọa độ AMCL. Đang tìm kiếm ArUco Marker trên kệ...';
+                }
+
+                btnSave.disabled = true;
+                btnSave.style.opacity = '0.5';
+                btnSave.style.cursor = 'not-allowed';
+                btnSave.innerText = '⚡ Lưu Tọa Độ Thực Vào CSDL';
+            }
+        }
+
+        async function saveShelfCalibrationFromAiMonitor() {
+            if (!lastArUcoForCalib || !currentRobotPose) {
+                showToast('⚠️ Chưa đủ dữ liệu ArUco hoặc tọa độ AMCL!', 'warning');
+                return;
+            }
+
+            const btnSave = document.getElementById('btn-ai-calib-save');
+            const originalText = btnSave.innerHTML;
+            btnSave.innerHTML = '⏳ Đang lưu CSDL...';
+            btnSave.disabled = true;
+
+            const shelfId = lastArUcoForCalib.shelfId;
+            const tagId = lastArUcoForCalib.tagId;
+            const token = localStorage.getItem('accessToken');
+            const headers = {
+                'ngrok-skip-browser-warning': 'true',
+                'Content-Type': 'application/json'
+            };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+            try {
+                // 1. Lấy Map hiện tại và danh sách nodes
+                const mapRes = await fetch('/api/v1/maps/active?floorId=1', { headers });
+                let mapData = null;
+                if (mapRes.ok) {
+                    mapData = await mapRes.json();
+                }
+
+                const mapId = mapData?.mapId || 1;
+                let nodes = (mapData?.nodes || []).map(n => ({
+                    nodeId: n.nodeId,
+                    xCoord: n.xCoord,
+                    yCoord: n.yCoord,
+                    nodeName: n.nodeName,
+                    nodeType: n.nodeType || 'Waypoint',
+                    nodeRole: n.nodeRole || 'shelf',
+                    isBlocked: n.isBlocked || false,
+                    headingYaw: n.headingYaw
+                }));
+
+                // 2. Lấy thông tin Kệ từ CSDL
+                let shelfNodeId = null;
+                try {
+                    const shelfRes = await fetch('/api/v1/shelves', { headers });
+                    if (shelfRes.ok) {
+                        const shelves = await shelfRes.json();
+                        const s = shelves.find(x => x.shelfId === shelfId);
+                        if (s) shelfNodeId = s.nodeId;
+                    }
+                } catch (e) {}
+
+                let targetNode = null;
+                if (shelfNodeId) {
+                    targetNode = nodes.find(n => n.nodeId === shelfNodeId);
+                }
+                if (!targetNode) {
+                    targetNode = nodes.find(n => n.nodeName && n.nodeName.includes(`Kệ ${shelfId}`));
+                }
+
+                if (targetNode) {
+                    targetNode.xCoord = Number(currentRobotPose.x.toFixed(3));
+                    targetNode.yCoord = Number(currentRobotPose.y.toFixed(3));
+                    targetNode.headingYaw = Number(currentRobotPose.yaw.toFixed(4));
+                    targetNode.nodeType = 'Shelf';
+                    targetNode.nodeRole = 'shelf';
+                } else {
+                    targetNode = {
+                        nodeId: 0,
+                        xCoord: Number(currentRobotPose.x.toFixed(3)),
+                        yCoord: Number(currentRobotPose.y.toFixed(3)),
+                        nodeName: `Kệ ${shelfId}`,
+                        nodeType: 'Shelf',
+                        nodeRole: 'shelf',
+                        isBlocked: false,
+                        headingYaw: Number(currentRobotPose.yaw.toFixed(4))
+                    };
+                    nodes.push(targetNode);
+                }
+
+                // 3. Gửi cập nhật Waypoints lên BE
+                const saveWpRes = await fetch(`/api/v1/maps/${mapId}/waypoints`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(nodes)
+                });
+                if (!saveWpRes.ok) throw new Error(`Lưu Waypoints thất bại: HTTP ${saveWpRes.status}`);
+
+                // 4. Map Shelf to Node nếu cần
+                let assignedId = targetNode.nodeId;
+                if (!assignedId || assignedId === 0) {
+                    const refetchMap = await fetch('/api/v1/maps/active?floorId=1', { headers });
+                    if (refetchMap.ok) {
+                        const newMap = await refetchMap.json();
+                        const matched = (newMap.nodes || []).find(n =>
+                            Math.abs(n.xCoord - currentRobotPose.x) < 0.05 &&
+                            Math.abs(n.yCoord - currentRobotPose.y) < 0.05
+                        );
+                        if (matched) assignedId = matched.nodeId;
+                    }
+                }
+
+                if (assignedId) {
+                    await fetch(`/api/v1/shelves/${shelfId}/map-node/${assignedId}`, {
+                        method: 'PUT',
+                        headers
+                    });
+                }
+
+                // 5. Thông báo Toast và bắn sự kiện realtime
+                showToast(`✅ Đã lưu tọa độ thực tế cho Kệ ${shelfId} (Tag #${tagId}) vào CSDL!`, 'success');
+
+                try {
+                    if (window.parent && window.parent !== window) {
+                        window.parent.postMessage({ type: 'MAP_LAYOUT_UPDATED', shelfId, nodeId: assignedId }, '*');
+                    }
+                    window.dispatchEvent(new CustomEvent('mapLayoutUpdated', { detail: { shelfId, nodeId: assignedId } }));
+                } catch (e) {}
+
+            } catch (err) {
+                console.error("Error saving shelf calib:", err);
+                showToast(`❌ Lỗi khi lưu tọa độ kệ: ${err.message}`, 'error');
+            } finally {
+                btnSave.innerHTML = originalText;
+                btnSave.disabled = false;
+            }
+        }
+
+        setInterval(updateAiMonitorCalibrationUI, 1000);
     </script>
 </body>
 </html>

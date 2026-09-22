@@ -551,26 +551,44 @@ function AutonomousTab({
   const [shelves, setShelves] = useState([])
   const [selectedShelfIds, setSelectedShelfIds] = useState([])
   const [patrolDwell, setPatrolDwell] = useState(3.0) // thời gian lia camera tại mỗi kệ (giây)
+  const [zones, setZones] = useState([])
 
-  useEffect(() => {
+  const reloadShelvesAndZones = useCallback(() => {
     getShelves().then(data => {
       const list = Array.isArray(data) ? data : []
       setShelves(list)
       const valid = list.filter(s => s.nodeId != null)
-      setSelectedAdShelfIds(valid.map(s => s.shelfId))
-      setSelectedShelfIds(valid.map(s => s.shelfId))
+      setSelectedAdShelfIds(prev => prev && prev.length ? prev : valid.map(s => s.shelfId))
+      setSelectedShelfIds(prev => prev && prev.length ? prev : valid.map(s => s.shelfId))
     }).catch(() => {})
-  }, [])
 
-  const validShelves = useMemo(() => shelves.filter(s => s.nodeId != null), [shelves])
-
-
-  const [zones, setZones] = useState([])
-  useEffect(() => {
     getZones({ floorId: map?.floorId || 1 })
       .then(data => setZones(Array.isArray(data) ? data : []))
       .catch(() => {})
   }, [map?.floorId])
+
+  useEffect(() => {
+    reloadShelvesAndZones()
+
+    const handleUpdate = () => {
+      reloadShelvesAndZones()
+    }
+    const handleMessage = (event) => {
+      if (event.data?.type === 'MAP_LAYOUT_UPDATED') {
+        reloadShelvesAndZones()
+      }
+    }
+
+    window.addEventListener('mapLayoutUpdated', handleUpdate)
+    window.addEventListener('message', handleMessage)
+
+    return () => {
+      window.removeEventListener('mapLayoutUpdated', handleUpdate)
+      window.removeEventListener('message', handleMessage)
+    }
+  }, [reloadShelvesAndZones])
+
+  const validShelves = useMemo(() => shelves.filter(s => s.nodeId != null), [shelves])
 
   const zonesWithShelves = useMemo(() => {
     const defaultZoneConfigs = [
