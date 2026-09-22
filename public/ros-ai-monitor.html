@@ -1280,16 +1280,16 @@
             const payloadStr = JSON.stringify(reportPayload);
             console.log("Dispatching Shelf Report:", payloadStr);
 
-            // A. Gửi trực tiếp qua MQTT HiveMQ (chỉ gửi 1 tin nhắn duy nhất tới topic chuẩn của robot)
+            // A. Gửi trực tiếp qua MQTT EMQX Cloud (chỉ gửi 1 tin nhắn duy nhất tới topic chuẩn của robot)
             let mqttSent = false;
             if (mqttClient && mqttClient.isConnected()) {
                 try {
-                    const msg = new Paho.MQTT.Message(payloadStr);
-                    msg.destinationName = `smartmarketbot/robot/${robotCode}/shelf_report`;
-                    msg.qos = 1;
-                    mqttClient.send(msg);
+                    const message = new Paho.MQTT.Message(payloadStr);
+                    message.destinationName = `smartmarketbot/robot/${robotCode}/shelf_report`;
+                    message.qos = 1;
+                    mqttClient.send(message);
                     mqttSent = true;
-                    console.log(`Published 1 shelf report to HiveMQ MQTT: smartmarketbot/robot/${robotCode}/shelf_report`);
+                    console.log(`Published 1 shelf report to EMQX Cloud MQTT: smartmarketbot/robot/${robotCode}/shelf_report`);
                 } catch (e) {
                     console.error("MQTT publish failed:", e);
                 }
