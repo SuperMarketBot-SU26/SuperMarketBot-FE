@@ -28,7 +28,7 @@ export function CommandPalette({ isOpen, onClose }) {
 
   const navigationItems = [
     { label: 'Giám Sát Robot Theo Thời Gian Thực', path: '/robots', icon: 'smart_toy', category: 'Quản Lý Robot & Thiết Bị' },
-    { label: 'Bản Đồ & Định Vị Robot', path: '/ros-map', icon: 'map', category: 'Quản Lý Robot & Thiết Bị' },
+    { label: 'Quản Lý Giao Diện Bản Đồ', path: '/ros-map', icon: 'map', category: 'Quản Lý Robot & Thiết Bị' },
     { label: 'Quản Lý Robot Di Chuyển Tự Hành', path: '/patrol-management', icon: 'alt_route', category: 'Quản Lý Robot & Thiết Bị' },
     { label: 'Chiến Dịch Quảng Cáo', path: '/', icon: 'campaign', category: 'Marketing & Khuyến Mãi' },
     { label: 'Gói Quảng Cáo', path: '/ad-packages', icon: 'sell', category: 'Marketing & Khuyến Mãi' },

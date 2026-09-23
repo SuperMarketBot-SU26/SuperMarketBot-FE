@@ -13,18 +13,18 @@ import {
  */
 function getFriendlyLocationName(pose) {
   if (!pose || typeof pose.xCoord !== 'number' || typeof pose.yCoord !== 'number') {
-    return 'Trạm Sạc (Khu trung tâm)'
+    return 'Vị Trí Của Robot (Khu trung tâm)'
   }
   const x = pose.xCoord
   const y = pose.yCoord
 
-  // Khoảng cách tới Trạm Sạc (x: 1.07, y: 0.13)
+  // Khoảng cách tới Vị Trí Của Robot / Dock (x: 1.07, y: 0.13) — Node 7
   const distDock = Math.hypot(x - 1.07, y - 0.13)
-  if (distDock < 0.5) return 'Trạm Sạc (Dock Sạc ⚡)'
+  if (distDock < 0.5) return 'Vị Trí Của Robot (Dock ⚡)'
 
-  // Khoảng cách tới Quầy Thu Ngân (x: 0.23, y: 0.42)
+  // Khoảng cách tới Quầy Thu Ngân (x: 0.23, y: 0.42) — Node 8
   const distCashier = Math.hypot(x - 0.23, y - 0.42)
-  if (distCashier < 0.5) return 'Quầy Thu Ngân (POS Checkout 💳)'
+  if (distCashier < 0.5) return 'Quầy Thu Ngân (POS 💳)'
 
   // 6 Kệ hàng chính thức trong siêu thị (Khớp 100% bản đồ SLAM thực tế)
   const shelfPositions = [
@@ -50,9 +50,9 @@ function getFriendlyLocationName(pose) {
     return `Khu vực ${closest.name}`
   }
 
-  if (x < 1.2) return 'Dãy A01 (Khu vực Đồ Uống & Snack)'
-  if (x < 2.0) return 'Dãy B01 (Khu vực Thực Phẩm Tươi & Mì)'
-  return 'Dãy C01 (Khu vực Gia Dụng & Gia Vị)'
+  if (x < 1.2) return 'Dãy A01 (Khu Đồ Ăn Vặt & Nước Giải Khát)'
+  if (x < 2.0) return 'Dãy B01 (Khu Thực Phẩm Tươi Sống & Đóng Gói)'
+  return 'Dãy C01 (Khu Gia Vị & Đồ Gia Dụng)'
 }
 
 export default function FleetMap({
@@ -126,6 +126,15 @@ export default function FleetMap({
         border: 'border-emerald-500/50',
       }
     }
+    if (flowType === 'return') {
+      return {
+        text: 'ĐANG QUAY VỀ',
+        color: 'bg-orange-500',
+        bg: 'bg-orange-500/15',
+        textCol: 'text-orange-400',
+        border: 'border-orange-500/50',
+      }
+    }
     return {
       text: flowType.toUpperCase(),
       color: 'bg-indigo-500',
@@ -164,7 +173,7 @@ export default function FleetMap({
   }
 
   const handleCancel = async () => {
-    if (!window.confirm(`Bạn có chắc chắn muốn dừng nhiệm vụ và yêu cầu Robot ${activeRobotCode} về trạm sạc?`)) {
+    if (!window.confirm(`Bạn có chắc chắn muốn dừng nhiệm vụ và yêu cầu Robot ${activeRobotCode} về vị trí robot?`)) {
       return
     }
     setActionLoading(true)
@@ -452,24 +461,7 @@ export default function FleetMap({
               </button>
             </div>
           </div>
-        ) : (
-          /* Bảng trạng thái khi Robot Đang Rảnh / Tại Trạm Sạc */
-          <div className="pointer-events-auto max-w-xl w-full bg-white/95 backdrop-blur-xl border border-slate-200 rounded-2xl px-5 py-3 shadow-md flex items-center justify-between gap-3 text-xs text-slate-600">
-            <div className="flex items-center gap-2.5">
-              <span className="material-symbols-outlined text-[20px] text-teal-600">smart_toy</span>
-              <span>
-                <strong className="text-slate-900 font-bold">Robot {activeRobotCode}</strong> đang ở trạm sạc (Sẵn sàng nhận lệnh từ Web Admin hoặc Robot Kiosk).
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowWaypointsDrawer((prev) => !prev)}
-              className="text-[11px] font-bold text-teal-600 hover:text-teal-700 hover:underline shrink-0"
-            >
-              {showWaypointsDrawer ? 'Đóng chi tiết' : 'Kiểm tra lộ trình'}
-            </button>
-          </div>
-        )}
+        ) : null}
       </div>
 
       <style>{`

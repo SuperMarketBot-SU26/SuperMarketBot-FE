@@ -174,7 +174,7 @@ export const FUNCTIONAL_AREAS = {
   },
   dock: {
     id: 'dock',
-    name: 'Trạm Sạc Robot (Dock)',
+    name: 'Vị Trí Của Robot (Dock)',
     icon: '⚡',
     cx: 1070,
     cy: 220,
@@ -185,9 +185,9 @@ export const FUNCTIONAL_AREAS = {
     id: 'entrance',
     name: 'Cửa Vào Siêu Thị',
     x: 0,
-    y: 1550,
+    y: 670,
     w: 180,
-    h: 500,
+    h: 490,
     label: 'CỬA VÀO ➔',
     color: '#10b981',
   },
@@ -201,43 +201,13 @@ export function resolveWaypointSvgPos(wp, index = 0, shelfList = OFFICIAL_SHELVE
 
   const shelves = shelfList && shelfList.length > 0 ? shelfList : OFFICIAL_SHELVES
 
-  // 1. Phân giải qua shelfId
-  const shelfId = wp.shelfId ?? wp.ShelfId
-  if (typeof shelfId === 'number' && shelfId >= 1 && shelfId <= 6) {
-    const shelf = shelves.find((s) => s.id === shelfId)
-    if (shelf) {
-      // Thêm độ lệch nhẹ nếu có nhiều mốc trùng kệ
-      const offsetX = ((index * 23) % 40) - 20
-      const offsetY = ((index * 17) % 40) - 20
-      return { x: shelf.approachPoint.x + offsetX, y: shelf.approachPoint.y + offsetY }
-    }
-  }
-
-  // 2. Phân giải qua tên kệ
-  const shelfName = String(wp.shelfName || wp.nodeName || '').toLowerCase()
-  for (const s of shelves) {
-    if (shelfName.includes(`kệ ${s.id}`) || shelfName.includes(`k${s.id}`)) {
-      return s.approachPoint
-    }
-  }
-
-  // 3. Phân giải Trạm Sạc / Dock
-  if (shelfName.includes('sạc') || shelfName.includes('dock') || wp.nodeId === 8 || wp.nodeId === 10029) {
-    return FUNCTIONAL_AREAS.dock.approachPoint
-  }
-
-  // 4. Phân giải Quầy Thu Ngân (POS)
-  if (shelfName.includes('thu ngân') || shelfName.includes('cashier') || wp.nodeId === 7) {
-    return { x: 226, y: 420 }
-  }
-
-  // 5. Phân giải qua tọa độ thực xCoord, yCoord
+  // 1. Phân giải ưu tiên qua tọa độ thực xCoord, yCoord từ SLAM/Nav2 (Khớp 1-to-1 bản đồ thực)
   const rawX = typeof wp.xCoord === 'number' ? wp.xCoord : typeof wp.x === 'number' ? wp.x : null
   const rawY = typeof wp.yCoord === 'number' ? wp.yCoord : typeof wp.y === 'number' ? wp.y : null
 
-  if (rawX !== null && rawY !== null) {
-    // Nếu trong khoảng ROS SLAM [-2.5, 0.5]
-    if (rawY <= 0.5 && rawY >= -2.5) {
+  if (rawX !== null && rawY !== null && Number.isFinite(rawX) && Number.isFinite(rawY)) {
+    // Nếu trong khoảng ROS SLAM [-2.8, 0.8]
+    if (rawY <= 0.8 && rawY >= -2.8) {
       return {
         x: Math.max(80, Math.min(2920, rawX * 1000)),
         y: Math.max(80, Math.min(2920, (0.50 - rawY) * 1000)),
@@ -250,6 +220,36 @@ export function resolveWaypointSvgPos(wp, index = 0, shelfList = OFFICIAL_SHELVE
         y: Math.max(80, Math.min(2920, rawY * 1000)),
       }
     }
+  }
+
+  // 2. Phân giải qua shelfId
+  const shelfId = wp.shelfId ?? wp.ShelfId
+  if (typeof shelfId === 'number' && shelfId >= 1 && shelfId <= 6) {
+    const shelf = shelves.find((s) => s.id === shelfId)
+    if (shelf) {
+      // Thêm độ lệch nhẹ nếu có nhiều mốc trùng kệ
+      const offsetX = ((index * 23) % 40) - 20
+      const offsetY = ((index * 17) % 40) - 20
+      return { x: shelf.approachPoint.x + offsetX, y: shelf.approachPoint.y + offsetY }
+    }
+  }
+
+  // 3. Phân giải qua tên kệ
+  const shelfName = String(wp.shelfName || wp.nodeName || '').toLowerCase()
+  for (const s of shelves) {
+    if (shelfName.includes(`kệ ${s.id}`) || shelfName.includes(`k${s.id}`)) {
+      return s.approachPoint
+    }
+  }
+
+  // 4. Phân giải Vị Trí Của Robot / Dock — Node 7
+  if (shelfName.includes('sạc') || shelfName.includes('dock') || wp.nodeId === 7 || wp.nodeId === 10029) {
+    return FUNCTIONAL_AREAS.dock.approachPoint
+  }
+
+  // 5. Phân giải Quầy Thu Ngân (POS) — Node 8
+  if (shelfName.includes('thu ngân') || shelfName.includes('cashier') || wp.nodeId === 8) {
+    return { x: 226, y: 420 }
   }
 
   // Vị trí mặc định
@@ -276,6 +276,7 @@ export default function SupermarketInteractiveMap({
     try {
       const data = await getStoreMapLayout(1)
       if (data && Array.isArray(data.shelves) && data.shelves.length > 0) {
+        const nodesList = Array.isArray(data.nodes) ? data.nodes : []
         const mapped = data.shelves.map((s) => {
           const fallback = OFFICIAL_SHELVES.find((f) => f.id === s.shelfId) || {}
           const w = Math.round((s.width ?? 0.38) * 1000)
@@ -284,22 +285,32 @@ export default function SupermarketInteractiveMap({
           const y = Math.round((s.mapY ?? 0) * 1000)
           const isHoriz = w > h
 
-          let approachPoint = fallback.approachPoint
-          if (isHoriz) {
-            // Đối với kệ ở đáy (y > 2000), robot tiếp cận từ phía trên (y - 320)
-            // Đối với kệ ở đỉnh (y < 1000), robot tiếp cận từ phía dưới (y + h + 320)
-            const approachY = y > 2000 ? Math.round(y - 320) : Math.round(y + h + 320)
+          let approachPoint = null
+          // Ưu tiên 1: Tọa độ Waypoint thực tế trong database nếu kệ đã liên kết nodeId
+          const matchedNode = s.nodeId ? nodesList.find((n) => n.nodeId === s.nodeId) : null
+          if (matchedNode && typeof matchedNode.xCoord === 'number' && typeof matchedNode.yCoord === 'number') {
+            const rawNodeX = matchedNode.xCoord
+            const rawNodeY = matchedNode.yCoord
             approachPoint = {
-              x: Math.round(x + w / 2),
-              y: approachY,
+              x: Math.round(Math.max(80, Math.min(2920, rawNodeX * 1000))),
+              y: Math.round(Math.max(80, Math.min(2920, (0.50 - rawNodeY) * 1000))),
             }
-          } else {
-            // Đối với kệ ở bên phải (x > 2000), robot tiếp cận từ bên trái (x - 350)
-            // Đối với kệ ở bên trái (x < 1000), robot tiếp cận từ bên phải (x + w + 350)
-            const approachX = x > 2000 ? Math.round(x - 350) : Math.round(x + w + 350)
-            approachPoint = {
-              x: approachX,
-              y: Math.round(y + h / 2),
+          }
+
+          // Ưu tiên 2: Tự động tính toán điểm đỗ phía trước kệ theo hướng tiếp cận
+          if (!approachPoint) {
+            if (isHoriz) {
+              const approachY = y > 2000 ? Math.round(y - 320) : Math.round(y + h + 320)
+              approachPoint = {
+                x: Math.round(x + w / 2),
+                y: approachY,
+              }
+            } else {
+              const approachX = x > 2000 ? Math.round(x - 350) : Math.round(x + w + 350)
+              approachPoint = {
+                x: approachX,
+                y: Math.round(y + h / 2),
+              }
             }
           }
 
@@ -577,18 +588,18 @@ export default function SupermarketInteractiveMap({
       </div>
 
       {/* Map Legend Mini Bar (Góc dưới bên trái) */}
-      <div className="absolute bottom-3 left-3 z-20 hidden md:flex items-center gap-3 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-slate-200 shadow-sm text-[11px] font-medium text-slate-700 pointer-events-none">
+      <div className="absolute bottom-3 left-3 z-20 hidden md:flex items-center gap-3.5 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-slate-200 shadow-sm text-[11px] font-medium text-slate-700 pointer-events-none">
         <div className="flex items-center gap-1.5">
           <span className="size-2.5 rounded-full bg-[#0284c7]" />
-          <span>Dãy A01</span>
+          <span>Khu Đồ Ăn Vặt & Nước Giải Khát (Dãy A01)</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="size-2.5 rounded-full bg-[#059669]" />
-          <span>Dãy B01</span>
+          <span>Khu Thực Phẩm Tươi Sống & Đóng Gói (Dãy B01)</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="size-2.5 rounded-full bg-[#d97706]" />
-          <span>Dãy C01</span>
+          <span>Khu Gia Vị & Đồ Gia Dụng (Dãy C01)</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="size-2.5 rounded-full bg-[#10b981]" />
@@ -681,17 +692,28 @@ export default function SupermarketInteractiveMap({
             </>
           )}
 
-          {/* 3. VÙNG AMBIENT 3 DÃY A, B, C */}
+          {/* 3. VÙNG AMBIENT 3 KHU VỰC DÃY A, B, C */}
           <rect x="0" y="0" width="3000" height="900" fill="url(#grad-zone-a)" />
           <rect x="1400" y="900" width="1600" height="2100" fill="url(#grad-zone-b)" />
           <rect x="0" y="900" width="1400" height="2100" fill="url(#grad-zone-c)" />
+
+          {/* NHÃN KHU VỰC IN CHÌM TRÊN SÀN SIÊU THỊ */}
+          <text x="2100" y="85" fill="#0284c7" opacity="0.32" fontSize="24" fontWeight="800" letterSpacing="3" textAnchor="middle">
+            KHU ĐỒ ĂN VẶT &amp; NƯỚC GIẢI KHÁT (DÃY A01)
+          </text>
+          <text x="2200" y="1030" fill="#059669" opacity="0.32" fontSize="24" fontWeight="800" letterSpacing="3" textAnchor="middle">
+            KHU THỰC PHẨM TƯƠI SỐNG &amp; ĐÓNG GÓI (DÃY B01)
+          </text>
+          <text x="700" y="1030" fill="#d97706" opacity="0.32" fontSize="24" fontWeight="800" letterSpacing="3" textAnchor="middle">
+            KHU GIA VỊ &amp; ĐỒ GIA DỤNG (DÃY C01)
+          </text>
 
           {/* TƯỜNG RANH GIỚI SIÊU THỊ VỚI CỬA VÀO BÊN TRÁI */}
           <line x1="0" y1="0" x2="3000" y2="0" stroke="#334155" strokeWidth="24" strokeLinecap="round" />
           <line x1="3000" y1="0" x2="3000" y2="3000" stroke="#334155" strokeWidth="24" strokeLinecap="round" />
           <line x1="0" y1="3000" x2="3000" y2="3000" stroke="#334155" strokeWidth="24" strokeLinecap="round" />
-          <line x1="0" y1="0" x2="0" y2="1500" stroke="#334155" strokeWidth="24" strokeLinecap="round" />
-          <line x1="0" y1="2050" x2="0" y2="3000" stroke="#334155" strokeWidth="24" strokeLinecap="round" />
+          <line x1="0" y1="0" x2="0" y2="640" stroke="#334155" strokeWidth="24" strokeLinecap="round" />
+          <line x1="0" y1="1190" x2="0" y2="3000" stroke="#334155" strokeWidth="24" strokeLinecap="round" />
 
           {/* 4. KHU VỰC CHỨC NĂNG: QUẦY THU NGÂN (CASHIER POS) */}
           <g className="cursor-pointer">
@@ -847,7 +869,13 @@ export default function SupermarketInteractiveMap({
             const isTarget = activeShelfId === shelf.id
             const isSelected = selectedShelf?.id === shelf.id
             const cx = shelf.x + shelf.w / 2
-            const nameLines = getShelfNameLines(shelf.name)
+            const isHoriz = shelf.w > shelf.h
+            const clipId = `shelf-clip-${shelf.id}`
+
+            // Làm sạch tên kệ: loại bỏ tiền tố lặp 'Kệ X -' hoặc 'Kệ X:' nếu có
+            const rawName = shelf.name || ''
+            const cleanName = rawName.replace(/^Kệ\s*\d+\s*[-:]\s*/i, '').trim() || rawName
+            const nameLines = getShelfNameLines(cleanName)
 
             return (
               <g
@@ -855,6 +883,19 @@ export default function SupermarketInteractiveMap({
                 onClick={() => handleShelfClick(shelf)}
                 className="cursor-pointer transition-all duration-300"
               >
+                {/* ClipPath chống tràn nội dung khỏi khung viền bo cong */}
+                <defs>
+                  <clipPath id={clipId}>
+                    <rect
+                      x={shelf.x}
+                      y={shelf.y}
+                      width={shelf.w}
+                      height={shelf.h}
+                      rx="26"
+                    />
+                  </clipPath>
+                </defs>
+
                 {/* Vòng hào quang phát sáng nếu Kệ đang là mục tiêu di chuyển */}
                 {isTarget && (
                   <rect
@@ -885,295 +926,352 @@ export default function SupermarketInteractiveMap({
                 />
 
                 {/* Các vạch ngăn tầng kệ */}
-                {shelf.type === 'vertical' ? (
+                {isHoriz ? (
                   <>
-                    <line x1={shelf.x + 20} y1={shelf.y + shelf.h * 0.33} x2={shelf.x + shelf.w - 20} y2={shelf.y + shelf.h * 0.33} stroke="#f1f5f9" strokeWidth="3" />
-                    <line x1={shelf.x + 20} y1={shelf.y + shelf.h * 0.66} x2={shelf.x + shelf.w - 20} y2={shelf.y + shelf.h * 0.66} stroke="#f1f5f9" strokeWidth="3" />
+                    <line x1={shelf.x + shelf.w * 0.33} y1={shelf.y + 15} x2={shelf.x + shelf.w * 0.33} y2={shelf.y + shelf.h - 15} stroke="#f1f5f9" strokeWidth="3" />
+                    <line x1={shelf.x + shelf.w * 0.66} y1={shelf.y + 15} x2={shelf.x + shelf.w * 0.66} y2={shelf.y + shelf.h - 15} stroke="#f1f5f9" strokeWidth="3" />
                   </>
                 ) : (
                   <>
-                    <line x1={shelf.x + shelf.w * 0.33} y1={shelf.y + 20} x2={shelf.x + shelf.w * 0.33} y2={shelf.y + shelf.h - 20} stroke="#f1f5f9" strokeWidth="3" />
-                    <line x1={shelf.x + shelf.w * 0.66} y1={shelf.y + 20} x2={shelf.x + shelf.w * 0.66} y2={shelf.y + shelf.h - 20} stroke="#f1f5f9" strokeWidth="3" />
+                    <line x1={shelf.x + 15} y1={shelf.y + shelf.h * 0.33} x2={shelf.x + shelf.w - 15} y2={shelf.y + shelf.h * 0.33} stroke="#f1f5f9" strokeWidth="3" />
+                    <line x1={shelf.x + 15} y1={shelf.y + shelf.h * 0.66} x2={shelf.x + shelf.w - 15} y2={shelf.y + shelf.h * 0.66} stroke="#f1f5f9" strokeWidth="3" />
                   </>
                 )}
 
-                {/* NỘI DUNG KỆ HÀNG */}
-                {shelf.type === 'vertical' ? (
-                  /* ── KỆ DỌC (KỆ 1, 4, 5, 6) ── */
-                  <g>
-                    {/* Tag ArUco Marker ID (Góc trên - trái) */}
-                    <rect
-                      x={shelf.x + 22}
-                      y={shelf.y + 22}
-                      width="105"
-                      height="48"
-                      rx="14"
-                      fill={shelf.color}
-                    />
-                    <text
-                      x={shelf.x + 74}
-                      y={shelf.y + 56}
-                      fill="#ffffff"
-                      fontSize="30"
-                      fontWeight="bold"
-                      textAnchor="middle"
-                      fontFamily="monospace"
-                    >
-                      {shelf.tag}
-                    </text>
-
-                    {/* Badge Dãy Aisle (Góc trên - phải) */}
-                    <rect
-                      x={shelf.x + shelf.w - 127}
-                      y={shelf.y + 22}
-                      width="105"
-                      height="48"
-                      rx="14"
-                      fill={`${shelf.color}15`}
-                      stroke={shelf.color}
-                      strokeWidth="2"
-                    />
-                    <text
-                      x={shelf.x + shelf.w - 74}
-                      y={shelf.y + 55}
-                      fill={shelf.color}
-                      fontSize="26"
-                      fontWeight="bold"
-                      textAnchor="middle"
-                    >
-                      {shelf.aisle}
-                    </text>
-
-                    {/* Tiêu đề KỆ ID */}
-                    <text
-                      x={cx}
-                      y={shelf.y + 138}
-                      fill="#0f172a"
-                      fontSize="46"
-                      fontWeight="800"
-                      textAnchor="middle"
-                      letterSpacing="2"
-                    >
-                      KỆ {shelf.id}
-                    </text>
-
-                    {/* Icon danh mục sản phẩm lớn chính giữa */}
-                    <text
-                      x={cx}
-                      y={shelf.y + 235}
-                      fontSize="80"
-                      textAnchor="middle"
-                    >
-                      {shelf.icon}
-                    </text>
-
-                    {/* Tên nhóm hàng */}
-                    <text
-                      x={cx}
-                      y={shelf.y + 315}
-                      fill="#0f172a"
-                      fontSize="34"
-                      fontWeight="bold"
-                      textAnchor="middle"
-                    >
-                      {nameLines[0]}
-                    </text>
-                    {nameLines[1] && (
+                {/* NỘI DUNG KỆ HÀNG ĐƯỢC CLIP-PATH BẢO VỆ CHỐNG TRÀN */}
+                <g clipPath={`url(#${clipId})`}>
+                  {!isHoriz ? (
+                    /* ── A. GIAO DIỆN KỆ DỌC (CHIỀU CAO > CHIỀU RỘNG) ── */
+                    <g>
+                      {/* 1. Header Badges */}
+                      <rect
+                        x={shelf.x + 16}
+                        y={shelf.y + 16}
+                        width="76"
+                        height="34"
+                        rx="10"
+                        fill={shelf.color}
+                      />
                       <text
-                        x={cx}
-                        y={shelf.y + 360}
-                        fill="#334155"
-                        fontSize="32"
-                        fontWeight="600"
+                        x={shelf.x + 54}
+                        y={shelf.y + 39}
+                        fill="#ffffff"
+                        fontSize="19"
+                        fontWeight="bold"
+                        textAnchor="middle"
+                        fontFamily="monospace"
+                      >
+                        {shelf.tag}
+                      </text>
+
+                      <rect
+                        x={shelf.x + shelf.w - 92}
+                        y={shelf.y + 16}
+                        width="76"
+                        height="34"
+                        rx="10"
+                        fill={`${shelf.color}15`}
+                        stroke={shelf.color}
+                        strokeWidth="2"
+                      />
+                      <text
+                        x={shelf.x + shelf.w - 54}
+                        y={shelf.y + 39}
+                        fill={shelf.color}
+                        fontSize="18"
+                        fontWeight="bold"
                         textAnchor="middle"
                       >
-                        {nameLines[1]}
+                        {shelf.aisle}
                       </text>
-                    )}
 
-                    {/* Đường kẻ phân cách tinh tế */}
-                    <line
-                      x1={shelf.x + 35}
-                      y1={shelf.y + 405}
-                      x2={shelf.x + shelf.w - 35}
-                      y2={shelf.y + 405}
-                      stroke="#e2e8f0"
-                      strokeWidth="2.5"
-                      strokeDasharray="6 4"
-                    />
-
-                    {/* Chip số lượng mặt hàng */}
-                    <rect
-                      x={cx - 105}
-                      y={shelf.y + 425}
-                      width="210"
-                      height="44"
-                      rx="12"
-                      fill="#f8fafc"
-                      stroke="#e2e8f0"
-                      strokeWidth="2"
-                    />
-                    <text
-                      x={cx}
-                      y={shelf.y + 455}
-                      fill="#475569"
-                      fontSize="24"
-                      fontWeight="700"
-                      textAnchor="middle"
-                    >
-                      📦 {shelf.products.length} MẶT HÀNG
-                    </text>
-
-                    {/* Danh sách sản phẩm tiêu biểu */}
-                    <g>
-                      {shelf.products.slice(0, shelf.h >= 900 ? 4 : 3).map((p, pIdx) => (
-                        <text
-                          key={pIdx}
-                          x={cx}
-                          y={shelf.y + 515 + pIdx * 46}
-                          fill="#1e293b"
-                          fontSize="24"
-                          fontWeight="600"
-                          textAnchor="middle"
-                        >
-                          <tspan fill="#059669" fontWeight="bold">✦ </tspan>
-                          {p.length > 18 ? p.slice(0, 17) + '…' : p}
-                        </text>
-                      ))}
-                    </g>
-
-                    {/* Điểm neo tiếp cận robot ở đáy kệ */}
-                    <g>
+                      {/* 2. Tiêu đề KỆ ID */}
                       <text
                         x={cx}
-                        y={shelf.y + shelf.h - 35}
-                        fill={shelf.color}
-                        fontSize="22"
-                        fontWeight="700"
+                        y={shelf.y + 88}
+                        fill="#0f172a"
+                        fontSize="28"
+                        fontWeight="800"
                         textAnchor="middle"
                         letterSpacing="1"
                       >
-                        VỊ TRÍ TIẾP CẬN ▼
+                        KỆ {shelf.id}
                       </text>
+
+                      {/* 3. Icon lớn */}
+                      <text
+                        x={cx}
+                        y={shelf.y + 160}
+                        fontSize="56"
+                        textAnchor="middle"
+                      >
+                        {shelf.icon}
+                      </text>
+
+                      {/* 4. Tên nhóm hàng gọn gàng (1-2 dòng) */}
+                      <text
+                        x={cx}
+                        y={shelf.y + 218}
+                        fill="#0f172a"
+                        fontSize="21"
+                        fontWeight="bold"
+                        textAnchor="middle"
+                      >
+                        {nameLines[0]?.length > 18 ? nameLines[0].slice(0, 17) + '…' : (nameLines[0] || '')}
+                      </text>
+                      {nameLines[1] && (
+                        <text
+                          x={cx}
+                          y={shelf.y + 250}
+                          fill="#334155"
+                          fontSize="19"
+                          fontWeight="600"
+                          textAnchor="middle"
+                        >
+                          {nameLines[1].length > 18 ? nameLines[1].slice(0, 17) + '…' : nameLines[1]}
+                        </text>
+                      )}
+
+                      {/* 5. Đường kẻ phân cách */}
+                      <line
+                        x1={shelf.x + 24}
+                        y1={shelf.y + (nameLines[1] ? 275 : 248)}
+                        x2={shelf.x + shelf.w - 24}
+                        y2={shelf.y + (nameLines[1] ? 275 : 248)}
+                        stroke="#e2e8f0"
+                        strokeWidth="2"
+                        strokeDasharray="5 4"
+                      />
+
+                      {/* 6. Chip số lượng mặt hàng */}
+                      <rect
+                        x={cx - 85}
+                        y={shelf.y + (nameLines[1] ? 290 : 262)}
+                        width="170"
+                        height="32"
+                        rx="10"
+                        fill="#f8fafc"
+                        stroke="#e2e8f0"
+                        strokeWidth="2"
+                      />
+                      <text
+                        x={cx}
+                        y={shelf.y + (nameLines[1] ? 312 : 284)}
+                        fill="#475569"
+                        fontSize="16"
+                        fontWeight="700"
+                        textAnchor="middle"
+                      >
+                        📦 {shelf.products.length} MẶT HÀNG
+                      </text>
+
+                      {/* 7. Danh sách sản phẩm tiêu biểu (Tự tính số dòng hiển thị dựa theo chiều cao) */}
+                      {(() => {
+                        const startY = shelf.y + (nameLines[1] ? 355 : 325)
+                        const bottomLimit = shelf.y + shelf.h - 18
+                        const availH = bottomLimit - startY
+                        const numItems = availH >= 170 ? 4 : availH >= 120 ? 3 : availH >= 70 ? 2 : 1
+                        const itemH = Math.min(40, Math.max(26, Math.floor(availH / numItems)))
+                        const maxChars = Math.max(12, Math.floor((shelf.w - 48) / 9.5))
+
+                        return shelf.products.slice(0, numItems).map((p, pIdx) => {
+                          const truncated = p.length > maxChars ? p.slice(0, maxChars - 1) + '…' : p
+                          return (
+                            <text
+                              key={pIdx}
+                              x={cx}
+                              y={startY + pIdx * itemH}
+                              fill="#1e293b"
+                              fontSize="17"
+                              fontWeight="600"
+                              textAnchor="middle"
+                            >
+                              <tspan fill="#059669" fontWeight="bold">✦ </tspan>
+                              {truncated}
+                            </text>
+                          )
+                        })
+                      })()}
                     </g>
-                  </g>
-                ) : (
-                  /* ── KỆ NGANG (KỆ 2, 3) ── */
-                  <g>
-                    {/* Tag ArUco Marker ID */}
-                    <rect
-                      x={shelf.x + 24}
-                      y={shelf.y + 24}
-                      width="110"
-                      height="50"
-                      rx="14"
-                      fill={shelf.color}
-                    />
-                    <text
-                      x={shelf.x + 79}
-                      y={shelf.y + 59}
-                      fill="#ffffff"
-                      fontSize="32"
-                      fontWeight="bold"
-                      textAnchor="middle"
-                      fontFamily="monospace"
-                    >
-                      {shelf.tag}
-                    </text>
+                  ) : (
+                    /* ── B. GIAO DIỆN KỆ NGANG (CHIỀU RỘNG > CHIỀU CAO) ── */
+                    <g>
+                      {/* 1. Header Bar: Tag + Dãy + Chip Số Lượng + Icon (Xếp cùng 1 hàng trên cùng) */}
+                      <rect
+                        x={shelf.x + 18}
+                        y={shelf.y + 14}
+                        width="70"
+                        height="32"
+                        rx="10"
+                        fill={shelf.color}
+                      />
+                      <text
+                        x={shelf.x + 53}
+                        y={shelf.y + 36}
+                        fill="#ffffff"
+                        fontSize="18"
+                        fontWeight="bold"
+                        textAnchor="middle"
+                        fontFamily="monospace"
+                      >
+                        {shelf.tag}
+                      </text>
 
-                    {/* Badge Dãy Aisle */}
-                    <rect
-                      x={shelf.x + 148}
-                      y={shelf.y + 24}
-                      width="110"
-                      height="50"
-                      rx="14"
-                      fill={`${shelf.color}15`}
-                      stroke={shelf.color}
-                      strokeWidth="2"
-                    />
-                    <text
-                      x={shelf.x + 203}
-                      y={shelf.y + 58}
-                      fill={shelf.color}
-                      fontSize="28"
-                      fontWeight="bold"
-                      textAnchor="middle"
-                    >
-                      {shelf.aisle}
-                    </text>
+                      <rect
+                        x={shelf.x + 96}
+                        y={shelf.y + 14}
+                        width="70"
+                        height="32"
+                        rx="10"
+                        fill={`${shelf.color}15`}
+                        stroke={shelf.color}
+                        strokeWidth="2"
+                      />
+                      <text
+                        x={shelf.x + 131}
+                        y={shelf.y + 36}
+                        fill={shelf.color}
+                        fontSize="17"
+                        fontWeight="bold"
+                        textAnchor="middle"
+                      >
+                        {shelf.aisle}
+                      </text>
 
-                    {/* Icon bên phải */}
-                    <text
-                      x={shelf.x + shelf.w - 85}
-                      y={shelf.y + 90}
-                      fontSize="90"
-                      textAnchor="middle"
-                    >
-                      {shelf.icon}
-                    </text>
+                      <rect
+                        x={shelf.x + 174}
+                        y={shelf.y + 14}
+                        width="160"
+                        height="32"
+                        rx="10"
+                        fill="#f8fafc"
+                        stroke="#e2e8f0"
+                        strokeWidth="2"
+                      />
+                      <text
+                        x={shelf.x + 254}
+                        y={shelf.y + 35}
+                        fill="#475569"
+                        fontSize="15"
+                        fontWeight="700"
+                        textAnchor="middle"
+                      >
+                        📦 {shelf.products.length} MẶT HÀNG
+                      </text>
 
-                    {/* Tiêu đề KỆ ID và Tên Kệ (Ngang) */}
-                    <text
-                      x={shelf.x + 40}
-                      y={shelf.y + 155}
-                      fill="#0f172a"
-                      fontSize="46"
-                      fontWeight="800"
-                    >
-                      KỆ {shelf.id}: <tspan fill="#334155" fontWeight="bold">{shelf.name}</tspan>
-                    </text>
+                      {/* Icon danh mục góc trên bên phải */}
+                      <text
+                        x={shelf.x + shelf.w - 38}
+                        y={shelf.y + 44}
+                        fontSize="40"
+                        textAnchor="middle"
+                      >
+                        {shelf.icon}
+                      </text>
 
-                    {/* Danh sách sản phẩm tiêu biểu theo hàng ngang */}
-                    <text
-                      x={shelf.x + 40}
-                      y={shelf.y + 225}
-                      fill="#1e293b"
-                      fontSize="28"
-                      fontWeight="600"
-                    >
-                      <tspan fill="#059669">✦ </tspan>{shelf.products[0] || ''}
-                      {shelf.products[1] && <tspan fill="#64748b">   |   </tspan>}
-                      {shelf.products[1] && <tspan fill="#059669">✦ </tspan>}
-                      {shelf.products[1] || ''}
-                    </text>
+                      {/* 2. Tiêu đề KỆ ID và Tên Kệ (Gọn gàng, tự co chữ) */}
+                      {(() => {
+                        const maxTitleChars = Math.max(16, Math.floor((shelf.w - 60) / 13))
+                        const truncatedName = cleanName.length > maxTitleChars - 7
+                          ? cleanName.slice(0, maxTitleChars - 8) + '…'
+                          : cleanName
 
-                    <text
-                      x={shelf.x + 40}
-                      y={shelf.y + 275}
-                      fill="#475569"
-                      fontSize="26"
-                      fontWeight="500"
-                    >
-                      <tspan fill="#059669">✦ </tspan>{shelf.products[2] || ''}
-                      {shelf.products[3] && <tspan fill="#94a3b8">   |   </tspan>}
-                      {shelf.products[3] && <tspan fill="#059669">✦ </tspan>}
-                      {shelf.products[3] || ''}
-                    </text>
+                        return (
+                          <text
+                            x={shelf.x + 20}
+                            y={shelf.y + 80}
+                            fill="#0f172a"
+                            fontSize={shelf.w >= 800 ? '25' : '22'}
+                            fontWeight="800"
+                          >
+                            KỆ {shelf.id}: <tspan fill="#334155" fontWeight="bold">{truncatedName}</tspan>
+                          </text>
+                        )
+                      })()}
 
-                    {/* Badge số lượng mặt hàng */}
-                    <rect
-                      x={shelf.x + shelf.w - 260}
-                      y={shelf.y + shelf.h - 68}
-                      width="225"
-                      height="44"
-                      rx="12"
-                      fill="#f8fafc"
-                      stroke="#e2e8f0"
-                      strokeWidth="2"
-                    />
-                    <text
-                      x={shelf.x + shelf.w - 147}
-                      y={shelf.y + shelf.h - 38}
-                      fill="#475569"
-                      fontSize="22"
-                      fontWeight="700"
-                      textAnchor="middle"
-                    >
-                      📦 {shelf.products.length} MẶT HÀNG
-                    </text>
-                  </g>
-                )}
+                      {/* 3. Đường kẻ phân cách */}
+                      <line
+                        x1={shelf.x + 18}
+                        y1={shelf.y + 98}
+                        x2={shelf.x + shelf.w - 18}
+                        y2={shelf.y + 98}
+                        stroke="#e2e8f0"
+                        strokeWidth="2"
+                        strokeDasharray="5 4"
+                      />
+
+                      {/* 4. Danh sách sản phẩm dạng lưới (2 cột nếu rộng >= 520px, 1 cột nếu hẹp) */}
+                      {(() => {
+                        const prodStartY = shelf.y + 132
+                        const bottomLimit = shelf.y + shelf.h - 14
+                        const availH = bottomLimit - prodStartY
+                        const numRows = availH >= 100 ? 3 : availH >= 65 ? 2 : 1
+                        const rowH = Math.min(36, Math.max(26, Math.floor(availH / numRows)))
+                        const useTwoCols = shelf.w >= 520
+
+                        if (useTwoCols) {
+                          const col1X = shelf.x + 20
+                          const col2X = shelf.x + Math.floor(shelf.w / 2) + 8
+                          const colW = Math.floor(shelf.w / 2) - 28
+                          const maxChars = Math.max(12, Math.floor(colW / 9.2))
+
+                          return Array.from({ length: numRows }).map((_, rIdx) => {
+                            const pLeft = shelf.products[rIdx * 2]
+                            const pRight = shelf.products[rIdx * 2 + 1]
+                            const textY = prodStartY + rIdx * rowH
+
+                            return (
+                              <g key={rIdx}>
+                                {pLeft && (
+                                  <text
+                                    x={col1X}
+                                    y={textY}
+                                    fill="#1e293b"
+                                    fontSize="16"
+                                    fontWeight="600"
+                                  >
+                                    <tspan fill="#059669" fontWeight="bold">✦ </tspan>
+                                    {pLeft.length > maxChars ? pLeft.slice(0, maxChars - 1) + '…' : pLeft}
+                                  </text>
+                                )}
+                                {pRight && (
+                                  <text
+                                    x={col2X}
+                                    y={textY}
+                                    fill="#1e293b"
+                                    fontSize="16"
+                                    fontWeight="600"
+                                  >
+                                    <tspan fill="#059669" fontWeight="bold">✦ </tspan>
+                                    {pRight.length > maxChars ? pRight.slice(0, maxChars - 1) + '…' : pRight}
+                                  </text>
+                                )}
+                              </g>
+                            )
+                          })
+                        } else {
+                          const maxChars = Math.max(14, Math.floor((shelf.w - 40) / 9.2))
+                          return shelf.products.slice(0, numRows).map((p, pIdx) => {
+                            const textY = prodStartY + pIdx * rowH
+                            return (
+                              <text
+                                key={pIdx}
+                                x={shelf.x + 20}
+                                y={textY}
+                                fill="#1e293b"
+                                fontSize="16"
+                                fontWeight="600"
+                              >
+                                <tspan fill="#059669" fontWeight="bold">✦ </tspan>
+                                {p.length > maxChars ? p.slice(0, maxChars - 1) + '…' : p}
+                              </text>
+                            )
+                          })
+                        }
+                      })()}
+                    </g>
+                  )}
+                </g>
 
                 {/* Điểm tiếp cận xe (Approach Marker) */}
                 <circle

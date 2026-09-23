@@ -8,7 +8,7 @@ export const navGroups = [
     emoji: '🤖',
     items: [
       { icon: 'smart_toy', label: 'Giám Sát Robot', path: '/robots' },
-      { icon: 'map', label: 'Bản Đồ & Định Vị Robot', path: '/ros-map' },
+      { icon: 'map', label: 'Quản Lý Giao Diện Bản Đồ', path: '/ros-map' },
       { icon: 'alt_route', label: 'Quản Lý Di Chuyển Tự Hành', path: '/patrol-management' },
     ],
   },

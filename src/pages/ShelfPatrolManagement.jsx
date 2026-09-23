@@ -222,19 +222,11 @@ export default function ShelfPatrolManagement() {
   const [missionsLoading, setMissionsLoading] = useState(false)
 
   // ─── Tab 1: Dispatch State ───
+  const [showDispatchModal, setShowDispatchModal] = useState(false)
   const [patrolMode, setPatrolMode] = useState('selective') // 'route' | 'selective'
   const [selectedRouteId, setSelectedRouteId] = useState('')
   const [selectedShelfNodeIds, setSelectedShelfNodeIds] = useState([])
   const [dispatching, setDispatching] = useState(false)
-  const [cameraActive, setCameraActive] = useState(false)
-  const [liveAnalysis, setLiveAnalysis] = useState({
-    targetShelf: 'Chờ phát lệnh...',
-    stockStatus: 'Chưa có dữ liệu',
-    occupancyRate: 0,
-    totalProducts: 0,
-    emptySlots: 0,
-    aiProcessingMs: 0
-  })
 
   // ─── Tab 2: Scan History State ───
   const [scans, setScans] = useState([])
@@ -511,7 +503,7 @@ export default function ShelfPatrolManagement() {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20">
           <Icon name="home" className="text-xs" />
-          Trở Về Trạm
+          Đang Quay Về
         </span>
       )
     }
@@ -545,7 +537,7 @@ export default function ShelfPatrolManagement() {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 animate-pulse">
           <Icon name="battery_alert" className="text-xs text-rose-500" />
-          {s === 'PENDING' ? 'Chờ Cắm Sạc' : 'Về Trạm Sạc'}
+          {s === 'PENDING' ? 'Chờ Cắm Sạc' : 'Về Vị Trí Robot'}
         </span>
       )
     }
@@ -647,11 +639,6 @@ export default function ShelfPatrolManagement() {
 
       await dispatchPatrolMission(payload)
       toast.success(`Đã phát lệnh tuần tra thành công cho robot ${robotCode}!`)
-      setLiveAnalysis(prev => ({
-        ...prev,
-        targetShelf: patrolMode === 'route' ? `Theo tuyến #${selectedRouteId}` : `${selectedShelfNodeIds.length} kệ đã chọn`,
-        stockStatus: 'Đang di chuyển tiếp cận kệ...',
-      }))
     } catch (err) {
       toast.error(err?.response?.data?.message || err?.message || 'Phát lệnh tuần tra thất bại')
     } finally {
@@ -674,17 +661,6 @@ export default function ShelfPatrolManagement() {
       loadScanHistory()
     } catch {
       toast.error('Lỗi khi xác nhận hoàn thành nhiệm vụ')
-    }
-  }
-
-  const handleDeleteTask = async (taskId) => {
-    if (!window.confirm('Bạn có chắc chắn muốn bỏ qua nhiệm vụ bổ sung hàng này?')) return
-    try {
-      await deleteRestockTask(taskId)
-      toast.success('Đã xóa nhiệm vụ')
-      loadRestockTasks()
-    } catch {
-      toast.error('Không thể xóa nhiệm vụ')
     }
   }
 
@@ -762,6 +738,15 @@ export default function ShelfPatrolManagement() {
               >
                 <Icon name={readinessLoading ? 'sync' : 'verified'} className={`text-base ${readinessLoading ? 'animate-spin' : ''}`} />
                 <span>{readinessLoading ? 'Đang kiểm...' : 'Kiểm tra AI'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDispatchModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-xs transition-all active:scale-95"
+                title="Phát lệnh tuần tra kiểm tra kệ hàng"
+              >
+                <Icon name="rocket_launch" className="text-sm" />
+                <span>Phát Lệnh Tuần Tra</span>
               </button>
             </div>
           </div>
@@ -1600,6 +1585,143 @@ export default function ShelfPatrolManagement() {
                 className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md"
               >
                 Xác Nhận
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Phát Lệnh Tuần Tra Kệ Hàng ── */}
+      {showDispatchModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-smb-surface-container-lowest rounded-2xl border border-smb-outline-variant max-w-lg w-full p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-smb-outline-variant/60 pb-3">
+              <h3 className="text-sm font-bold text-smb-on-surface flex items-center gap-2 text-teal-600">
+                <Icon name="rocket_launch" className="text-lg" />
+                Phát Lệnh Tuần Tra Quét Kệ Hàng
+              </h3>
+              <button type="button" onClick={() => setShowDispatchModal(false)} className="text-smb-on-surface-variant hover:text-smb-on-surface">
+                <Icon name="close" className="text-lg" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-xs font-semibold">
+                <span className="text-smb-on-surface-variant">Robot thực hiện:</span>
+                <span className="font-mono font-bold text-smb-on-surface bg-smb-surface-container px-2 py-0.5 rounded-md">
+                  {targetRobot?.robotCode || 'RB0001'}
+                </span>
+                <span className={`size-2 rounded-full ${targetRobot?.isOnline !== false ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+              </div>
+
+              {/* Chọn chế độ */}
+              <div>
+                <label className="text-xs font-bold text-smb-on-surface block mb-1">Chế độ tuần tra:</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPatrolMode('selective')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
+                      patrolMode === 'selective'
+                        ? 'border-teal-600 bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300'
+                        : 'border-smb-outline-variant text-smb-on-surface-variant hover:bg-smb-surface-container'
+                    }`}
+                  >
+                    Tùy chọn Kệ (Selective)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPatrolMode('route')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
+                      patrolMode === 'route'
+                        ? 'border-teal-600 bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300'
+                        : 'border-smb-outline-variant text-smb-on-surface-variant hover:bg-smb-surface-container'
+                    }`}
+                  >
+                    Theo Tuyến định sẵn
+                  </button>
+                </div>
+              </div>
+
+              {/* Danh sách Kệ nếu selective */}
+              {patrolMode === 'selective' ? (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold text-smb-on-surface">Chọn các kệ cần robot ghé qua:</label>
+                    <button
+                      type="button"
+                      onClick={handleSelectAllShelves}
+                      className="text-[11px] font-semibold text-teal-600 hover:underline"
+                    >
+                      {selectedShelfNodeIds.length === shelves.filter(s => s.nodeId).length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 max-h-44 overflow-y-auto pr-1">
+                    {shelves.map(s => {
+                      const isChecked = selectedShelfNodeIds.includes(s.nodeId)
+                      return (
+                        <label
+                          key={s.shelfId}
+                          className={`flex items-center gap-2 p-2 rounded-xl border text-xs cursor-pointer transition-all ${
+                            isChecked
+                              ? 'border-teal-500 bg-teal-50/60 dark:bg-teal-950/40 text-teal-800 dark:text-teal-200 font-semibold'
+                              : 'border-smb-outline-variant text-smb-on-surface-variant hover:bg-smb-surface-container'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              setSelectedShelfNodeIds(prev =>
+                                isChecked ? prev.filter(id => id !== s.nodeId) : [...prev, s.nodeId]
+                              )
+                            }}
+                            className="rounded text-teal-600 focus:ring-teal-500"
+                          />
+                          <span className="truncate">{s.shelfName || `Kệ #${s.shelfId}`}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="text-xs font-bold text-smb-on-surface block mb-1">Chọn tuyến tuần tra:</label>
+                  <select
+                    value={selectedRouteId}
+                    onChange={(e) => setSelectedRouteId(e.target.value)}
+                    className="w-full rounded-xl bg-smb-surface-container-high border border-smb-outline-variant px-3 py-2 text-xs font-semibold text-smb-on-surface outline-none"
+                  >
+                    {routes.map(r => (
+                      <option key={r.robotRouteId || r.routeId} value={r.robotRouteId || r.routeId}>
+                        {r.routeName || `Tuyến #${r.robotRouteId || r.routeId}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 pt-2 border-t border-smb-outline-variant/60">
+              <button
+                type="button"
+                onClick={() => setShowDispatchModal(false)}
+                className="flex-1 py-2 rounded-xl border border-smb-outline-variant text-xs font-bold text-smb-on-surface hover:bg-smb-surface-container"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={dispatching}
+                onClick={async () => {
+                  await handleDispatchPatrol()
+                  setShowDispatchModal(false)
+                  loadAutonomousMissions(true)
+                }}
+                className="flex-1 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                <Icon name={dispatching ? 'sync' : 'rocket_launch'} className={`text-base ${dispatching ? 'animate-spin' : ''}`} />
+                <span>{dispatching ? 'Đang phát lệnh...' : 'Bắt Đầu Tuần Tra'}</span>
               </button>
             </div>
           </div>

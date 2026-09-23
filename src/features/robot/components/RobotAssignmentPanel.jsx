@@ -670,6 +670,10 @@ function AutonomousTab({
     !['COMPLETED', 'CANCELLED', 'FAILED', 'ESTOP'].includes(missionState.status)
   )
 
+  const isMissionRunning = Boolean(
+    missionState &&
+    !['COMPLETED', 'CANCELLED', 'FAILED', 'ESTOP', 'IDLE'].includes(String(missionState.status).toUpperCase())
+  )
   const [dispatching, setDispatching] = useState(false)
   const [cancellingAd, setCancellingAd] = useState(false)
   const [adEstimate, setAdEstimate] = useState(null)
@@ -824,7 +828,11 @@ function AutonomousTab({
         robotCode: selectedRobot,
         flowType,
         robotRouteId: payload.robotRouteId || null,
-      }).catch(() => null)
+      }).catch((err) => {
+        console.error('[Readiness Check] Failed:', err)
+        toast.warn('⚠️ Không thể kiểm tra trạng thái robot. Đang thử phát lệnh trực tiếp...')
+        return null
+      })
 
       if (check) {
         setReadiness(check)
@@ -1886,7 +1894,7 @@ function RobotDetailModal({ robotCode, onClose }) {
                   ) : robot.activeFlowType === 'guide' ? (
                     <span className="text-purple-600 dark:text-purple-400">🛒 Dẫn đường</span>
                   ) : robot.activeFlowType === 'return' ? (
-                    <span className="text-orange-600 dark:text-orange-400">🏠 Quay về trạm</span>
+                    <span className="text-orange-600 dark:text-orange-400">🏠 Đang quay về</span>
                   ) : (
                     <span className="text-smb-on-surface-variant">Chờ lệnh</span>
                   )}
@@ -1968,9 +1976,9 @@ function RobotsTab({
   const [espWsConnecting, setEspWsConnecting] = useState(false)
   const espWsRef = useRef(null)
 
-  // Phân giải Node ID cho Trạm Sạc (Dock) và Vị Trí Gốc (Cashier / Thu Ngân) từ active map
-  const dockNodeId = map?.nodes?.find(n => n.nodeRole === 'dock' || n.nodeType === 'dock' || n.nodeId === 8)?.nodeId || 8
-  const homeNodeId = map?.nodes?.find(n => n.nodeRole === 'cashier' || n.nodeType === 'checkout' || n.nodeId === 7)?.nodeId || 7
+  // Phân giải Node ID: Node 7 = Vị Trí Của Robot (Dock), Node 8 = Quầy Thu Ngân (Cashier)
+  const dockNodeId = map?.nodes?.find(n => n.nodeRole === 'dock' || n.nodeType === 'dock' || n.nodeId === 7)?.nodeId || 7
+  const cashierNodeId = map?.nodes?.find(n => n.nodeRole === 'cashier' || n.nodeType === 'checkout' || n.nodeId === 8)?.nodeId || 8
 
   const selectedRobot = selectedRobotCode || (robots[0]?.robotCode ?? '')
   const selectedRobotObj = robots.find(
@@ -2819,20 +2827,20 @@ function RobotsTab({
               <button
                 type="button"
                 disabled={ctrlLoading || !selectedRobot}
-                onClick={() => handleReturn(dockNodeId, 'trạm sạc')}
+                onClick={() => handleReturn(dockNodeId, 'vị trí robot')}
                 className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 py-3 text-xs font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
               >
                 <Icon name="ev_station" className="text-[16px]" />
-                Về trạm sạc
+                Về Vị Trí Robot
               </button>
               <button
                 type="button"
                 disabled={ctrlLoading || !selectedRobot}
-                onClick={() => handleReturn(homeNodeId, 'vị trí xuất phát')}
+                onClick={() => handleReturn(cashierNodeId, 'quầy thu ngân')}
                 className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 py-3 text-xs font-bold text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
               >
                 <Icon name="flag" className="text-[16px]" />
-                Về vị trí xuất phát
+                Về Quầy Thu Ngân
               </button>
             </div>
 

@@ -146,7 +146,7 @@ function RobotDetailModal({ robotCode, onClose }) {
                   ) : robot.activeFlowType === 'guide' ? (
                     <span className="text-purple-600 dark:text-purple-400">🛒 Dẫn đường</span>
                   ) : robot.activeFlowType === 'return' ? (
-                    <span className="text-orange-600 dark:text-orange-400">🏠 Quay về trạm</span>
+                    <span className="text-orange-600 dark:text-orange-400">🏠 Đang quay về</span>
                   ) : (
                     <span className="text-smb-on-surface-variant">Chờ lệnh</span>
                   )}
@@ -370,7 +370,7 @@ export function RobotListPanel({
                   ) : isReturn ? (
                     <div className="flex items-center gap-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 px-2.5 py-1 text-[11px] text-orange-700 dark:text-orange-300 font-medium">
                       <Icon name="home" className="text-[13px] text-orange-500 shrink-0" />
-                      <span className="truncate">Đang quay về trạm sạc</span>
+                      <span className="truncate">Đang quay về vị trí robot</span>
                     </div>
                   ) : assignedRoute ? (
                     <div className="flex items-center gap-1.5 rounded-lg bg-smb-surface-container-low/80 px-2.5 py-1 text-[11px]">

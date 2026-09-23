@@ -14,13 +14,13 @@ export function RosMapToolPage() {
   return (
     <div className="min-h-screen bg-smb-surface transition-colors duration-200">
       <Sidebar
-        activeItem="Bản Đồ & Định Vị Robot"
+        activeItem="Quản Lý Giao Diện Bản Đồ"
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
       />
 
       <div className="pl-[260px] flex flex-col h-screen">
         <Navbar
-          title="Bản Đồ Siêu Thị & Định Vị Di Chuyển"
+          title="Quản Lý Giao Diện Bản Đồ"
           subtitle="Quản lý bản đồ sàn siêu thị, hiệu chỉnh điểm dừng và theo dõi xe tự hành theo thời gian thực"
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         />
