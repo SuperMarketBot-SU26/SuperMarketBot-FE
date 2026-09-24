@@ -5,6 +5,18 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "https://smartmarketbot-api-d3achkeqhdcbfudw.southeastasia-01.azurewebsites.net/api/:path*"
+    },
+    {
+      "source": "/uploads/:path*",
+      "destination": "https://smartmarketbot-api-d3achkeqhdcbfudw.southeastasia-01.azurewebsites.net/uploads/:path*"
+    },
+    {
+      "source": "/storage/:path*",
+      "destination": "https://smartmarketbot-api-d3achkeqhdcbfudw.southeastasia-01.azurewebsites.net/storage/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
