@@ -14,7 +14,6 @@ export function Forbidden() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
 
-  const handleHome = () => navigate('/robots', { replace: true })
   const handleLogout = async () => {
     await logout()
     navigate('/login', { replace: true })
@@ -34,26 +33,17 @@ export function Forbidden() {
               <span className="font-mono text-smb-on-surface">
                 {user?.email || 'của bạn'}
               </span>{' '}
-              không có quyền xem trang này. Vui lòng liên hệ quản trị viên nếu bạn
-              cho rằng đây là nhầm lẫn.
+              không có quyền truy cập hệ thống này. Trang web quản trị chỉ dành riêng cho tài khoản <strong>Quản trị viên (Admin)</strong>.
             </p>
           </div>
           <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
             <button
               type="button"
-              onClick={handleHome}
-              className="inline-flex items-center gap-2 rounded border border-smb-outline-variant bg-smb-surface-container-lowest px-4 py-2 text-sm font-medium text-smb-on-surface hover:bg-smb-surface-container"
-            >
-              <Icon name="home" className="text-[18px]" />
-              Về trang chính
-            </button>
-            <button
-              type="button"
               onClick={handleLogout}
-              className="inline-flex items-center gap-2 rounded bg-smb-error px-4 py-2 text-sm font-medium text-white hover:bg-smb-error/90"
+              className="inline-flex items-center gap-2 rounded bg-smb-primary-container px-5 py-2.5 text-sm font-medium text-white hover:opacity-90"
             >
-              <Icon name="logout" className="text-[18px]" />
-              Đăng xuất
+              <Icon name="login" className="text-[18px]" />
+              Đăng nhập tài khoản Admin
             </button>
           </div>
         </div>

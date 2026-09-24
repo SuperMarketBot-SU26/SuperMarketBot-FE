@@ -37,8 +37,12 @@ const ENDPOINT = '/api/auth'
 // }
 
 export const login = async ({ email, password }) => {
-  const res = await client.post(`${ENDPOINT}/login`, { email, password })
-  return normalizeAuthResponse(res.data)
+  const res = await client.post(`${ENDPOINT}/admin-login`, { email, password })
+  const session = normalizeAuthResponse(res.data)
+  if (!session?.user?.roles?.includes('Admin')) {
+    throw new Error('Chỉ tài khoản Quản trị viên (Admin) mới có quyền truy cập trang quản trị.')
+  }
+  return session
 }
 
 export const registerRequestOtp = async ({ fullName, email, phone, password }) => {

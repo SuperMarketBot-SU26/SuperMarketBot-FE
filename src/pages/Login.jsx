@@ -51,18 +51,20 @@ export function Login() {
     setError(null)
     setSubmitting(true)
     try {
-      await login({ email: form.email.trim().toLowerCase(), password: form.password })
+      const res = await login({ email: form.email.trim().toLowerCase(), password: form.password })
+      if (!res?.user?.roles?.includes('Admin')) {
+        setError('Tài khoản này không có quyền truy cập trang quản trị. Chỉ dành riêng cho Quản trị viên (Admin).')
+        return
+      }
       const dest = location.state?.from || '/robots'
       navigate(dest, { replace: true })
     } catch (err) {
-      const status = err?.response?.status
+      const backendError = err?.response?.data?.error || err?.response?.data?.message
       const msg =
-        status === 401
+        backendError ||
+        (err?.response?.status === 401
           ? 'Email hoặc mật khẩu không đúng.'
-          : err?.response?.data?.message ||
-            err?.response?.data?.error ||
-            err?.message ||
-            'Đăng nhập thất bại. Vui lòng thử lại.'
+          : err?.message || 'Đăng nhập thất bại. Vui lòng thử lại.')
       setError(msg)
     } finally {
       setSubmitting(false)
@@ -205,15 +207,9 @@ export function Login() {
               </Button>
             </form>
 
-            <p className="text-center text-sm text-smb-on-surface-variant">
-              Chưa có tài khoản?{' '}
-              <Link
-                to="/register"
-                className="font-medium text-smb-primary-container hover:underline"
-              >
-                Đăng ký ngay
-              </Link>
-            </p>
+            <div className="rounded-lg bg-smb-surface-container-low p-3 text-center text-xs text-smb-on-surface-variant">
+              <span className="font-semibold text-smb-on-surface">Cổng thông tin nội bộ:</span> Chỉ tài khoản Quản trị viên (Admin) mới có quyền đăng nhập vào hệ thống quản trị.
+            </div>
           </div>
         </main>
       </div>

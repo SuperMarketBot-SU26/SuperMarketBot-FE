@@ -15,7 +15,7 @@ import { useAuth } from './useAuth'
  * (the BE also enforces [Authorize] on protected endpoints, so this is
  * defense-in-depth, not the primary gate).
  */
-export function ProtectedRoute({ children, roles = null }) {
+export function ProtectedRoute({ children, roles = ['Admin'] }) {
   const { bootstrapping, isAuthenticated, hasRole } = useAuth()
   const location = useLocation()
 

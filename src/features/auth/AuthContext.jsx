@@ -27,7 +27,14 @@ export function AuthProvider({ children }) {
   // Initialize directly from localStorage on the first render. This is
   // safe for a Vite SPA (no SSR) and avoids a "setState in effect"
   // cascading render that the React 19 lint rules frown upon.
-  const [session, setSession] = useState(() => loadSession())
+  const [session, setSession] = useState(() => {
+    const s = loadSession()
+    if (s && !s.user?.roles?.includes('Admin')) {
+      clearSession()
+      return null
+    }
+    return s
+  })
   const [bootstrapping] = useState(false)
 
   const applySession = useCallback((normalized) => {
@@ -43,6 +50,11 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async ({ email, password }) => {
     const result = await authApi.login({ email, password })
+    if (!result?.user?.roles?.includes('Admin')) {
+      clearSession()
+      setSession(null)
+      throw new Error('Chỉ tài khoản Quản trị viên (Admin) mới có quyền truy cập trang quản trị.')
+    }
     applySession(result)
     return result
   }, [applySession])
