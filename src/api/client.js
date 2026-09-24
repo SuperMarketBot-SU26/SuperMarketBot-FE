@@ -1,15 +1,31 @@
 import axios from 'axios'
 import { clearSession } from '../features/auth/authStorage'
 
-// Pick the active backend URL from env.
-// `VITE_ACTIVE_BACKEND` selects between `local` and `ngrok`; the actual
-// base URL is read from the matching `VITE_<MODE>_API_URL` variable.
-const ACTIVE_BACKEND = (import.meta.env.VITE_ACTIVE_BACKEND || 'local').toLowerCase()
-const LOCAL_URL = import.meta.env.VITE_LOCAL_API_URL || 'http://localhost:5000'
-const NGROK_URL = import.meta.env.VITE_NGROK_API_URL || ''
+const cleanUrl = (url) => {
+  if (!url) return ''
+  return url.replace(/\/scalar.*$/i, '').replace(/\/+$/, '')
+}
 
-const ABSOLUTE_BASE_URL =
-  ACTIVE_BACKEND === 'ngrok' && NGROK_URL ? NGROK_URL : LOCAL_URL
+// Pick the active backend URL from env.
+// `VITE_ACTIVE_BACKEND` selects between `azure`, `local`, and `ngrok`; the actual
+const ACTIVE_BACKEND = (
+  import.meta.env.VITE_ACTIVE_BACKEND ||
+  (import.meta.env.PROD ? 'azure' : 'local')
+).toLowerCase()
+const LOCAL_URL = cleanUrl(import.meta.env.VITE_LOCAL_API_URL) || 'http://localhost:5000'
+const NGROK_URL = cleanUrl(import.meta.env.VITE_NGROK_API_URL) || ''
+const AZURE_URL = cleanUrl(import.meta.env.VITE_AZURE_API_URL) || 'https://smartmarketbot-api-d3achkeqhdcbfudw.southeastasia-01.azurewebsites.net'
+
+const getTargetUrl = () => {
+  if (import.meta.env.VITE_API_BASE_URL) return cleanUrl(import.meta.env.VITE_API_BASE_URL)
+  if (ACTIVE_BACKEND === 'azure' || ACTIVE_BACKEND === 'cloud' || ACTIVE_BACKEND === 'prod' || ACTIVE_BACKEND === 'production') {
+    return AZURE_URL
+  }
+  if (ACTIVE_BACKEND === 'ngrok' && NGROK_URL) return NGROK_URL
+  return LOCAL_URL
+}
+
+const ABSOLUTE_BASE_URL = getTargetUrl()
 
 // In dev, all API requests already include the full `/api/v1/...` prefix in
 // their relative URL, so we leave `baseURL` empty and let the request paths
@@ -17,7 +33,7 @@ const ABSOLUTE_BASE_URL =
 // no proxy, so we call the absolute URL directly. You can force absolute
 // mode by setting `VITE_API_BASE_URL` directly.
 const DEV_PROXY_BASE = ''
-const EXPLICIT_BASE = import.meta.env.VITE_API_BASE_URL
+const EXPLICIT_BASE = cleanUrl(import.meta.env.VITE_API_BASE_URL)
 
 export const ACTIVE_BACKEND_MODE = ACTIVE_BACKEND
 export const ACTIVE_BACKEND_URL = ABSOLUTE_BASE_URL

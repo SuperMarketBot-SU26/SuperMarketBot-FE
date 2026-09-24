@@ -9,12 +9,11 @@
  */
 
 import axios from 'axios'
-import { getErrorMessage } from './client'
+import { ACTIVE_BACKEND_URL, getErrorMessage } from './client'
 
-// All requests below include the full `/api/v1/...` path, so we keep baseURL
-// empty and let axios pass them through unchanged. The Vite proxy handles
-// forwarding `/api/v1/...` to the backend on http://localhost:5000 in dev.
-const BASE = ''
+// All requests below include the full `/api/v1/...` path. In dev mode, we keep
+// baseURL empty so Vite proxy forwards them. In production, we target ACTIVE_BACKEND_URL.
+const BASE = import.meta.env.DEV ? '' : ACTIVE_BACKEND_URL
 
 const editorClient = axios.create({
   baseURL: BASE,

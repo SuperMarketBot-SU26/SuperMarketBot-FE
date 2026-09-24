@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { toast } from 'react-toastify'
 import { statusPalette } from '../utils/robotHelpers'
 import { getRobot, getRobotPose, simulateLowBattery, resetBattery } from '../api/robotApi'
+import { ACTIVE_BACKEND_URL } from '../../../api/client'
 import { DualBatteryIndicator } from './DualBatteryIndicator'
 
 function Icon({ name, className = '' }) {
@@ -104,7 +105,7 @@ export function RobotAssignmentPanel({
     try {
       if (mode === 'amcl') {
         try {
-          const baseUrl = window.SMB_ENV?.BE_URL !== undefined ? window.SMB_ENV.BE_URL : 'http://localhost:5000'
+          const baseUrl = window.SMB_ENV?.BE_URL !== undefined ? window.SMB_ENV.BE_URL : (import.meta.env.DEV ? '' : ACTIVE_BACKEND_URL)
           const token = localStorage.getItem('accessToken')
           const headers = { 'ngrok-skip-browser-warning': 'true' }
           if (token) headers['Authorization'] = 'Bearer ' + token
