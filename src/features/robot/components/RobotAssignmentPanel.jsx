@@ -1964,7 +1964,7 @@ function RobotsTab({
   const [ctrlMsg, setCtrlMsg] = useState(null)
   const [activeKey, setActiveKey] = useState(null)
   const [teleopSpeed, setTeleopSpeed] = useState(70)
-  const [teleopTurnSpeed, setTeleopTurnSpeed] = useState(70)
+  const [teleopTurnSpeed, setTeleopTurnSpeed] = useState(100)
   const [showWsConfigDirect, setShowWsConfigDirect] = useState(false)
 
   // Quản lý kết nối WebSocket trực tiếp đến ESP32 (:81) chuẩn từ WebManager
@@ -2077,7 +2077,7 @@ function RobotsTab({
   const moveIntervalRef = useRef(null)
   const isMovingRef = useRef(false)
   const teleopSpeedRef = useRef(70)
-  const teleopTurnSpeedRef = useRef(70)
+  const teleopTurnSpeedRef = useRef(100)
   teleopSpeedRef.current = teleopSpeed
   teleopTurnSpeedRef.current = teleopTurnSpeed
   const activeKeysRef = useRef(new Set())

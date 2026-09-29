@@ -444,6 +444,87 @@
         .imgui-collapsible > .details-content { display: flex; flex-direction: column; gap: 12px; max-height: 0; opacity: 0; overflow: hidden; padding: 0; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, padding 0.4s ease; }
         .imgui-collapsible.open > .details-content { max-height: 2500px; opacity: 1; padding: 10px 0 0 0; }
 
+        /* --- Redesigned Obstacle Map Editor --- */
+        .map-edit-box {
+            background: linear-gradient(145deg, #ffffff, #f8fafc);
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 10px;
+            box-shadow: 0 4px 12px -2px rgba(124, 58, 237, 0.08);
+            transition: all 0.25s ease;
+        }
+        .map-edit-box.active {
+            border-color: #a855f7;
+            box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2), 0 8px 20px -4px rgba(124, 58, 237, 0.15);
+        }
+        .btn-edit-toggle {
+            width: 100%;
+            background: linear-gradient(135deg, #7c3aed 0%, #9333ea 100%);
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 13px;
+            padding: 10px 14px;
+            border-radius: 9px;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-edit-toggle:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(124, 58, 237, 0.35);
+            background: linear-gradient(135deg, #6d28d9 0%, #7e22ce 100%);
+        }
+        .brush-card {
+            flex: 1;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1.5px solid #e2e8f0;
+            background: #ffffff;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            transition: all 0.18s ease;
+            text-align: left;
+        }
+        .brush-card:hover {
+            border-color: #cbd5e1;
+            background: #f8fafc;
+        }
+        .brush-card.active-draw {
+            border-color: #0f172a;
+            background: #f8fafc;
+            box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.15);
+        }
+        .brush-card.active-erase {
+            border-color: #10b981;
+            background: #ecfdf5;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+        }
+        .brush-size-chip {
+            padding: 3px 8px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            background: #f1f5f9;
+            font-size: 11px;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .brush-size-chip:hover {
+            background: #e2e8f0;
+            color: #0f172a;
+        }
+        .brush-size-chip.selected {
+            background: #8b5cf6;
+            color: #ffffff;
+            border-color: #7c3aed;
+        }
     </style>
 
     <script src="/config.js"></script>
@@ -507,34 +588,6 @@
             <div class="text-sm text-muted" style="margin-bottom: 4px;">
                 Bản đồ sẽ được tự động đồng bộ xuống robot để định vị.
             </div>
-
-            <!-- Căn Khít Viền Tường (Fit Gian Hàng) -->
-            <div style="margin-top: 10px; border-top: 1px dashed var(--border-subtle); padding-top: 10px;">
-                <div style="font-size: 12px; color: #0d9488; margin-bottom: 4px; font-weight: 700;">
-                    📐 Căn Chỉnh Khung Viền Bản Đồ (Fit Gian Hàng)
-                </div>
-                <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">
-                    Tự động loại bỏ vùng trống ngoài, căn viền xanh ôm sát 100% các vách tường đen.
-                </div>
-                <div style="display: flex; gap: 6px; margin-bottom: 6px;">
-                    <button id="btn-auto-crop" onclick="autoCropRoomBounds()" class="btn btn-flex"
-                        style="background: #0d9488; color: #ffffff; font-weight: 600; padding: 8px;"
-                        title="Tự động phát hiện 4 bức tường đen và cắt khít khung viền xanh">
-                        ✂️ Căn Khít Viền Tường
-                    </button>
-                    <button id="btn-manual-crop" onclick="toggleInteractiveCrop()" class="btn btn-secondary"
-                        style="padding: 8px 10px; font-weight: 600;"
-                        title="Bật/Tắt chế độ kéo thả khung viền cắt">
-                        📐 Kéo Khung
-                    </button>
-                </div>
-                <button id="btn-reset-crop" onclick="resetCropToOriginal()" class="btn btn-secondary btn-full"
-                    style="display: none; padding: 6px; font-size: 12px; margin-bottom: 6px; border: 1px dashed #94a3b8; color: #64748b;"
-                    title="Khôi phục lại kích thước ảnh quét gốc">
-                    🔄 Khôi Phục Bản Đồ Gốc
-                </button>
-            </div>
-
             <div id="amcl-upload-section"
                 style="margin-top: 10px; border-top: 1px dashed var(--border-subtle); padding-top: 10px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -546,21 +599,69 @@
                 <button onclick="uploadMapToRobot()" class="btn btn-warning btn-full" style="padding: 6px; font-size: 12px;">Tải Lên Robot</button>
             </div>
 
-            <div id="map-edit-section" style="margin-top: 10px; border-top: 1px dashed var(--border-subtle); padding-top: 10px;">
-                <button id="btn-edit-map" onclick="toggleMapEditMode()" class="btn btn-purple btn-full" style="margin-bottom: 8px;">✏️ Chỉnh Sửa Vật Cản Bản Đồ</button>
-                <div id="edit-tools" style="display: none; flex-direction: column; gap: 6px;">
-                    <div style="display: flex; gap: 6px;">
-                        <button onclick="setBrush('draw')" id="btn-draw" class="btn btn-secondary btn-flex">🧱 Vẽ Tường / Cản</button>
-                        <button onclick="setBrush('erase')" id="btn-erase" class="btn btn-secondary btn-flex">🧹 Xóa (Đường Trống)</button>
+            <!-- Thiết Kế Mới: Chỉnh Sửa Vật Cản Bản Đồ Trực Quan -->
+            <div id="map-edit-section" class="map-edit-box" style="margin-top: 12px;">
+                <button id="btn-edit-map" onclick="toggleMapEditMode()" class="btn-edit-toggle">
+                    <span style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 16px;">🎨</span>
+                        <span>Chỉnh Sửa Vật Cản Bản Đồ</span>
+                    </span>
+                    <span id="badge-edit-status" style="font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.25); text-transform: uppercase;">Mở cọ</span>
+                </button>
+
+                <div id="edit-tools" style="display: none; flex-direction: column; gap: 10px; margin-top: 10px;">
+                    <!-- Tool Mode Selector -->
+                    <div>
+                        <div style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Chế độ cọ vẽ</div>
+                        <div style="display: flex; gap: 8px;">
+                            <button onclick="setBrush('draw')" id="btn-draw" class="brush-card active-draw">
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="font-weight: 700; font-size: 12px; color: #0f172a;">🧱 Vẽ Vật Cản</span>
+                                    <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #000000; border: 1px solid #cbd5e1;"></span>
+                                </div>
+                                <span style="font-size: 10px; color: #64748b;">Tô đen (chặn đường)</span>
+                            </button>
+                            <button onclick="setBrush('erase')" id="btn-erase" class="brush-card">
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="font-weight: 700; font-size: 12px; color: #047857;">🧹 Mở Hành Lang</span>
+                                    <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #ffffff; border: 1.5px solid #10b981;"></span>
+                                </div>
+                                <span style="font-size: 10px; color: #64748b;">Tô trắng (lối đi thông)</span>
+                            </button>
+                        </div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #475569; background: #f1f5f9; border: 1px solid var(--border-subtle); padding: 4px 8px; border-radius: 6px;">
-                        <span>Độ dày nét:</span>
-                        <input type="range" id="brush-size" min="1" max="20" value="5" style="flex: 1;" oninput="document.getElementById('brush-val').innerText = this.value + 'px'">
-                        <span id="brush-val" style="min-width: 35px; font-weight: 600; color: #0f172a;">5px</span>
+
+                    <!-- Brush Size & Live Preview -->
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <span style="font-size: 11px; font-weight: 700; color: #475569;">Độ dày đầu cọ:</span>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <div id="brush-preview-dot" style="width: 10px; height: 10px; border-radius: 50%; background: #000000; transition: all 0.15s ease;"></div>
+                                <span id="brush-val" style="font-weight: 700; font-size: 12px; color: #7c3aed; min-width: 32px; text-align: right;">5px</span>
+                            </div>
+                        </div>
+                        <input type="range" id="brush-size" min="1" max="25" value="5" style="width: 100%; accent-color: #8b5cf6;" oninput="updateBrushSizeDisplay(this.value)">
+                        <div style="display: flex; gap: 4px; justify-content: space-between; margin-top: 6px;">
+                            <button onclick="setBrushPreset(2)" class="brush-size-chip">Mảnh (2px)</button>
+                            <button onclick="setBrushPreset(5)" class="brush-size-chip selected">Vừa (5px)</button>
+                            <button onclick="setBrushPreset(10)" class="brush-size-chip">Dày (10px)</button>
+                            <button onclick="setBrushPreset(18)" class="brush-size-chip">Lớn (18px)</button>
+                        </div>
                     </div>
-                    <div style="display: flex; gap: 6px; margin-top: 4px;">
-                        <button onclick="saveEditedMap()" class="btn btn-success btn-flex">💾 Cập Nhật Robot</button>
-                        <button onclick="toggleMapEditMode()" class="btn btn-danger btn-flex">❌ Hủy Bỏ</button>
+
+                    <!-- User Guide Hint -->
+                    <div style="background: rgba(124, 58, 237, 0.05); border: 1px solid rgba(124, 58, 237, 0.15); border-radius: 8px; padding: 7px 10px; font-size: 11px; color: #6d28d9; line-height: 1.4;">
+                        💡 <strong>Cách vẽ:</strong> Giữ chuột trái & kéo trên bản đồ. Nét đen ngăn robot đâm vào, nét trắng xóa vật cản ảo.
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div style="display: flex; gap: 6px; margin-top: 2px;">
+                        <button onclick="saveEditedMap()" id="btn-save-map" class="btn btn-success btn-flex" style="padding: 9px; font-weight: 700; font-size: 12px; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);">
+                            💾 Cập Nhật Robot
+                        </button>
+                        <button onclick="toggleMapEditMode()" class="btn btn-secondary" style="padding: 9px 12px; font-weight: 600; font-size: 12px; color: #e11d48; border-color: #fecdd3; background: #fff1f2;">
+                            ✕ Đóng
+                        </button>
                     </div>
                 </div>
             </div>
@@ -644,6 +745,7 @@
             <button onclick="autoCropRoomBounds()" class="map-hud-btn" style="color: #0d9488; font-weight: 700;" title="Tự động căn khít viền đen của gian hàng">✂️ Fit Viền Tường</button>
             <button onclick="toggleMapTheme()" id="btn-map-theme" class="map-hud-btn" title="Đổi màu nền CAD Tối / Sáng">🌓 Đổi Nền CAD</button>
             <button onclick="toggleShelvesLayer()" id="btn-toggle-shelves" class="map-hud-btn" title="Bật/Tắt hiển thị 6 Khối Kệ Hàng Siêu Thị" style="color: #16a34a; font-weight: 700;">🏬 Hiện Kệ Hàng</button>
+            <button onclick="requestAmclNomotionUpdate()" id="btn-snap-amcl" class="map-hud-btn" style="color: #2563eb; font-weight: 700;" title="Kích hoạt AMCL ép quét LiDAR khớp khít viền tường bản đồ">🎯 Căn Thẳng AMCL</button>
         </div>
 
         <!-- CROP ACTIONS FLOATING BAR -->
@@ -1708,11 +1810,19 @@
                     window.currentBootMode = data.mode;
                     sessionStorage.setItem('currentBootMode', data.mode);
 
-                    // Tự động chuyển pose topic sang /amcl_pose nếu đang chạy AMCL
+                    // Tự động chuyển pose topic tương ứng với chế độ đang chạy
                     if (data.mode === 'amcl') {
                         const poseSelect = document.getElementById('ros-pose-topic');
                         if (poseSelect && poseSelect.value !== '/amcl_pose') {
                             poseSelect.value = '/amcl_pose';
+                            if (typeof subscribeToRobotPose === 'function') {
+                                subscribeToRobotPose();
+                            }
+                        }
+                    } else if (data.mode === 'slam') {
+                        const poseSelect = document.getElementById('ros-pose-topic');
+                        if (poseSelect && poseSelect.value !== '/pose') {
+                            poseSelect.value = '/pose';
                             if (typeof subscribeToRobotPose === 'function') {
                                 subscribeToRobotPose();
                             }
@@ -3339,6 +3449,41 @@ free_thresh: 0.196
             renderUI();
         }
 
+        function requestAmclNomotionUpdate() {
+            if (!ros || !ros.isConnected) {
+                showCustomAlert('Vui lòng kết nối Robot trước!', 'error');
+                return;
+            }
+            const btn = document.getElementById('btn-snap-amcl');
+            if (btn) btn.innerText = '⏳ Đang Căn...';
+
+            const srv = new ROSLIB.Service({
+                ros: ros,
+                name: '/request_nomotion_update',
+                serviceType: 'std_srvs/srv/Empty'
+            });
+            const req = new ROSLIB.ServiceRequest({});
+
+            srv.callService(req, function (res) {
+                if (btn) btn.innerText = '🎯 Căn Thẳng AMCL';
+                showCustomAlert('🎯 Đã kích hoạt cập nhật AMCL! Laser scan đang được căn khớp viền bản đồ.', 'success');
+            }, function (err) {
+                // Fallback to amcl_auto_corrector service if direct AMCL service fails
+                const autoSrv = new ROSLIB.Service({
+                    ros: ros,
+                    name: '/amcl/trigger_correction',
+                    serviceType: 'std_srvs/srv/Empty'
+                });
+                autoSrv.callService(req, function (res2) {
+                    if (btn) btn.innerText = '🎯 Căn Thẳng AMCL';
+                    showCustomAlert('🎯 Đã kích hoạt chuỗi xung AMCL Auto-Corrector thành công!', 'success');
+                }, function (err2) {
+                    if (btn) btn.innerText = '🎯 Căn Thẳng AMCL';
+                    showCustomAlert('⚠️ Không thể gọi AMCL correction: Hãy đảm bảo Robot đang chạy AMCL (--no-slam --nav2)', 'error');
+                });
+            });
+        }
+
         function drawShelfFixtures(ctx) {
             if (!window.showShelves) return;
 
@@ -3628,7 +3773,7 @@ free_thresh: 0.196
                 msgCount++; // Increment message counter for Hz
 
                 const now = Date.now();
-                if (now - lastDrawTime > 500) {
+                if (now - lastDrawTime > 100) {
                     if (msgType !== 'sensor_msgs/LaserScan') {
                         robotMapX = message.pose.pose.position.x;
                         robotMapY = message.pose.pose.position.y;
@@ -4445,7 +4590,20 @@ free_thresh: 0.196
                     }
                     window.activeMapImageUrl = imgUrl; // Save for AMCL sync
 
+                    // Tải ảnh dưới dạng Blob URL cùng nguồn để tránh lỗi Tainted Canvas (The operation is insecure)
+                    let localBlobUrl = null;
+                    try {
+                        const imgRes = await fetch(imgUrl, { headers: getFetchHeaders() });
+                        if (imgRes.ok) {
+                            const blob = await imgRes.blob();
+                            localBlobUrl = URL.createObjectURL(blob);
+                        }
+                    } catch (corsErr) {
+                        console.warn("Direct blob fetch failed, falling back to crossOrigin anonymous:", corsErr);
+                    }
+
                     const img = new Image();
+                    img.crossOrigin = "anonymous";
                     img.onload = () => {
                         IMAGE_WIDTH = img.width;
                         IMAGE_HEIGHT = img.height;
@@ -4464,7 +4622,7 @@ free_thresh: 0.196
                         toast.classList.add('show');
                         setTimeout(() => toast.classList.remove('show'), 3000);
                     };
-                    img.src = imgUrl;
+                    img.src = localBlobUrl || imgUrl;
                 } else {
                     applyTransform();
                 }
@@ -4496,25 +4654,88 @@ free_thresh: 0.196
         let isMapEditMode = false;
         let mapBrushMode = 'draw'; // 'draw' or 'erase'
         let isDrawingMap = false;
+        let lastDrawX = null;
+        let lastDrawY = null;
 
         function toggleMapEditMode() {
             isMapEditMode = !isMapEditMode;
-            document.getElementById('edit-tools').style.display = isMapEditMode ? 'flex' : 'none';
-            document.getElementById('btn-edit-map').style.background = isMapEditMode ? '#d8b4fe' : '#a855f7';
+            const editTools = document.getElementById('edit-tools');
+            const editBox = document.getElementById('map-edit-section');
+            const badge = document.getElementById('badge-edit-status');
             
-            if (isMapEditMode) {
-                // Disable waypoint edit mode if active
-                if (window.isEditMode) {
-                    window.isEditMode = false; 
-                    document.getElementById('wp-edit-btn').style.background = '#38bdf8';
-                }
+            if (editTools) editTools.style.display = isMapEditMode ? 'flex' : 'none';
+            if (editBox) {
+                if (isMapEditMode) editBox.classList.add('active');
+                else editBox.classList.remove('active');
+            }
+            if (badge) {
+                badge.innerText = isMapEditMode ? '🟢 ĐANG VẼ' : 'Mở cọ';
+                badge.style.background = isMapEditMode ? '#10b981' : 'rgba(255,255,255,0.25)';
+            }
+            
+            // Đổi con trỏ chuột sang hình cọ vẽ (crosshair)
+            if (container) {
+                container.style.cursor = isMapEditMode ? 'crosshair' : '';
+            }
+
+            const wpEditBtn = document.getElementById('wp-edit-btn');
+            if (wpEditBtn) wpEditBtn.style.background = '#38bdf8';
+
+            if (!isMapEditMode) {
+                const urlParams = new URLSearchParams(window.location.search);
+                window.isEditMode = urlParams.get('edit') !== 'false';
+                lastDrawX = null;
+                lastDrawY = null;
             }
         }
 
         function setBrush(mode) {
             mapBrushMode = mode;
-            document.getElementById('btn-draw').className = mode === 'draw' ? 'btn btn-primary btn-flex' : 'btn btn-secondary btn-flex';
-            document.getElementById('btn-erase').className = mode === 'erase' ? 'btn btn-primary btn-flex' : 'btn btn-secondary btn-flex';
+            const btnDraw = document.getElementById('btn-draw');
+            const btnErase = document.getElementById('btn-erase');
+            const previewDot = document.getElementById('brush-preview-dot');
+
+            if (btnDraw) {
+                btnDraw.className = mode === 'draw' ? 'brush-card active-draw' : 'brush-card';
+            }
+            if (btnErase) {
+                btnErase.className = mode === 'erase' ? 'brush-card active-erase' : 'brush-card';
+            }
+            if (previewDot) {
+                if (mode === 'draw') {
+                    previewDot.style.background = '#000000';
+                    previewDot.style.border = '1px solid #cbd5e1';
+                } else {
+                    previewDot.style.background = '#ffffff';
+                    previewDot.style.border = '1.5px solid #10b981';
+                }
+            }
+        }
+
+        function setBrushPreset(px) {
+            const slider = document.getElementById('brush-size');
+            if (slider) slider.value = px;
+            updateBrushSizeDisplay(px);
+        }
+
+        function updateBrushSizeDisplay(val) {
+            const px = parseInt(val) || 5;
+            const valEl = document.getElementById('brush-val');
+            if (valEl) valEl.innerText = px + 'px';
+
+            const previewDot = document.getElementById('brush-preview-dot');
+            if (previewDot) {
+                const dotSize = Math.max(4, Math.min(22, px * 2));
+                previewDot.style.width = dotSize + 'px';
+                previewDot.style.height = dotSize + 'px';
+            }
+
+            // Update chips
+            document.querySelectorAll('.brush-size-chip').forEach(chip => {
+                const chipPx = parseInt(chip.innerText.match(/\d+/)?.[0] || '0');
+                if (chipPx === px) chip.classList.add('selected');
+                else chip.classList.remove('selected');
+            });
         }
 
         function drawOnMap(e) {
@@ -4526,19 +4747,41 @@ free_thresh: 0.196
             const xImage = (mouseX - translateX) / scale;
             const yImage = (mouseY - translateY) / scale;
             
-            const brushSize = parseInt(document.getElementById('brush-size').value);
+            const brushSize = parseInt(document.getElementById('brush-size')?.value || 5);
+            const color = mapBrushMode === 'draw' ? 'black' : 'white';
             
-            ctxMap.fillStyle = mapBrushMode === 'draw' ? 'black' : 'white';
+            ctxMap.fillStyle = color;
+            ctxMap.strokeStyle = color;
+            ctxMap.lineWidth = brushSize * 2;
+            ctxMap.lineCap = 'round';
+            ctxMap.lineJoin = 'round';
+
+            // Nối nét liền mượt mà giữa các điểm rê chuột
+            if (lastDrawX !== null && lastDrawY !== null) {
+                ctxMap.beginPath();
+                ctxMap.moveTo(lastDrawX, lastDrawY);
+                ctxMap.lineTo(xImage, yImage);
+                ctxMap.stroke();
+            }
+
             ctxMap.beginPath();
             ctxMap.arc(xImage, yImage, brushSize, 0, Math.PI * 2);
             ctxMap.fill();
+
+            lastDrawX = xImage;
+            lastDrawY = yImage;
         }
 
         container.addEventListener('mousedown', (e) => {
             if (isMapEditMode && e.button === 0) {
                 isDrawingMap = true;
+                const containerRect = container.getBoundingClientRect();
+                const mouseX = e.clientX - containerRect.left;
+                const mouseY = e.clientY - containerRect.top;
+                lastDrawX = (mouseX - translateX) / scale;
+                lastDrawY = (mouseY - translateY) / scale;
                 drawOnMap(e);
-                e.stopPropagation(); // Try to prevent pan
+                e.stopPropagation();
             }
         }, { capture: true });
 
@@ -4551,17 +4794,55 @@ free_thresh: 0.196
 
         container.addEventListener('mouseup', () => {
             isDrawingMap = false;
+            lastDrawX = null;
+            lastDrawY = null;
         }, { capture: true });
         
         container.addEventListener('mouseleave', () => {
             isDrawingMap = false;
+            lastDrawX = null;
+            lastDrawY = null;
         }, { capture: true });
+
+        function addSystemLog(text, level = 'info') {
+            let rclLevel = 20;
+            if (level === 'warn') rclLevel = 30;
+            else if (level === 'error') rclLevel = 40;
+            if (typeof appendLog === 'function') {
+                appendLog({ level: rclLevel, name: 'MapEditor', msg: text });
+            } else {
+                console.log(`[MapEditor] ${text}`);
+            }
+        }
+
+        function showMapEditSuccessToast(msg) {
+            const toast = document.getElementById('toast');
+            if (!toast) return;
+            toast.innerHTML = msg;
+            toast.style.background = 'linear-gradient(135deg, #059669 0%, #10b981 100%)';
+            toast.style.boxShadow = '0 12px 28px rgba(16, 185, 129, 0.4)';
+            toast.style.padding = '12px 24px';
+            toast.style.borderRadius = '12px';
+            toast.style.lineHeight = '1.4';
+            toast.style.textAlign = 'center';
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 4500);
+        }
 
         async function saveEditedMap() {
             if (!confirm('Bạn có chắc muốn lưu bản đồ đã chỉnh sửa? (Sẽ tải lên Backend và đồng bộ xuống Robot)')) return;
             
             // 1. Convert Canvas to PGM Binary
-            const imageData = ctxMap.getImageData(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
+            let imageData;
+            try {
+                imageData = ctxMap.getImageData(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
+            } catch (secErr) {
+                console.error("Lỗi bảo mật khi đọc Canvas:", secErr);
+                alert("⚠️ Không thể trích xuất dữ liệu bản đồ do trình duyệt giới hạn bảo mật hình ảnh (CORS / Canvas Tainted).\nVui lòng nhấn nút 'Tải Lại' hoặc bấm 'Tải Bản Đồ Chuẩn Từ Máy Chủ' một lần rồi thử lại!");
+                return;
+            }
             const data = imageData.data;
             
             // PGM Header: P5\n Width Height\n 255\n
@@ -4601,9 +4882,9 @@ free_thresh: 0.196
             const yamlBlob = new Blob([yamlStr], { type: 'text/yaml' });
             const yamlB64 = btoa(unescape(encodeURIComponent(yamlStr)));
 
-            const btn = document.querySelector('#edit-tools button[onclick="saveEditedMap()"]');
-            const origText = btn ? btn.innerText : '';
-            if (btn) btn.innerText = 'Đang lưu lên BE...';
+            const btn = document.getElementById('btn-save-map') || document.querySelector('#edit-tools button[onclick="saveEditedMap()"]');
+            const origText = btn ? btn.innerHTML : '';
+            if (btn) btn.innerHTML = '⏳ Đang lưu lên Máy Chủ...';
             
             try {
                 // 3. Push to Backend
@@ -4626,32 +4907,50 @@ free_thresh: 0.196
                 if (!syncRes.ok) {
                     const errText = await syncRes.text();
                     console.error("Lỗi lưu BE:", errText);
+                    addSystemLog(`❌ Lỗi khi đồng bộ ảnh lên Backend: HTTP ${syncRes.status}`, 'error');
                     alert("Lỗi khi đồng bộ ảnh lên Backend: " + syncRes.status);
-                    if (btn) btn.innerText = origText;
+                    if (btn) btn.innerHTML = origText;
                     return;
                 }
 
                 // 4. Force Robot to Pull
-                if (btn) btn.innerText = 'Đang đẩy xuống Robot...';
+                if (btn) btn.innerHTML = '🤖 Đang đẩy xuống Robot...';
                 
-                const uploadRes = await fetch(`${getAgentApiUrl()}/upload_map`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ yaml_b64: yamlB64, pgm_b64: base64Pgm })
-                });
-                const uploadData = await uploadRes.json();
-                if (uploadData.error) {
+                let uploadData = null;
+                try {
+                    const uploadRes = await fetch(`${getAgentApiUrl()}/upload_map`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ yaml_b64: yamlB64, pgm_b64: base64Pgm })
+                    });
+                    uploadData = await uploadRes.json();
+                } catch (robotErr) {
+                    console.warn("[MapEdit] Robot agent API không phản hồi trực tiếp:", robotErr);
+                }
+
+                const timestamp = new Date().toLocaleTimeString('vi-VN');
+
+                if (uploadData && uploadData.error) {
+                    addSystemLog(`⚠️ Đã lưu Backend nhưng lỗi nạp xuống Robot: ${uploadData.error}`, 'warn');
                     alert("Đã lưu trên BE nhưng lỗi khi đồng bộ Map xuống Robot: " + uploadData.error);
                 } else {
-                    alert('✅ Lưu và Đồng bộ hoàn tất!');
+                    addSystemLog(`✅ [Bản Đồ] Đã lưu và đồng bộ thành công bản đồ (${IMAGE_WIDTH}x${IMAGE_HEIGHT}px, độ phân giải ${res}m) lúc ${timestamp}!`, 'success');
+                    console.log(`[MapEdit] ✅ Cập nhật bản đồ thành công lúc ${timestamp}`, {
+                        width: IMAGE_WIDTH,
+                        height: IMAGE_HEIGHT,
+                        resolution: res,
+                        origin: [ox, oy, oyaw]
+                    });
+                    showMapEditSuccessToast(`🎉 CẬP NHẬT BẢN ĐỒ THÀNH CÔNG!<br><span style="font-size:11px;font-weight:400;opacity:0.95;">Đã lưu vào máy chủ và đồng bộ xuống Robot lúc ${timestamp}.</span>`);
                 }
                 
                 toggleMapEditMode();
             } catch (err) {
                 console.error(err);
+                addSystemLog(`❌ Lỗi lưu bản đồ: ${err.message}`, 'error');
                 alert('Lỗi: ' + err.message);
             } finally {
-                if (btn) btn.innerText = origText;
+                if (btn) btn.innerHTML = origText;
             }
         }
     </script>
