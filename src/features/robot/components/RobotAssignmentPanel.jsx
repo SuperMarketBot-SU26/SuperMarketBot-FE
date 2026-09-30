@@ -1134,7 +1134,7 @@ function AutonomousTab({
 
               <div className="mb-3 flex gap-2">
                 <button
-                  disabled={dispatching}
+                  disabled={dispatching || isMissionRunning}
                   onClick={() => handleDispatch('ad', {
                     dwellTimeSeconds: 0,
                     isLooping: true,
@@ -1403,7 +1403,7 @@ function AutonomousTab({
 
               <div className="mb-3 flex gap-2">
                 <button
-                  disabled={dispatching || selectedAdShelfIds.length === 0}
+                  disabled={dispatching || isMissionRunning || selectedAdShelfIds.length === 0}
                   onClick={() => {
                     const targetNodeIds = validShelves
                       .filter((s) => selectedAdShelfIds.includes(s.shelfId) && s.nodeId)
@@ -1694,7 +1694,7 @@ function AutonomousTab({
           {/* Dispatch Button */}
           <div className="mb-3 flex gap-2">
             <button
-              disabled={dispatching || selectedShelfIds.length === 0}
+              disabled={dispatching || isMissionRunning || selectedShelfIds.length === 0}
               onClick={() => {
                 const targetNodeIds = validShelves
                   .filter((s) => selectedShelfIds.includes(s.shelfId) && s.nodeId)
@@ -2506,7 +2506,7 @@ function RobotsTab({
         robotCode: selectedRobot,
         flowType: 'return',
         nodeIds: [nodeId],
-        floorId: 1,
+        floorId: map?.floorId || 1,
       })
       const msg = `🚀 Robot đang quay về ${destinationName}.`
       setCtrlMsg({ type: 'success', text: msg })

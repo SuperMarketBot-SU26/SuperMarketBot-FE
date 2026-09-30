@@ -198,7 +198,8 @@ export default function ShelfPatrolManagement() {
   const [activeTab, setActiveTab] = useState('missions') // 'missions' | 'history' | 'restock' | 'density'
   
   // ─── Shared State ───
-  const { robots, selectedRobotCode, setSelectedRobotCode } = useRobotFleet()
+  const { robots } = useRobotFleet()
+  const [selectedRobotCode, setSelectedRobotCode] = useState('RB001')
   const [shelves, setShelves] = useState([])
   const [routes, setRoutes] = useState([])
   const [readiness, setReadiness] = useState(null)
@@ -633,7 +634,7 @@ export default function ShelfPatrolManagement() {
         robotCode,
         flowType: 'patrol',
         ...(patrolMode === 'route'
-          ? { robotRouteId: Number(selectedRouteId) }
+          ? (selectedShelfNodeIds.length > 0 ? { nodeIds: selectedShelfNodeIds } : { nodeIds: [10017, 10018, 10019, 10020, 10021, 10022] })
           : { nodeIds: selectedShelfNodeIds })
       }
 

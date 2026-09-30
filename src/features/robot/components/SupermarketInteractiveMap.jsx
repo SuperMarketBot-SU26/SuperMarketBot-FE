@@ -454,13 +454,13 @@ export default function SupermarketInteractiveMap({
       return { x: 1070, y: 220, heading: 0, isDocked: true, rawX: 1.07, rawY: 0.13 }
     }
 
-    const rx = typeof robotPose.xCoord === 'number' ? robotPose.xCoord : typeof robotPose.x === 'number' ? robotPose.x : null
-    const ry = typeof robotPose.yCoord === 'number' ? robotPose.yCoord : typeof robotPose.y === 'number' ? robotPose.y : null
+    const rx = Number.isFinite(robotPose.xCoord) ? robotPose.xCoord : Number.isFinite(robotPose.x) ? robotPose.x : null
+    const ry = Number.isFinite(robotPose.yCoord) ? robotPose.yCoord : Number.isFinite(robotPose.y) ? robotPose.y : null
 
     let heading = 0
-    if (typeof robotPose.headingYawDeg === 'number') heading = robotPose.headingYawDeg
-    else if (typeof robotPose.headingDeg === 'number') heading = robotPose.headingDeg
-    else if (typeof robotPose.headingRad === 'number') heading = (robotPose.headingRad * 180) / Math.PI
+    if (Number.isFinite(robotPose.headingYawDeg)) heading = robotPose.headingYawDeg
+    else if (Number.isFinite(robotPose.headingDeg)) heading = robotPose.headingDeg
+    else if (Number.isFinite(robotPose.headingRad)) heading = (robotPose.headingRad * 180) / Math.PI
 
     if (rx !== null && ry !== null) {
       // 1. Trường hợp tọa độ SVG pixel sẵn (0..3000)
@@ -1345,7 +1345,7 @@ export default function SupermarketInteractiveMap({
           })}
 
           {/* 10. ROBOT REALTIME TELEMETRY AVATAR */}
-          <g transform={`translate(${robotSvgPos.x}, ${robotSvgPos.y})`}>
+          <g transform={`translate(${robotSvgPos.x}, ${robotSvgPos.y})`} style={{ transition: 'transform 0.25s linear' }}>
             {/* Vòng radar quét sóng xung quanh Robot */}
             <circle r="120" fill="none" stroke="#059669" strokeWidth="8" opacity="0.25">
               <animate attributeName="r" values="70;140;70" dur="2.5s" repeatCount="indefinite" />
@@ -1353,7 +1353,7 @@ export default function SupermarketInteractiveMap({
             </circle>
 
             {/* Mũi tên chỉ hướng Heading Yaw */}
-            <g transform={`rotate(${robotSvgPos.heading})`}>
+            <g transform={`rotate(${robotSvgPos.heading})`} style={{ transition: 'transform 0.25s linear' }}>
               <polygon points="0,-115 -35,-65 35,-65" fill="#059669" filter="url(#neon-glow)" />
               <circle cx="0" cy="-60" r="10" fill="#ffffff" />
             </g>
