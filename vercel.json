@@ -17,6 +17,10 @@
       "destination": "https://smartmarketbot-api-d3achkeqhdcbfudw.southeastasia-01.azurewebsites.net/storage/:path*"
     },
     {
+      "source": "/hubs/:path*",
+      "destination": "https://smartmarketbot-api-d3achkeqhdcbfudw.southeastasia-01.azurewebsites.net/hubs/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

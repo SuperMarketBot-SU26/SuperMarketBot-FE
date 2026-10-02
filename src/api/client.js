@@ -17,6 +17,10 @@ const NGROK_URL = cleanUrl(import.meta.env.VITE_NGROK_API_URL) || ''
 const AZURE_URL = cleanUrl(import.meta.env.VITE_AZURE_API_URL) || 'https://smartmarketbot-api-d3achkeqhdcbfudw.southeastasia-01.azurewebsites.net'
 
 const getTargetUrl = () => {
+  if (typeof window !== 'undefined') {
+    const runtimeUrl = localStorage.getItem('smb_api_base_url')
+    if (runtimeUrl) return cleanUrl(runtimeUrl)
+  }
   if (import.meta.env.VITE_API_BASE_URL) return cleanUrl(import.meta.env.VITE_API_BASE_URL)
   if (ACTIVE_BACKEND === 'azure' || ACTIVE_BACKEND === 'cloud' || ACTIVE_BACKEND === 'prod' || ACTIVE_BACKEND === 'production') {
     return AZURE_URL
@@ -96,10 +100,17 @@ client.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    // Dynamic override from localStorage
+    if (typeof window !== 'undefined' && !import.meta.env.DEV) {
+      const runtimeBase = localStorage.getItem('smb_api_base_url')
+      if (runtimeBase) {
+        config.baseURL = cleanUrl(runtimeBase)
+      }
+    }
     // Ngrok's free tier shows a browser-warning interstitial unless the
-    // request carries this header. The Vite proxy adds it in dev; in a
-    // production build we have to add it client-side when targeting ngrok.
-    if (!import.meta.env.DEV && ACTIVE_BACKEND === 'ngrok') {
+    // request carries this header. Add it whenever targeting ngrok.
+    const activeUrl = config.baseURL || ABSOLUTE_BASE_URL || ''
+    if (ACTIVE_BACKEND === 'ngrok' || activeUrl.includes('ngrok')) {
       config.headers['ngrok-skip-browser-warning'] = 'true'
     }
     return config
