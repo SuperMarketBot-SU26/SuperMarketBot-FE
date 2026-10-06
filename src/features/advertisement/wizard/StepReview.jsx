@@ -47,18 +47,15 @@ export function StepReview({ state, brandOptions, selectedPackage, effectiveTarg
   )
 
   const pkg = selectedPackage
-  // Dùng effectiveTargeting để đảm bảo chỉ tính phí những mục đang được phép theo deliveryMode.
+  // Dùng effectiveTargeting để đảm bảo chỉ tính phí những mục đang được phép.
   const target = effectiveTargeting ?? state.targeting
-  const routeCount = target.routeIds?.length ?? 0
   const zoneCount  = target.zoneIds?.length  ?? 0
   const shelfCount = target.shelfIds?.length ?? 0
 
-  const routeUnitPrice = pkg?.routeUnitPrice ?? pkg?.priceRoute ?? pkg?.routeFee ?? 0
   const zoneUnitPrice  = pkg?.zoneUnitPrice  ?? pkg?.priceZone  ?? pkg?.zoneFee  ?? 0
   const shelfUnitPrice = pkg?.shelfUnitPrice ?? pkg?.priceShelf ?? pkg?.shelfFee ?? 0
 
   const totalTargetingFee =
-    routeCount * routeUnitPrice +
     zoneCount  * zoneUnitPrice +
     shelfCount * shelfUnitPrice
 
@@ -90,14 +87,6 @@ export function StepReview({ state, brandOptions, selectedPackage, effectiveTarg
             }
           />
           <Row label="Thời gian chạy" value="Theo ngân sách (Tự động dừng khi hết Budget)" />
-          <Row
-            label="Hình thức phát"
-            value={
-              state.basics.deliveryMode === 'Route' ? 'Tuyến đường (robot đi, phát khi di chuyển)' :
-              state.basics.deliveryMode === 'Both'  ? 'Cả hai (lộ trình + dừng ở zone)' :
-              'Khu vực / Kệ (robot dừng để phát)'
-            }
-          />
         </div>
 
         {/* Targeting summary */}
@@ -107,17 +96,14 @@ export function StepReview({ state, brandOptions, selectedPackage, effectiveTarg
             <h3 className="font-semibold text-smb-on-surface">Targeting</h3>
           </div>
           {(() => {
-            const deliveryMode = state.basics.deliveryMode ?? 'Zone'
-            const showRoute = deliveryMode !== 'Zone' && routeCount > 0
-            const showZone  = deliveryMode !== 'Route' && zoneCount > 0
-            const showShelf = deliveryMode !== 'Route' && shelfCount > 0
-            const hasAny = showRoute || showZone || showShelf
+            const showZone  = zoneCount > 0
+            const showShelf = shelfCount > 0
+            const hasAny = showZone || showShelf
             if (!hasAny) {
               return <p className="text-sm text-smb-on-surface-variant">Chưa chọn targeting nào. (Có thể thiết lập ở bước tiếp theo hoặc khi kích hoạt.)</p>
             }
             return (
               <>
-                {showRoute && <PricingRow icon="route"       label="Tuyến đường" count={routeCount} pricePerItem={routeUnitPrice} />}
                 {showZone  && <PricingRow icon="grid_view"   label="Khu vực"    count={zoneCount}  pricePerItem={zoneUnitPrice} />}
                 {showShelf && <PricingRow icon="inventory_2" label="Kệ hàng"    count={shelfCount} pricePerItem={shelfUnitPrice} />}
               </>

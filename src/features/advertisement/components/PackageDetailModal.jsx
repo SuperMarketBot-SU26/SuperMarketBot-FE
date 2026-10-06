@@ -215,11 +215,11 @@ export function PackageDetailModal({ packageData, packageId, onClose, onEdit }) 
                 <div className="flex items-center gap-2 mb-3">
                   <Icon name="payments" className="text-smb-primary text-[18px]" />
                   <h3 className="text-xs font-bold uppercase tracking-wider text-smb-on-surface">
-                    Đơn Giá Vị Trí & Tuyến Đường (Fixed Unit Prices)
+                    Đơn Giá Vị Trí (Fixed Unit Prices)
                   </h3>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="rounded-lg border border-smb-outline-variant/40 bg-smb-surface-container-lowest p-3">
                     <div className="flex items-center justify-between text-xs text-smb-on-surface-variant mb-1">
                       <span>Đơn giá Zone</span>
@@ -239,22 +239,12 @@ export function PackageDetailModal({ packageData, packageId, onClose, onEdit }) 
                       {formatVND(pkg.shelfUnitPrice ?? pkg.shelfFee ?? 0)} <span className="text-xs font-normal text-smb-on-surface-variant">đ / kệ</span>
                     </div>
                   </div>
-
-                  <div className="rounded-lg border border-smb-outline-variant/40 bg-smb-surface-container-lowest p-3">
-                    <div className="flex items-center justify-between text-xs text-smb-on-surface-variant mb-1">
-                      <span>Đơn giá Tuyến (Route)</span>
-                      <Icon name="alt_route" className="text-sm text-smb-on-surface-variant" />
-                    </div>
-                    <div className="text-base font-bold tabular-nums text-smb-on-surface">
-                      {formatVND(pkg.routeUnitPrice ?? pkg.routeFee ?? 0)} <span className="text-xs font-normal text-smb-on-surface-variant">đ / tuyến</span>
-                    </div>
-                  </div>
                 </div>
 
                 <div className="mt-3 flex items-start gap-2 rounded-lg bg-smb-surface-container/50 px-3 py-2 text-[11px] text-smb-on-surface-variant">
                   <Icon name="info" className="text-sm text-smb-primary shrink-0 mt-0.5" />
                   <span>
-                    Tổng chi phí vị trí cố định = (Số Zone × Đơn giá Zone) + (Số Kệ × Đơn giá Kệ) + (Số Tuyến × Đơn giá Tuyến). Phí này sẽ được khấu trừ vào ngân sách ngay khi chiến dịch kích hoạt.
+                    Tổng chi phí vị trí cố định = (Số Zone × Đơn giá Zone) + (Số Kệ × Đơn giá Kệ). Phí này sẽ được khấu trừ vào ngân sách ngay khi chiến dịch kích hoạt.
                   </span>
                 </div>
               </div>

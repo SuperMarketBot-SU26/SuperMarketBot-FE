@@ -263,14 +263,13 @@ function humanizeActivateError(raw) {
                   <div className="flex-1 space-y-1.5">
                     <p className="font-semibold">Chiến dịch đã được thanh toán đầy đủ trước đó.</p>
                     <p className="text-xs leading-relaxed">
-                      Mọi thay đổi về khu vực, tuyến đường hay kệ hàng đã được ghi nhận và trừ tiền
+                      Mọi thay đổi về khu vực hay kệ hàng đã được ghi nhận và trừ tiền
                       ngay khi bạn bấm lưu. Việc tiếp tục chỉ đưa chiến dịch trở lại trạng thái
                       <strong> Hoạt Động</strong> mà không phát sinh thêm phí.
                     </p>
                     <ul className="mt-2 space-y-0.5 text-xs">
                       <li>• Gói dịch vụ đã mua: <strong>{campaign.packageName ?? '—'}</strong></li>
                       <li>• Khu vực đang gán: <strong>{breakdown.zoneCount}</strong></li>
-                      <li>• Tuyến đường đang gán: <strong>{breakdown.routeCount}</strong></li>
                       <li>• Kệ hàng: <strong>{breakdown.hasShelf ? 'đã gán' : 'chưa gán'}</strong></li>
                     </ul>
                   </div>
@@ -289,12 +288,6 @@ function humanizeActivateError(raw) {
               <div className="flex items-center justify-between border-b border-smb-outline-variant/60 px-4 py-2 text-sm">
                 <span className="text-smb-on-surface-variant">Gói ({campaign.packageName ?? '—'})</span>
                 <span className="tabular-nums text-smb-on-surface">{formatVND(breakdown.pricePkg)} đ</span>
-              </div>
-              <div className="flex items-center justify-between border-b border-smb-outline-variant/60 px-4 py-2 text-sm">
-                <span className="text-smb-on-surface-variant">
-                  🛣️ Routes: <strong>{breakdown.routeCount}</strong> × {formatVND(breakdown.priceR)} đ
-                </span>
-                <span className="tabular-nums text-smb-on-surface">{formatVND(breakdown.routesTotal)} đ</span>
               </div>
               <div className="flex items-center justify-between border-b border-smb-outline-variant/60 px-4 py-2 text-sm">
                 <span className="text-smb-on-surface-variant">

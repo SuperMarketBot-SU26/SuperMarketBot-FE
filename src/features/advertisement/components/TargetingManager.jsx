@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import {
-  getCampaignRoutes,
   getCampaignZones,
   getCampaignShelf,
-  assignCampaignRoutes,
   assignCampaignZones,
   assignCampaignShelves,
   getTargetingContext,
@@ -35,8 +33,7 @@ export function TargetingManager({ campaignId, status, priceRoute, priceZone, pr
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // Server state — 3 loại độc lập
-  const [routes, setRoutes] = useState([])
+  // Server state — 2 loại độc lập (Khu vực & Kệ hàng)
   const [zones, setZones] = useState([])
   const [shelves, setShelves] = useState([])
   const floorId = 1
@@ -45,12 +42,10 @@ export function TargetingManager({ campaignId, status, priceRoute, priceZone, pr
     setLoading(true)
     setError(null)
     try {
-      const [r, z, s] = await Promise.all([
-        getCampaignRoutes(campaignId),
+      const [z, s] = await Promise.all([
         getCampaignZones(campaignId),
         getCampaignShelf(campaignId),
       ])
-      setRoutes(r?.routes ?? [])
       setZones(z?.zones ?? [])
       setShelves(s?.shelves ?? [])
     } catch (err) {
@@ -63,10 +58,9 @@ export function TargetingManager({ campaignId, status, priceRoute, priceZone, pr
   useEffect(() => { fetchAll() }, [campaignId])
 
   // Tính tổng tiền targeting
-  const totalRoute = routes.reduce((sum, r) => sum + (r.routePriceCharged ?? priceRoute), 0)
   const totalZone = zones.reduce((sum, z) => sum + (z.zonePriceCharged ?? priceZone), 0)
   const totalShelf = shelves.reduce((sum, s) => sum + (s.shelfPriceCharged ?? priceShelf), 0)
-  const grandTotal = totalRoute + totalZone + totalShelf
+  const grandTotal = totalZone + totalShelf
 
   return (
     <div className="space-y-4">
@@ -82,21 +76,11 @@ export function TargetingManager({ campaignId, status, priceRoute, priceZone, pr
       )}
 
       <p className="text-xs text-smb-on-surface-variant">
-        <strong>3 loại quảng cáo độc lập</strong>: tuyến đường, khu vực và kệ hàng.
+        <strong>2 loại quảng cáo độc lập</strong>: khu vực và kệ hàng.
         Có thể chọn tự do — không có quan hệ bao trùm hay phí trùng lặp.
       </p>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <RoutesCard
-          routes={routes}
-          loading={loading}
-          pricePerItem={priceRoute}
-          canEdit={canEdit}
-          campaignId={campaignId}
-          floorId={floorId}
-          assignedIds={routes.map((r) => r.robotRouteId)}
-          onSaved={fetchAll}
-        />
+      <div className="grid gap-4 lg:grid-cols-2">
         <ZonesCard
           zones={zones}
           loading={loading}
@@ -119,11 +103,7 @@ export function TargetingManager({ campaignId, status, priceRoute, priceZone, pr
       {/* Tổng kết chi phí targeting */}
       <div className="rounded-xl border border-smb-primary-container/50 bg-smb-primary-container/10 p-4">
         <h4 className="mb-2 text-sm font-semibold text-smb-on-surface">Chi Phí Targeting</h4>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm lg:grid-cols-4">
-          <div className="flex justify-between">
-            <span className="text-smb-on-surface-variant">Tuyến ({routes.length})</span>
-            <span className="font-medium text-smb-on-surface">{formatVND(totalRoute)} đ</span>
-          </div>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm lg:grid-cols-3">
           <div className="flex justify-between">
             <span className="text-smb-on-surface-variant">Khu vực ({zones.length})</span>
             <span className="font-medium text-smb-on-surface">{formatVND(totalZone)} đ</span>
@@ -184,63 +164,6 @@ function Card({ icon, title, count, children, footer, actionLabel, onAction, can
   )
 }
 
-// ─── Routes card ──────────────────────────────────────────────────────────
-function RoutesCard({ routes, loading, pricePerItem, canEdit, campaignId, floorId, assignedIds, onSaved }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <Card
-      icon="route"
-      title="Tuyến Đường"
-      count={routes.length}
-      color="blue"
-      actionLabel="Mua thêm"
-      canEdit={canEdit}
-      onAction={() => setOpen(true)}
-    >
-      {loading ? <Skeleton /> : routes.length === 0 ? <Empty /> : (
-        <ul className="space-y-1.5">
-          {routes.map((r) => (
-            <li key={r.robotRouteId} className="flex items-center gap-2 rounded-md border border-smb-outline-variant bg-smb-surface-container-low px-3 py-2 text-sm">
-              <Icon name="route" className="text-[16px] text-smb-primary-container" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium text-smb-on-surface">{r.routeName ?? `Tuyến #${r.robotRouteId}`}</p>
-                {r.zoneName && <p className="text-xs text-smb-on-surface-variant">Zone: {r.zoneName}</p>}
-              </div>
-              <span className="text-xs tabular-nums text-smb-on-surface-variant">
-                {formatVND(r.routePriceCharged ?? pricePerItem)} đ
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {open && (
-        <MultiSelectModal
-          title="Chọn tuyến đường"
-          icon="route"
-          fetchItems={() => getTargetingContext(campaignId, floorId).then((d) => d?.routes ?? [])}
-          normalize={(raw) => ({
-            id: raw.robotRouteId ?? raw.routeId ?? raw.id,
-            label: raw.routeName ?? raw.name ?? `Tuyến #${raw.robotRouteId ?? raw.id}`,
-            subLabel: raw.zoneName ?? '',
-          })}
-          assignedIds={assignedIds}
-          pricePerItem={pricePerItem}
-          onSubmit={async (ids) => {
-            try {
-              await assignCampaignRoutes(campaignId, ids)
-              onSaved?.()
-              setOpen(false)
-            } catch (e) {
-              // Re-throw để MultiSelectModal hiển thị lỗi và KHÔNG đóng modal
-              throw e
-            }
-          }}
-          onClose={() => setOpen(false)}
-        />
-      )}
-    </Card>
-  )
-}
 
 // ─── Zones card ───────────────────────────────────────────────────────────
 function ZonesCard({ zones, loading, pricePerItem, canEdit, assignedIds, onSaved, campaignId }) {

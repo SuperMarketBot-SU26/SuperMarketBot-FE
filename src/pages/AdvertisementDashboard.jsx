@@ -53,7 +53,7 @@ function getErrorBadge(field) {
       }
     case 'Targeting':
       return {
-        label: 'Vị trí / Tuyến',
+        label: 'Vị trí',
         icon: 'pin_drop',
         className: 'bg-teal-100 text-teal-800 dark:bg-teal-500/20 dark:text-teal-300'
       }

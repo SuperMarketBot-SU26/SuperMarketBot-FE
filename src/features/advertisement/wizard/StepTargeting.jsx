@@ -3,16 +3,13 @@ import Input from '../../../components/ui/Input'
 import Button from '../../../components/ui/Button'
 import { getPackages } from '../api/adPackageApi'
 import {
-  getRoutesByFloor,
   getZonesByFloor,
   getShelvesByFloor,
-  normalizeRoute,
   normalizeShelf,
   normalizeZone,
 } from '../api/targetingApi'
 
 const TABS = [
-  { key: 'route',  label: 'Tuyến Đường', icon: 'route' },
   { key: 'zone',  label: 'Khu Vực',     icon: 'grid_view' },
   { key: 'shelf', label: 'Kệ Hàng',     icon: 'inventory_2' },
 ]
@@ -25,7 +22,6 @@ const formatVND = (val) => Number(val ?? 0).toLocaleString('vi-VN')
 
 // ─── Hook fetch lookup theo floorId ───────────────────────────────────
 function useTargetingLookups(floorId) {
-  const [routes, setRoutes] = useState([])
   const [zones, setZones] = useState([])
   const [shelves, setShelves] = useState([])
   const [loading, setLoading] = useState(true)
@@ -37,23 +33,19 @@ function useTargetingLookups(floorId) {
     setError(null)
 
     Promise.allSettled([
-      getRoutesByFloor(floorId),
       getZonesByFloor(floorId),
       getShelvesByFloor(floorId),
-    ]).then(([routesRes, zonesRes, shelvesRes]) => {
+    ]).then(([zonesRes, shelvesRes]) => {
       if (cancelled) return
-      const routeList = routesRes.status === 'fulfilled' ? routesRes.value.map(normalizeRoute) : []
       const zoneList  = zonesRes.status  === 'fulfilled' ? zonesRes.value.map(normalizeZone)   : []
       const shelfList = shelvesRes.status === 'fulfilled' ? shelvesRes.value.map(normalizeShelf) : []
-      setRoutes(routeList)
       setZones(zoneList)
       setShelves(shelfList)
 
       const errors = []
-      if (routesRes.status  === 'rejected') errors.push(`tuyến đường: ${routesRes.reason?.message  ?? '—'}`)
       if (zonesRes.status   === 'rejected') errors.push(`khu vực: ${zonesRes.reason?.message   ?? '—'}`)
       if (shelvesRes.status === 'rejected') errors.push(`kệ hàng: ${shelvesRes.reason?.message ?? '—'}`)
-      if (errors.length === 3) {
+      if (errors.length === 2) {
         setError('Không thể tải dữ liệu targeting. Vui lòng thử lại.')
       } else if (errors.length) {
         setError(`Một số nguồn lỗi: ${errors.join('; ')}`)
@@ -64,7 +56,7 @@ function useTargetingLookups(floorId) {
     return () => { cancelled = true }
   }, [floorId])
 
-  return { routes, zones, shelves, loading, error }
+  return { zones, shelves, loading, error }
 }
 
 // ─── Multi-select panel (Route / Zone / Shelf — 3 loại độc lập) ──────
@@ -192,9 +184,9 @@ export function StepTargeting({
   deliveryMode,
   allowedTargets,
 }) {
-  const [activeTab, setActiveTab] = useState('route')
+  const [activeTab, setActiveTab] = useState('zone')
   const [packages, setPackages] = useState([])
-  const { routes, zones, shelves, loading, error } = useTargetingLookups(floorId)
+  const { zones, shelves, loading, error } = useTargetingLookups(floorId)
 
   // Auto-set active tab khi đổi deliveryMode
   useEffect(() => {
@@ -220,20 +212,10 @@ export function StepTargeting({
     () => packages.find((p) => p.packageId === state.basics.packageId),
     [packages, state.basics.packageId]
   )
-  const priceRoute = selectedPkg?.routeUnitPrice ?? selectedPkg?.priceRoute ?? selectedPkg?.routeFee ?? 0
   const priceZone  = selectedPkg?.zoneUnitPrice  ?? selectedPkg?.priceZone  ?? selectedPkg?.zoneFee  ?? 0
   const priceShelf = selectedPkg?.shelfUnitPrice ?? selectedPkg?.priceShelf ?? selectedPkg?.shelfFee ?? 0
 
-  // Toggle handlers — Route/Zone/Shelf là 3 lựa chọn độc lập, không overlap.
-  // Route toggle: select all routes or deselect all
-  const toggleRoute = () => {
-    if (state.targeting.routeIds.length > 0) {
-      onChange({ routeIds: [], semanticObjectId: state.targeting.semanticObjectId })
-    } else {
-      // Select all routes
-      onChange({ routeIds: [...routes.map((r) => r.id)], semanticObjectId: state.targeting.semanticObjectId })
-    }
-  }
+  // Toggle handlers — Zone & Shelf
   const toggleZone = (id) => {
     const next = state.targeting.zoneIds.includes(id)
       ? state.targeting.zoneIds.filter((x) => x !== id)
@@ -251,7 +233,6 @@ export function StepTargeting({
   }
 
   const counts = {
-    route: state.targeting.routeIds.length,
     zone:  state.targeting.zoneIds.length,
     shelf: state.targeting.shelfIds.length,
   }
@@ -273,18 +254,6 @@ export function StepTargeting({
       )}
 
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-smb-outline-variant bg-smb-surface-container-lowest p-2">
-        {/* Mode chip */}
-        <div className="flex items-center gap-1 rounded-lg bg-smb-primary-container/10 px-3 py-1.5 text-xs font-medium text-smb-primary-container">
-          <Icon name={
-            deliveryMode === 'Zone'  ? 'grid_view' :
-            'sync'
-          } className="text-[14px]" />
-          <span>{
-            deliveryMode === 'Zone'  ? 'Chỉ Khu Vực / Kệ' :
-            'Cả Hai'
-          }</span>
-        </div>
-
         {TABS.map((tab) => {
           const isActive = activeTab === tab.key
           const isAllowed = !!allowedTargets[tab.key]
@@ -302,7 +271,7 @@ export function StepTargeting({
                   ? 'cursor-not-allowed text-smb-on-surface-variant/40'
                   : 'text-smb-on-surface-variant hover:bg-smb-surface-container'}
               `}
-              title={!isAllowed ? `Chế độ "${deliveryMode}" không cho phép ${tab.label.toLowerCase()}` : undefined}
+              title={!isAllowed ? `Chế độ không cho phép ${tab.label.toLowerCase()}` : undefined}
             >
               <Icon name={tab.icon} className="text-[18px]" />
               {tab.label}
@@ -331,24 +300,6 @@ export function StepTargeting({
         </div>
       ) : (
         <>
-          {activeTab === 'route' && (
-            routes.length === 0
-              ? <p className="py-8 text-center text-sm text-smb-on-surface-variant">Không có tuyến đường nào trên bản đồ</p>
-              : <MultiPanel
-                  title="Chọn tuyến đường"
-                  icon="route"
-                  items={routes}
-                  selectedIds={state.targeting.routeIds}
-                  onToggle={(id) => {
-                    const next = state.targeting.routeIds.includes(id)
-                      ? state.targeting.routeIds.filter((x) => x !== id)
-                      : [...state.targeting.routeIds, id]
-                    onChange({ routeIds: next, semanticObjectId: state.targeting.semanticObjectId })
-                  }}
-                  searchPlaceholder="Tìm tuyến đường theo tên..."
-                  pricePerItem={priceRoute}
-                />
-          )}
           {activeTab === 'zone' && (
             <MultiPanel
               title="Chọn khu vực"
@@ -378,7 +329,7 @@ export function StepTargeting({
         <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
           <Icon name="warning" className="mt-0.5 text-[16px]" />
           <span>
-            Vui lòng chọn ít nhất <strong>1 loại quảng cáo</strong> (Route / Zone / Shelf) trước khi tiếp tục.
+            Vui lòng chọn ít nhất <strong>1 loại quảng cáo</strong> (Khu vực / Kệ hàng) trước khi tiếp tục.
           </span>
         </div>
       )}

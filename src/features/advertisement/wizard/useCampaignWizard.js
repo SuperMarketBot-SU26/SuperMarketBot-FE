@@ -51,8 +51,8 @@ function hydrateFromStorage() {
     return {
       ...initialState,
       step: saved.step ?? 1,
-      basics: { ...initialState.basics, ...(saved.basics ?? {}) },
-      targeting: { ...initialState.targeting, ...(saved.targeting ?? {}) },
+      basics: { ...initialState.basics, ...(saved.basics ?? {}), deliveryMode: 'Zone' },
+      targeting: { ...initialState.targeting, ...(saved.targeting ?? {}), routeIds: [] },
       products: { ...initialState.products, ...(saved.products ?? {}) },
       errors: saved.errors ?? {},
     }
@@ -62,34 +62,14 @@ function hydrateFromStorage() {
 }
 
 /**
- * Lọc target theo deliveryMode (chỉ áp dụng khi build payload gửi BE).
- * - 'Route' → chỉ giữ routeIds (toàn bộ siêu thị).
- * - 'Zone'  → chỉ giữ zoneIds + shelfIds.
- * - 'Both'  → giữ nguyên.
+ * Lọc target (chỉ áp dụng Zone / Shelf).
  */
-function filterTargetingByDeliveryMode(targeting, deliveryMode) {
-  if (deliveryMode === 'Route') {
-    return {
-      routeIds: targeting.routeIds ?? [],
-      zoneIds: [],
-      shelfIds: [],
-      semanticObjectId: null,
-    }
-  }
-  if (deliveryMode === 'Zone') {
-    return {
-      routeIds: [],
-      zoneIds: targeting.zoneIds ?? [],
-      shelfIds: targeting.shelfIds ?? [],
-      semanticObjectId: targeting.shelfIds?.[0] ?? null,
-    }
-  }
-  // 'Both' (hoặc fallback)
+function filterTargetingByDeliveryMode(targeting) {
   return {
-    routeIds: targeting.routeIds ?? [],
+    routeIds: [],
     zoneIds: targeting.zoneIds ?? [],
     shelfIds: targeting.shelfIds ?? [],
-    semanticObjectId: targeting.semanticObjectId ?? null,
+    semanticObjectId: targeting.shelfIds?.[0] ?? targeting.semanticObjectId ?? null,
   }
 }
 
@@ -165,17 +145,14 @@ export function useCampaignWizard() {
     [state.targeting, deliveryMode]
   )
 
-  // ── Allowed targeting theo deliveryMode (cho UI enable/disable tab) ──
+  // ── Allowed targeting (chỉ Zone và Shelf) ──
   const allowedTargets = useMemo(() => {
-    if (deliveryMode === 'Route') return { route: true, zone: false, shelf: false }
-    if (deliveryMode === 'Zone') return { route: false, zone: true, shelf: true }
-    return { route: true, zone: true, shelf: true } // 'Both'
-  }, [deliveryMode])
+    return { route: false, zone: true, shelf: true }
+  }, [])
 
   // ── Derived selectors ──
   const hasAnyTargeting = useMemo(() => {
     return (
-      effectiveTargeting.routeIds.length > 0 ||
       effectiveTargeting.zoneIds.length > 0 ||
       effectiveTargeting.shelfIds.length > 0
     )
@@ -251,7 +228,7 @@ export function useCampaignWizard() {
 
 export const WIZARD_STEPS = [
   { key: 1, label: 'Cơ Bản',       icon: 'info',         desc: 'Tên, Brand, Package, Ngày' },
-  { key: 2, label: 'Targeting',    icon: 'my_location',  desc: 'Chọn Route / Zone / Shelf' },
+  { key: 2, label: 'Targeting',    icon: 'my_location',  desc: 'Chọn Khu Vực / Kệ Hàng' },
   { key: 3, label: 'Sản Phẩm',     icon: 'inventory_2',  desc: 'Chọn ≥1 sản phẩm tài trợ' },
   { key: 4, label: 'Review & Tạo', icon: 'check_circle', desc: 'Xác nhận và tạo chiến dịch' },
 ]

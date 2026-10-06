@@ -244,12 +244,6 @@ export function AdPackageList() {
       render: (val, row) => <span className="tabular-nums text-smb-on-surface">{formatVND(val ?? row.shelfFee)} đ</span>,
     },
     {
-      key: 'routeUnitPrice',
-      label: 'Đơn Giá Tuyến',
-      align: 'right',
-      render: (val, row) => <span className="tabular-nums text-smb-on-surface">{formatVND(val ?? row.routeFee)} đ</span>,
-    },
-    {
       key: 'clickFee',
       label: 'Phí Click',
       align: 'right',
@@ -433,9 +427,9 @@ export function AdPackageList() {
           {/* Unit Prices Section */}
           <div className="mt-4 border-t border-smb-outline-variant/60 pt-4">
             <h4 className="mb-3 text-xs font-semibold text-smb-primary uppercase tracking-wider">
-              Đơn giá tùy chọn vị trí & tuyến đường (Unit Prices)
+              Đơn giá tùy chọn vị trí (Unit Prices)
             </h4>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <FormField label="Đơn giá Zone (VNĐ)">
                 <input
                   type="number"
@@ -454,18 +448,6 @@ export function AdPackageList() {
                   value={form.shelfUnitPrice}
                   onChange={(e) => setForm((f) => ({ ...f, shelfUnitPrice: e.target.value }))}
                   placeholder="VD: 300000"
-                  min={0}
-                  step="any"
-                  className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary"
-                  required
-                />
-              </FormField>
-              <FormField label="Đơn giá Tuyến (VNĐ)">
-                <input
-                  type="number"
-                  value={form.routeUnitPrice}
-                  onChange={(e) => setForm((f) => ({ ...f, routeUnitPrice: e.target.value }))}
-                  placeholder="VD: 200000"
                   min={0}
                   step="any"
                   className="w-full rounded-lg border border-smb-outline-variant bg-smb-surface-container-lowest px-3 py-2 text-sm text-smb-on-surface focus:border-smb-primary focus:outline-none focus:ring-1 focus:ring-smb-primary"

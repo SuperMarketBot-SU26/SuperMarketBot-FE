@@ -332,43 +332,6 @@ export function StepBasics({ state, onChange, brandOptions, onNext, errors, basi
         )}
       </div>
 
-      {/* Delivery Mode */}
-      <div className="space-y-3">
-        <div>
-          <h3 className="text-base font-semibold text-smb-on-surface">Hình Thức Phát Quảng Cáo</h3>
-          <p className="text-xs text-smb-on-surface-variant">
-            Quảng cáo toàn bộ siêu thị — robot phát ad khi dừng ở khu vực hoặc kệ hàng.
-          </p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {[
-            { value: 'Route', label: 'Tuyến Đường', icon: 'route', desc: 'Quảng cáo toàn bộ siêu thị' },
-            { value: 'Zone', label: 'Khu Vực / Kệ', icon: 'grid_view', desc: 'Robot dừng lại ở zone/kệ để phát ad' },
-            { value: 'Both', label: 'Cả Hai', icon: 'sync', desc: 'Robot đi lộ trình và dừng ở zone để phát ad' },
-          ].map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => updateField('deliveryMode', opt.value)}
-              className={`
-                flex flex-col items-start gap-2 rounded-xl border-2 p-4 text-left transition-all
-                ${state.basics.deliveryMode === opt.value
-                  ? 'border-smb-primary-container bg-smb-active-bg'
-                  : 'border-smb-outline-variant bg-smb-surface-container-lowest hover:border-smb-outline'}
-              `}
-            >
-              <div className="flex items-center gap-2">
-                <Icon name={opt.icon} className="text-lg text-smb-primary-container" />
-                <span className="font-semibold text-smb-on-surface">{opt.label}</span>
-                {state.basics.deliveryMode === opt.value && (
-                  <Icon name="check_circle" className="ml-auto text-sm text-smb-primary-container" />
-                )}
-              </div>
-              <span className="text-xs text-smb-on-surface-variant">{opt.desc}</span>
-            </button>
-          ))}
-        </div>
-      </div>
 
       <div className="flex items-center justify-end gap-3">
         <Button variant="primary" icon="arrow_forward" onClick={onNext} disabled={hasBasicsErrorsLocal}>

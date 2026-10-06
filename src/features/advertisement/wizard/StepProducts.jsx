@@ -132,7 +132,7 @@ export function StepProducts({ state, onChange, hasProducts, onBack, onNext }) {
         <h2 className="text-xl font-semibold text-smb-on-surface">Bước 3 · Sản Phẩm Tài Trợ</h2>
         <p className="mt-1 text-sm text-smb-on-surface-variant">
           Chọn <strong>ít nhất 1</strong> sản phẩm để quảng cáo trong chiến dịch này. Sản phẩm tài trợ sẽ được
-          ưu tiên hiển thị khi khách hàng tương tác với các khu vực/tuyến đường đã chọn.
+          ưu tiên hiển thị khi khách hàng tương tác với các khu vực/kệ hàng đã chọn.
         </p>
       </header>
 

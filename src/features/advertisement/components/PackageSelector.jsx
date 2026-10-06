@@ -150,10 +150,9 @@ export function PackageSelector({ value, onChange, loading }) {
                 <h4 className="text-sm font-semibold text-smb-on-surface">Chi tiết chi phí gói: {selected.packageName}</h4>
                 <div className="mt-3 grid gap-4 sm:grid-cols-2 text-xs text-smb-on-surface-variant">
                   <div className="space-y-1">
-                    <p className="font-semibold text-smb-on-surface">Đơn giá vị trí & tuyến đường (Unit Prices):</p>
+                    <p className="font-semibold text-smb-on-surface">Đơn giá vị trí (Unit Prices):</p>
                     <p>• Đơn giá Zone: <strong className="text-smb-on-surface">{Number(selected.zoneUnitPrice ?? selected.zoneFee ?? 0).toLocaleString('vi-VN')} đ</strong></p>
                     <p>• Đơn giá Kệ (Shelf): <strong className="text-smb-on-surface">{Number(selected.shelfUnitPrice ?? selected.shelfFee ?? 0).toLocaleString('vi-VN')} đ</strong></p>
-                    <p>• Đơn giá Tuyến (Route): <strong className="text-smb-on-surface">{Number(selected.routeUnitPrice ?? selected.routeFee ?? 0).toLocaleString('vi-VN')} đ</strong></p>
                   </div>
                   <div className="space-y-1">
                     <p className="font-semibold text-smb-on-surface">Phí phát sinh (Usage Fee):</p>
@@ -165,7 +164,7 @@ export function PackageSelector({ value, onChange, loading }) {
               <div className="flex items-start gap-2 rounded-lg border border-smb-outline-variant bg-smb-surface-container-low p-4">
                 <Icon name="info" className="mt-0.5 text-[16px] text-smb-primary-container" />
                 <span className="text-xs text-smb-on-surface-variant">
-                  Phí cố định = (Số Zone × Đơn giá Zone) + (Số Kệ × Đơn giá Kệ) + (Số Tuyến × Đơn giá Tuyến). Tổng phí cố định phải ≤ Ngân sách gói ({Number(selected.budget).toLocaleString('vi-VN')} đ).
+                  Phí cố định = (Số Zone × Đơn giá Zone) + (Số Kệ × Đơn giá Kệ). Tổng phí cố định phải ≤ Ngân sách gói ({Number(selected.budget).toLocaleString('vi-VN')} đ).
                 </span>
               </div>
             </div>

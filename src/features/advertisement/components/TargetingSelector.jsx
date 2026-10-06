@@ -28,9 +28,8 @@ import {
 const ENDPOINT_CAMPAIGN = '/api/v1/ad-campaigns'
 
 const TABS = [
-  { key: 'route',  label: 'Tuyến Đường', icon: 'route' },
-  { key: 'shelf',  label: 'Kệ Hàng',     icon: 'inventory_2' },
   { key: 'zone',   label: 'Khu Vực',    icon: 'grid_view' },
+  { key: 'shelf',  label: 'Kệ Hàng',     icon: 'inventory_2' },
 ]
 
 const formatVND = (val) => Number(val ?? 0).toLocaleString('vi-VN')
@@ -45,7 +44,7 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
   },
   ref
 ) {
-  const [activeTab, setActiveTab] = useState('route')
+  const [activeTab, setActiveTab] = useState('zone')
   const [shelves,   setShelves]   = useState([])
   const [zones,     setZones]     = useState([])
   const [allRoutes, setAllRoutes] = useState([])    // all routes on map
@@ -258,7 +257,7 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
         <div>
           <h3 className="text-base font-semibold text-smb-on-surface">Nhắm Đích Chiến Dịch</h3>
           <p className="text-sm text-smb-on-surface-variant">
-            Chọn tối thiểu 1 loại: Tuyến Đường, Kệ, hoặc Khu Vực để kích hoạt
+            Chọn tối thiểu 1 loại: Khu Vực hoặc Kệ Hàng để kích hoạt
           </p>
         </div>
       </div>
@@ -341,66 +340,6 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
           </div>
         )}
 
-        {/* Route tab — hiển thị từng tuyến để chọn */}
-        {!loading && activeTab === 'route' && (
-          allRoutes.length === 0
-            ? <p className="py-8 text-center text-sm text-smb-on-surface-variant">Không có tuyến đường nào trên bản đồ</p>
-            : <>
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-xs font-medium text-smb-on-surface-variant">
-                    Đã chọn {pickedRouteIds.length} / {allRoutes.length} tuyến
-                    {assignedRoutes.length > 0 && (
-                      <span className="ml-2 text-smb-on-surface-variant">
-                        · phí hiện tại {formatVND(assignedRoutes.reduce((acc, r) => acc + (r.routePriceCharged ?? 0), 0))} đ
-                      </span>
-                    )}
-                  </p>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => { setPickedRouteIds([...allRoutes]); notifyChange({ routeIds: [...allRoutes] }) }}
-                      disabled={disabled || pickedRouteIds.length === allRoutes.length}
-                      className="text-xs text-smb-primary hover:underline disabled:opacity-40">Chọn tất cả</button>
-                    <button type="button" onClick={() => { setPickedRouteIds([]); notifyChange({ routeIds: [] }) }}
-                      disabled={disabled || pickedRouteIds.length === 0}
-                      className="text-xs text-smb-error hover:underline disabled:opacity-40">Bỏ chọn</button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-                  {allRoutes.map((routeId) => {
-                    const isPicked = pickedRouteIds.includes(routeId)
-                    return (
-                      <button key={routeId} type="button"
-                        onClick={() => !disabled && (() => {
-                          const next = isPicked
-                            ? pickedRouteIds.filter((r) => r !== routeId)
-                            : [...pickedRouteIds, routeId]
-                          setPickedRouteIds(next)
-                          notifyChange({ routeIds: next })
-                        })()}
-                        disabled={disabled}
-                        className={`
-                          flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-left
-                          transition-colors duration-100
-                          ${isPicked
-                            ? 'border-smb-primary-container bg-smb-primary-container/10 text-smb-on-primary-container'
-                            : 'border-smb-outline-variant bg-smb-surface-container-lowest text-smb-on-surface hover:border-smb-outline'}
-                          ${disabled ? 'cursor-not-allowed opacity-50' : ''}
-                        `}>
-                        <span className={`
-                          flex size-4 min-w-4 items-center justify-center rounded-sm border text-[10px] font-bold
-                          ${isPicked
-                            ? 'border-smb-on-primary-container bg-smb-on-primary-container text-smb-primary-container'
-                            : 'border-smb-outline bg-smb-surface-container'}
-                        `}>{isPicked && '✓'}</span>
-                        <span className="truncate">Tuyến #{routeId}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-                <p className="mt-2 text-xs text-smb-on-surface-variant">
-                  Phí = PriceRoute × số tuyến MỚI được gán.
-                </p>
-              </>
-        )}
 
         {/* Shelf tab */}
         {!loading && activeTab === 'shelf' && (
@@ -546,11 +485,6 @@ export const TargetingSelector = forwardRef(function TargetingSelector(
       {totalCount > 0 && (
         <div className="mt-4 flex flex-wrap gap-2 rounded border border-smb-outline-variant bg-smb-surface-container p-3">
           <span className="text-xs font-medium text-smb-on-surface-variant">Đã chọn:</span>
-          {pickedRouteIds.length > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-smb-primary-container/10 px-2 py-0.5 text-xs text-smb-primary-container">
-              <span className="material-symbols-outlined text-[12px]">route</span>{pickedRouteIds.length} Tuyến
-            </span>
-          )}
           {shelfCount > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-smb-primary-container/10 px-2 py-0.5 text-xs text-smb-primary-container">
               <span className="material-symbols-outlined text-[12px]">inventory_2</span>{shelfCount} Kệ

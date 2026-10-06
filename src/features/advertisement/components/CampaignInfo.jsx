@@ -152,13 +152,7 @@ export function CampaignInfo({ data, sponsoredProducts = [] }) {
                   {zoneCount} Zone
                 </span>
               ) : null}
-              {routeCount > 0 ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-smb-primary-container/20 px-2.5 py-1 text-xs font-medium text-smb-primary-container">
-                  <span className="material-symbols-outlined text-[14px]">route</span>
-                  {routeCount} Tuyến
-                </span>
-              ) : null}
-              {shelfCount === 0 && zoneCount === 0 && routeCount === 0 ? (
+              {shelfCount === 0 && zoneCount === 0 ? (
                 <span className="text-xs italic text-smb-on-surface-variant">Chưa có nhắm đích</span>
               ) : null}
             </div>
@@ -213,7 +207,7 @@ export function CampaignInfo({ data, sponsoredProducts = [] }) {
         <StatCard
           title="Sản Phẩm & Targeting"
           value={`${sponsoredCount} SP`}
-          subtitle={`${shelfCount} kệ · ${zoneCount} zone · ${routeCount} tuyến`}
+          subtitle={`${shelfCount} kệ · ${zoneCount} zone`}
           icon="my_location"
           color="info"
         />
